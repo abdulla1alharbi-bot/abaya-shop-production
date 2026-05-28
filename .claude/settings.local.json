@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --version)",
+      "Bash(pnpm db:push)",
+      "Bash(pnpm db:seed)",
+      "Bash(timeout 10 pnpm dev:api)",
+      "Bash(pnpm --filter @abaya-shop/shared build)",
+      "Bash(timeout 8 pnpm dev:api)",
+      "Bash(npx tsc:*)",
+      "Bash(find /c/Users/GEMENG/Desktop/abaya-shop-main/apps/api/src -name *prisma* -type f)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r @react-pdf /c/Users/GEMENG/Desktop/abaya-shop-main/apps/web/src --include=*.ts --include=*.tsx)",
+      "Bash(pnpm --filter @abaya-shop/api tsc --noEmit)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\GEMENG\\\\Desktop\\\\abaya-shop-main\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(ls -la \"C:\\\\Users\\\\GEMENG\\\\Desktop\\\\abaya-shop-main\\\\\" | head -20)"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install *)",
+      "Bash(node_modules/.bin/prisma migrate *)",
+      "Bash(node_modules/.bin/prisma generate *)",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(pnpm --filter @abaya-shop/api exec tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc)"
+    ]
+  }
+}

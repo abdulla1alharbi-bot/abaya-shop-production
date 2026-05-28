@@ -1,0 +1,739 @@
+// PostgreSQL provider.
+// JSON fields (extraPermissions, revokedPermissions, measurements, etc.) are stored as TEXT (String).
+// Autoincrement on non-id integers is not supported — use explicit values in app/seed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USERS & AUTH ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  /// Login identifier (unique). Email is optional for internal/contact use only.
+  username      String    @unique
+  email         String?   @unique
+  password      String
+  /// OWNER | MANAGER | ADMIN | SELLER | WORKER | ACCOUNTANT (legacy SALESPERSON migrated to SELLER)
+  role          String    @default("SELLER")
+  /// JSON array of extra permission ids (union with role defaults), stored as text
+  extraPermissions String?
+  /// JSON array of permission ids removed from effective set
+  revokedPermissions String?
+  phone         String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  refreshTokens RefreshToken[]
+  invoices      Invoice[]
+  productionBatches ProductionBatch[]
+  auditLogs     AuditLog[]
+  jobStageLogs  JobStageLog[]
+  cashierShifts CashierShift[]
+  approvedShifts CashierShift[] @relation("ShiftApprover")
+  customerNotes CustomerNote[]
+  notifications Notification[]
+  voidedInvoices Invoice[] @relation("InvoiceVoidedBy")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ─── CASHIER SHIFTS ───────────────────────────────────────────
+
+model CashierShift {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id])
+  branchId            String?
+  openedAt            DateTime  @default(now())
+  closedAt            DateTime?
+  openingBalanceFils  Int       @default(0)
+  closingBalanceFils  Int?
+  /// Sum of CASH payments on invoices created during this shift
+  cashSalesFils       Int       @default(0)
+  /// openingBalance + cashSales (computed on close)
+  expectedCashFils    Int       @default(0)
+  /// closingBalance - expectedCash (positive = excess, negative = shortage)
+  varianceFils        Int?
+  /// OPEN | CLOSED | APPROVED
+  status              String    @default("OPEN")
+  notes               String?
+  approvedById        String?
+  approvedBy          User?     @relation("ShiftApprover", fields: [approvedById], references: [id])
+  approvedAt          DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ─── BRANCHES ─────────────────────────────────────────────────
+
+model Branch {
+  id        String    @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  isDefault Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  invoices  Invoice[]
+  rolls     FabricRoll[]
+}
+
+// ─── CUSTOMERS ────────────────────────────────────────────────
+
+model Customer {
+  id            String        @id @default(cuid())
+  code          Int           @unique // explicit per-row (app assigns next code)
+  name          String
+  mobile        String        @unique
+  whatsapp      String?
+  address       String?
+  nationality   String?
+  birthday      DateTime?
+  segment       String        @default("REGULAR")
+  loyaltyPoints Int           @default(0)
+  balanceFils   Int           @default(0)
+  /// Phase 3 F2: max amount this customer can owe (0 = no credit allowed). Manager override required to bypass.
+  creditLimitFils Int         @default(0)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  measurements  Measurement[]
+  invoices      Invoice[]
+  jobOrders     JobOrder[]
+  customerNotes CustomerNote[]
+}
+
+/// Phase 3 F7: communication log per customer — calls, visits, follow-ups.
+model CustomerNote {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+}
+
+model Measurement {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  label       String?  // e.g. "صيف 2025" — reusable profile name
+  shoulder    Float?
+  chest       Float?
+  waist       Float?
+  hip         Float?
+  length      Float?
+  sleeve      Float?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  jobOrders   JobOrder[]
+
+  @@index([customerId])
+}
+
+// ─── PRODUCTS & CATALOG ──────────────────────────────────────
+
+model ProductCategory {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  nameAr   String?
+  products Product[]
+}
+
+// ─── ABAYA CATALOG (POS / job type + optional model) ───────────
+
+model AbayaType {
+  id           String       @id @default(cuid())
+  /// Stable code e.g. WALTER, MODEL, CUSTOM (matches legacy POS ids)
+  code         String       @unique
+  labelAr      String
+  labelEn      String?
+  sortOrder    Int          @default(0)
+  /// NONE | MODEL_PICK | EMBROIDERY_PICK | CUSTOM_TEXT
+  subFieldKind String       @default("NONE")
+  models       AbayaModel[]
+  jobOrders    JobOrder[]   @relation("JobAbayaType")
+}
+
+model AbayaModel {
+  id          String    @id @default(cuid())
+  abayaTypeId String
+  abayaType   AbayaType @relation(fields: [abayaTypeId], references: [id], onDelete: Cascade)
+  /// Display code e.g. M-101
+  code        String
+  name        String
+  description String?
+  /// Optional image URL for catalog / POS (staff-managed link)
+  imageUrl    String?
+  /// JSON array of stage keys: CUTTING, SEWING, EMBROIDERY, FINISHING (subset/order for job pipeline)
+  workflowStagesJson String?
+  /// Default line price when seller picks this model (POS / quotes), fils
+  defaultPriceFils Int   @default(0)
+  cuttingWageFils  Int   @default(500)
+  sewingWageFils   Int   @default(2000)
+  finishingWageFils Int  @default(500)
+  embroideryWageFils Int @default(300)
+  /// Synced catalog product for workshop pipeline wages (managed by API)
+  productId   String?
+  product     Product?  @relation(fields: [productId], references: [id])
+  /// Optional default fabric roll for POS / job forms (inventory)
+  defaultFabricRollId String?
+  defaultFabricRoll   FabricRoll? @relation("AbayaModelDefaultFabric", fields: [defaultFabricRollId], references: [id], onDelete: SetNull)
+  /// Calendar days from today to suggested delivery datetime
+  defaultDeliveryDays Int       @default(7)
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  hasActiveDisplaySample Boolean @default(false)
+  latestDisplaySampleAt DateTime?
+  jobOrders   JobOrder[] @relation("JobAbayaModel")
+  productionBatches ProductionBatch[]
+  sampleReadyProducts Product[] @relation("SampleReadyModel")
+  sampleSales SampleSaleLog[]
+
+  @@unique([abayaTypeId, code])
+  @@index([abayaTypeId])
+}
+
+model Product {
+  id           String          @id @default(cuid())
+  sku          String          @unique
+  barcode      String?         @unique
+  name         String
+  nameAr       String?
+  categoryId   String
+  category     ProductCategory @relation(fields: [categoryId], references: [id])
+  costFils     Int
+  priceFils    Int
+  stockQty     Int             @default(0)
+  /// Default worker wage (fils) for tailoring pipeline — cutting stage
+  cuttingWageFils  Int        @default(500)
+  /// Sewing stage
+  sewingWageFils   Int        @default(2000)
+  /// Finishing stage
+  finishingWageFils Int       @default(500)
+  /// Embroidery stage (pipeline between sewing and finishing)
+  embroideryWageFils Int       @default(300)
+  images       ProductImage[]
+  fabricRecipes FabricRecipe[]
+  invoiceItems InvoiceItem[]
+  jobOrders    JobOrder[]
+  abayaModels  AbayaModel[]
+  createdFromInvoiceId String?
+  createdFromInvoiceNo Int?
+  createdFromJobId     String?
+  createdFromJobNo     Int?
+  isSample      Boolean         @default(false)
+  sampleModelId String?
+  sampleModel   AbayaModel?     @relation("SampleReadyModel", fields: [sampleModelId], references: [id], onDelete: SetNull)
+  sampleJobId   String?
+  sampleJob     JobOrder?       @relation("SampleReadyJob", fields: [sampleJobId], references: [id], onDelete: SetNull)
+  sampleSales   SampleSaleLog[]
+  convertedFromJobs    JobOrder[] @relation("ConvertedReadyProductLink")
+  conversionLogs       ConversionLog[]
+  isActive     Boolean         @default(true)
+  isService    Boolean         @default(false) // no stock decrement on invoice (e.g. tailoring line)
+  /// Optional thumbnail URL for POS retail grid (ready-made items)
+  catalogImageUrl String?
+  createdAt    DateTime        @default(now())
+}
+
+model ProductImage {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id])
+  url        String
+  cloudId    String
+  isMain     Boolean @default(false)
+}
+
+// ─── FABRIC INVENTORY ─────────────────────────────────────────
+
+model FabricRoll {
+  id              String       @id @default(cuid())
+  rollCode        String       @unique
+  name            String
+  type            String       // FabricType values as text
+  color           String
+  supplierId      String?
+  branchId        String
+  branch          Branch       @relation(fields: [branchId], references: [id])
+  totalMeters     Float
+  usedMeters      Float        @default(0)
+  reservedMeters  Float        @default(0)
+  availableMeters Float
+  costPerMeter    Int
+  lowStockAt      Float        @default(5)
+  status          String       @default("FULL") // StockStatus
+  isActive        Boolean      @default(true)
+  /// FABRIC | LACE
+  category        String       @default("FABRIC")
+  receivedAt      DateTime     @default(now())
+  transactions    FabricTransaction[]
+  recipes         FabricRecipe[]
+  jobMaterials    JobOrderMaterial[]
+  abayaModelsDefault AbayaModel[] @relation("AbayaModelDefaultFabric")
+  productionBatches ProductionBatch[]
+}
+
+model FabricRecipe {
+  id          String     @id @default(cuid())
+  productId   String
+  product     Product    @relation(fields: [productId], references: [id])
+  rollId      String?
+  roll        FabricRoll? @relation(fields: [rollId], references: [id])
+  fabricType  String
+  color       String
+  meters      Float
+  notes       String?
+}
+
+model FabricTransaction {
+  id          String     @id @default(cuid())
+  rollId      String
+  roll        FabricRoll @relation(fields: [rollId], references: [id])
+  type        String
+  meters      Float
+  reason      String?
+  invoiceId   String?
+  jobOrderId  String?
+  createdAt   DateTime   @default(now())
+
+  @@index([rollId])
+  @@index([jobOrderId])
+}
+
+// ─── INVOICES & POS ──────────────────────────────────────────
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNo       Int           @unique // explicit invoice number from app
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id])
+  branchId        String
+  branch          Branch        @relation(fields: [branchId], references: [id])
+  salesPersonId   String
+  salesPerson     User          @relation(fields: [salesPersonId], references: [id])
+  orderType       String        @default("NORMAL") // OrderType
+  deliveryDate    DateTime?
+  subtotalFils    Int
+  discountFils    Int           @default(0)
+  vatFils         Int
+  totalFils       Int
+  paidFils        Int           @default(0)
+  balanceFils     Int
+  isVoid          Boolean       @default(false)
+  voidReason      String?
+  voidCategory    String?       // DEFECT | WRONG_SIZE | CUSTOMER_CHANGED_MIND | DATA_ENTRY_ERROR | OTHER
+  voidedAt        DateTime?
+  voidedById      String?
+  voidedBy        User?         @relation("InvoiceVoidedBy", fields: [voidedById], references: [id])
+  notes           String?
+  /// When the seller marked the whole invoice as delivered to the customer
+  deliveredAt     DateTime?
+  items           InvoiceItem[]
+  payments        Payment[]
+  jobOrders       JobOrder[]
+  conversionLogs  ConversionLog[]
+  sampleSales     SampleSaleLog[]
+  createdAt       DateTime      @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([isVoid])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  description String?  // e.g. tailoring line label
+  qty         Float
+  unitFils    Int
+  discountFils Int     @default(0)
+  totalFils   Int
+  jobOrder    JobOrder?
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
+  method     String   // PaymentMethod
+  amountFils Int
+  reference  String?
+  createdAt  DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+// ─── JOB ORDERS (TAILORING) ──────────────────────────────────
+
+model JobOrder {
+  id            String     @id @default(cuid())
+  jobNo         Int        @unique // explicit job number from app
+  invoiceId     String?
+  invoice       Invoice?   @relation(fields: [invoiceId], references: [id])
+  invoiceItemId String?    @unique // one job per tailoring invoice line
+  invoiceItem   InvoiceItem? @relation(fields: [invoiceItemId], references: [id])
+  customerId    String
+  customer      Customer   @relation(fields: [customerId], references: [id])
+  measurementId String?    // link to saved Customer Measurement when used
+  measurement   Measurement? @relation(fields: [measurementId], references: [id])
+  /// Catalog product for automatic stage wages (optional — legacy jobs may omit)
+  productId     String?
+  product       Product?   @relation(fields: [productId], references: [id])
+  abayaTypeId   String?
+  abayaType     AbayaType? @relation("JobAbayaType", fields: [abayaTypeId], references: [id])
+  abayaModelId  String?
+  abayaModel    AbayaModel? @relation("JobAbayaModel", fields: [abayaModelId], references: [id])
+  sourceDisplaySampleJobId String?
+  sourceDisplayModelId String?
+  /// When type is Custom — free-text style description
+  customStyleText String?
+  productStyle  String
+  stage         String     @default("NEW") // NEW | CUTTING | SEWING | FINISHING | READY | DELIVERED
+  isConvertedToReady Boolean @default(false)
+  convertedAt   DateTime?
+  convertedReadyProductId String? @unique
+  convertedReadyProduct Product? @relation("ConvertedReadyProductLink", fields: [convertedReadyProductId], references: [id], onDelete: SetNull)
+  sampleReadyProducts Product[] @relation("SampleReadyJob")
+  productionBatchId String?
+  productionBatch   ProductionBatch? @relation(fields: [productionBatchId], references: [id], onDelete: SetNull)
+  productionStockAddedAt DateTime?
+  priority      String     @default("NORMAL") // OrderType
+  dueDate       DateTime
+  deliveredAt   DateTime?
+  fabricSource  String     @default("STOCK")
+  measurements  String?    // JSON snapshot as text
+  notes         String?
+  costFils      Int        @default(0)
+  totalFils     Int        @default(0) // customer line share of invoice total (incl. VAT split)
+  paidFils      Int        @default(0)
+  balanceFils   Int        @default(0)
+  isPaid        Boolean    @default(false)
+  stages        JobStageLog[]
+  assignments   JobAssignment[]
+  materials     JobOrderMaterial[]
+  workStages    JobOrderWorkStage[]
+  productionEntries ProductionEntry[]
+  conversionLogs ConversionLog[]
+  sampleSales    SampleSaleLog[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([customerId])
+  @@index([invoiceId])
+  @@index([stage])
+  @@index([dueDate])
+}
+
+model ProductionBatch {
+  id          String   @id @default(cuid())
+  batchNo     Int      @unique
+  modelId     String
+  model       AbayaModel @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  quantity    Int
+  type        String   @default("BATCH") // BATCH | SAMPLE
+  color       String?
+  fabricId    String?
+  fabric      FabricRoll? @relation(fields: [fabricId], references: [id], onDelete: SetNull)
+  notes       String?
+  status      String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  jobs        JobOrder[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model ConversionLog {
+  id            String   @id @default(cuid())
+  invoiceId     String?
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  jobId         String   @unique
+  job           JobOrder @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  readyProductId String
+  readyProduct   Product  @relation(fields: [readyProductId], references: [id], onDelete: Restrict)
+  model         String
+  customerName  String
+  convertedAt   DateTime @default(now())
+  notes         String?
+
+  @@index([convertedAt])
+  @@index([customerName])
+  @@index([model])
+}
+
+model SampleSaleLog {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sampleModelId String?
+  sampleModel   AbayaModel? @relation(fields: [sampleModelId], references: [id], onDelete: SetNull)
+  sampleJobId   String?
+  sampleJob     JobOrder? @relation(fields: [sampleJobId], references: [id], onDelete: SetNull)
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  soldAt        DateTime @default(now())
+  soldPriceFils Int
+
+  @@unique([productId])
+  @@index([soldAt])
+  @@index([sampleModelId])
+  @@index([invoiceId])
+  @@index([sampleJobId])
+}
+
+/// Per-pipeline-stage state for automatic wages (CUTTING → SEWING → EMBROIDERY → FINISHING)
+model JobOrderWorkStage {
+  id          String   @id @default(cuid())
+  jobOrderId  String
+  jobOrder    JobOrder @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+  stageKey    String   // CUTTING | SEWING | EMBROIDERY | FINISHING
+  sortOrder   Int
+  status      String   @default("PENDING") // PENDING | IN_PROGRESS | DONE
+  /// Mirrors DONE status for reporting/APIs (kept in sync in job-orders router).
+  isCompleted Boolean  @default(false)
+  workerId    String?
+  worker      Worker?  @relation(fields: [workerId], references: [id])
+  wageFils    Int      @default(0)
+  workerNameSnapshot String?
+  assignedAt  DateTime?
+  completedAt DateTime?
+  notes       String?
+  /// Links the payroll line created when this stage is marked done (for reopen / correction)
+  productionEntryId String? @unique
+  productionEntry   ProductionEntry? @relation("WorkStageProduction", fields: [productionEntryId], references: [id], onDelete: SetNull)
+
+  @@unique([jobOrderId, stageKey])
+  @@index([workerId])
+}
+
+model JobOrderMaterial {
+  id         String     @id @default(cuid())
+  jobOrderId String
+  jobOrder   JobOrder   @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+  rollId     String
+  roll       FabricRoll @relation(fields: [rollId], references: [id])
+  meters     Float
+  /// Computed cost of fabric consumed (meters × roll.costPerMeter) in fils — snapshot at creation/edit
+  materialCostFils Int @default(0)
+  /// True after Cutting stage completion applied JOB_USE to this line (prevents double deduction).
+  fabricDeducted Boolean @default(false)
+  /// Meters last booked out from inventory for this line (for delta corrections; equals `meters` when freshly deducted).
+  deductedMeters Float?
+  /// Roll that `deductedMeters` was taken from (for safe restore after roll change); usually matches `rollId` after edits.
+  deductedRollId String?
+
+  @@index([jobOrderId])
+  @@index([rollId])
+}
+
+model JobStageLog {
+  id          String   @id @default(cuid())
+  jobOrderId  String
+  jobOrder    JobOrder @relation(fields: [jobOrderId], references: [id])
+  stage       String   // JobStage
+  changedById String
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([jobOrderId])
+}
+
+model JobAssignment {
+  id          String   @id @default(cuid())
+  jobOrderId  String
+  jobOrder    JobOrder @relation(fields: [jobOrderId], references: [id])
+  workerId    String
+  worker      Worker   @relation(fields: [workerId], references: [id])
+  workType    String   // WorkType
+  assignedAt  DateTime @default(now())
+}
+
+// ─── WORKERS & PAYROLL ───────────────────────────────────────
+
+model Worker {
+  id              String           @id @default(cuid())
+  name            String
+  nationality     String?
+  passportNo      String?
+  residencyExpiry DateTime?
+  phone           String?
+  role            String
+  specializations String?          // JSON array: WorkType keys e.g. ["CUTTING","SEWING"]
+  notes           String?
+  isActive        Boolean          @default(true)
+  joinDate        DateTime         @default(now())
+  pieceRates      PieceRate[]
+  productions     ProductionEntry[]
+  assignments     JobAssignment[]
+  workStageRows   JobOrderWorkStage[]
+  payrolls        Payroll[]
+  payouts         WorkerPayout[]
+  balanceAdjustments WorkerBalanceAdjustment[]
+}
+
+model WorkerPayout {
+  id         String   @id @default(cuid())
+  workerId   String
+  worker     Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  amountFils Int
+  method     String?  // CASH | TRANSFER | etc.
+  notes      String?
+  paidAt     DateTime @default(now())
+  createdAt  DateTime @default(now())
+}
+
+model WorkerBalanceAdjustment {
+  id         String   @id @default(cuid())
+  workerId   String
+  worker     Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  amountFils Int      // signed: + = add to owed, − = reduce owed
+  reason     String
+  createdAt  DateTime @default(now())
+}
+
+model PieceRate {
+  id          String   @id @default(cuid())
+  workerId    String?
+  worker      Worker?  @relation(fields: [workerId], references: [id])
+  workType    String   // WorkType
+  rateFils    Int
+  isDefault   Boolean  @default(false)
+}
+
+model ProductionEntry {
+  id          String   @id @default(cuid())
+  workerId    String
+  worker      Worker   @relation(fields: [workerId], references: [id])
+  jobOrderId  String?
+  jobOrder    JobOrder? @relation(fields: [jobOrderId], references: [id])
+  workType    String
+  qty         Int
+  rateFils    Int
+  totalFils   Int
+  date        DateTime @default(now())
+  isApproved  Boolean  @default(false)
+  approvedBy  String?
+  notes       String?
+  workStageCredit JobOrderWorkStage? @relation("WorkStageProduction")
+
+  @@index([workerId])
+  @@index([jobOrderId])
+}
+
+model Payroll {
+  id              String   @id @default(cuid())
+  workerId        String
+  worker          Worker   @relation(fields: [workerId], references: [id])
+  month           Int
+  year            Int
+  productionFils  Int
+  bonusFils       Int      @default(0)
+  deductionFils   Int      @default(0)
+  advanceFils     Int      @default(0)
+  netFils         Int
+  isPaid          Boolean  @default(false)
+  paidAt          DateTime?
+  payMethod       String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  @@index([workerId])
+  @@index([year, month])
+}
+
+// ─── ACCOUNTS & FINANCE ──────────────────────────────────────
+
+model ExpenseCategory {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  expenses Expense[]
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  categoryId  String
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  amountFils  Int
+  /// Short title / label (e.g. \"January rent\")
+  description String
+  notes       String?
+  receiptUrl  String?
+  paidBy      String?
+  date        DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+}
+
+model Income {
+  id          String   @id @default(cuid())
+  amountFils  Int
+  description String
+  category    String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+// ─── SETTINGS & AUDIT ────────────────────────────────────────
+
+model Setting {
+  key       String @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  String?  // JSON text
+  newValue  String?  // JSON text
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  targetRole String?
+  type       String
+  title      String
+  message    String
+  link       String?
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([targetRole, isRead])
+}

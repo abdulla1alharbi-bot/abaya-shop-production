@@ -1,0 +1,23 @@
+{
+  "name": "abaya-shop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Abaya Shop Management System — monorepo",
+  "scripts": {
+    "dev": "pnpm --filter @abaya-shop/shared build && pnpm --parallel --filter @abaya-shop/web --filter @abaya-shop/api run dev",
+    "dev:web": "pnpm --filter @abaya-shop/web dev",
+    "dev:api": "pnpm --filter @abaya-shop/api dev",
+    "build": "pnpm run -r build",
+    "lint": "pnpm run -r lint",
+    "db:generate": "pnpm --filter @abaya-shop/api exec prisma generate",
+    "db:migrate": "pnpm --filter @abaya-shop/api exec prisma migrate dev",
+    "db:migrate:deploy": "pnpm --filter @abaya-shop/api exec prisma migrate deploy",
+    "db:push": "pnpm --filter @abaya-shop/api exec prisma db push",
+    "db:seed": "pnpm --filter @abaya-shop/api exec prisma db seed",
+    "db:reset": "pnpm --filter @abaya-shop/api exec prisma migrate reset --force"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.9"
+}
