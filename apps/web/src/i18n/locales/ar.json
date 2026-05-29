@@ -1,0 +1,274 @@
+{
+  "nav": {
+    "groups": {
+      "day": "اليوم",
+      "stock": "المخزون والموديلات",
+      "orders": "الفواتير والعملاء",
+      "workshop": "الورشة",
+      "admin": "الحسابات"
+    },
+    "items": {
+      "dashboard": "الرئيسية",
+      "pos": "البيع — كاشير",
+      "production": "إنتاج الموديلات",
+      "productionSamples": "تفصيل للعرض",
+      "productionSamplesPerformance": "أداء موديلات العرض",
+      "readyMade": "جاهز للبيع",
+      "readyMadeConversions": "تحويلات الجاهز",
+      "fabrics": "القماش",
+      "models": "موديلات التفصيل",
+      "invoices": "الفواتير",
+      "customers": "العملاء",
+      "workshopTracking": "متابعة مراحل التفصيل",
+      "workers": "العمال",
+      "payroll": "مستحقات وأجور",
+      "workshopCapacity": "طاقة الورشة",
+      "reports": "التقارير",
+      "shifts": "الورديات (الكاشير)",
+      "accounts": "الحركة المالية",
+      "expenses": "المصروفات",
+      "settings": "إعدادات المحل",
+      "users": "المستخدمين والصلاحيات",
+      "audit": "سجل التدقيق",
+      "fabricsMgmt": "مخزون القماش"
+    }
+  },
+  "topbar": {
+    "openMenu": "فتح القائمة",
+    "logout": "تسجيل الخروج",
+    "notifications": "الإشعارات",
+    "switchLanguage": "تغيير اللغة",
+    "markAllRead": "تعليم الكل كمقروء",
+    "noNotifications": "لا توجد إشعارات"
+  },
+  "sidebar": {
+    "systemLabel": "نظام إدارة",
+    "shopTitle": "محل العبايات"
+  },
+  "status": {
+    "fulfillment": {
+      "VOID": "ملغاة",
+      "DELIVERED": "تم التسليم",
+      "READY_FOR_DELIVERY": "جاهز للتسليم",
+      "IN_WORKSHOP": "قيد التفصيل بالورشة",
+      "NO_TAILORING": "بدون تفصيل (بيع جاهز)"
+    },
+    "payment": {
+      "void": "ملغاة",
+      "paid": "مسددة",
+      "unpaid": "غير مدفوع",
+      "partial": "مدفوع جزئياً"
+    },
+    "job": {
+      "new": "جديد",
+      "in_progress": "قيد التنفيذ",
+      "ready": "جاهز",
+      "delivered": "تم التسليم"
+    },
+    "relatedInvoice": {
+      "void": "ملغاة",
+      "delivered": "مُسلَّمة",
+      "paid": "مسددة",
+      "unpaid": "غير مسددة"
+    }
+  },
+  "roles": {
+    "OWNER": "مالك",
+    "MANAGER": "مدير",
+    "ADMIN": "مسؤول",
+    "SELLER": "بائع",
+    "WORKER": "عامل ورشة",
+    "WORKSHOP_SUPERVISOR": "مشرف ورشة",
+    "ACCOUNTANT": "محاسب"
+  },
+  "common": {
+    "loading": "جاري التحميل…",
+    "loadingStats": "جاري تحميل الإحصائيات…",
+    "loadingData": "جاري التحميل…",
+    "error": "تعذّر التحميل",
+    "errorStats": "تعذّر تحميل بقية الإحصائيات.",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "add": "إضافة",
+    "close": "إغلاق",
+    "noData": "لا بيانات.",
+    "retry": "إعادة المحاولة",
+    "search": "بحث",
+    "view": "عرض",
+    "open": "فتح",
+    "new": "جديد",
+    "submit": "إرسال",
+    "back": "رجوع",
+    "print": "طباعة",
+    "pieces": "قطعة",
+    "stages": "مرحلة",
+    "shopName": "محل العبايات"
+  },
+  "auth": {
+    "login": {
+      "title": "تسجيل الدخول",
+      "subtitle": "محل العبايات — لوحة التشغيل",
+      "username": "اسم المستخدم",
+      "usernamePlaceholder": "أدخل اسم المستخدم",
+      "password": "كلمة المرور",
+      "submit": "دخول",
+      "submitting": "جاري الدخول…",
+      "invalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة",
+      "passwordRequired": "أدخل كلمة المرور"
+    }
+  },
+  "pages": {
+    "dashboard": {
+      "title": "الرئيسية",
+      "descriptionWorker": "أعمال الورشة والتفصيل المعلّقة — بدون بيانات مالية.",
+      "descriptionManager": "ملخص مالي يومي، ذمم، تسليم، وتفصيل — بدون تعقيد محاسبي.",
+      "sectionOperations": "العمليات والتسليم",
+      "sectionFinancials": "اليوم — النقد والربح التقريبي",
+      "sectionFinancialsNote": "التحصيلات = المدفوعات المسجّلة اليوم على فواتير غير ملغاة. صافي اليوم = التحصيلات − المصروفات − أجور مراحل الورشة المكتملة اليوم.",
+      "sectionTrends": "📊 اتجاهات وأداء",
+      "sectionInventory": "المخزون",
+      "sectionInventoryDebt": "الذمم والمخزون",
+      "sectionTailoring": "طلبات التفصيل",
+      "loadingDebtSummary": "جاري تحميل ملخص الذمم والتسليم…",
+      "errorDebtSummary": "تعذّر تحميل الإحصائيات.",
+      "salesTodayCard": "تحصيلات اليوم (مدفوعات)",
+      "expensesTodayCard": "مصروفات اليوم",
+      "wagesTodayCard": "أجور الورشة اليوم",
+      "netTodayCard": "صافي اليوم",
+      "salesTodayNote": "فواتير صُدرت اليوم (إجماليها): {{amount}} — للمقارنة مع التحصيلات، ليس بالضرورة نفس المبلغ.",
+      "collectionsTodayLabel": "تحصيلات اليوم",
+      "yesterdayLabel": "أمس:",
+      "sameLastWeekLabel": "نفس اليوم الأسبوع الماضي:",
+      "last7Days": "آخر 7 أيام",
+      "totalLabel": "إجمالي:",
+      "kpiOnTimeRate": "نسبة التسليم في الموعد (30 يوم)",
+      "kpiOverdue": "طلبات متأخرة الآن",
+      "kpiDeliveries30d": "عدد التسليمات (30 يوم)",
+      "kpiSalesToday": "مبيعات اليوم",
+      "topProductsTitle": "🏆 أكثر المنتجات مبيعاً (هذا الشهر)",
+      "topWorkersTitle": "⭐ أعلى العمال أداءً (هذا الأسبوع)",
+      "customerBalancesCard": "إجمالي أرصدة العملاء",
+      "lowStockCard": "قماش قارب على النفاد",
+      "openJobsCard": "قيد العمل (غير مُسلَّمة)",
+      "readyJobsCard": "جاهزة في الورشة",
+      "overdueJobsCard": "متأخرة عن موعد التسليم",
+      "btnOpenSale": "فتح البيع",
+      "btnRegisterExpense": "تسجيل مصروف",
+      "btnInvoicesTailoring": "الفواتير والتفصيل",
+      "btnFinancialMovement": "الحركة المالية",
+      "btnAllReports": "جميع التقارير",
+      "deltaNew": "▲ جديد",
+      "deltaNoChange": "≈ بدون تغيير"
+    },
+    "invoices": {
+      "title": "الفواتير",
+      "titleBalance": "فواتير بذمم مستحقة",
+      "titleReady": "فواتير جاهزة للتسليم",
+      "descAll": "ابحث برقم الفاتورة أو رقم الجوال — النتائج تظهر في الجدول أدناه.",
+      "descBalance": "جميع الفواتير التي يتبقّى عليها مبلغ — غير المسددة أو المسددة جزئياً فقط.",
+      "descReady": "فواتير اكتمل فيها التفصيل (أو بدون تفصيل) ولم يُسجَّل تسليمها بعد — جاهزة للاستلام أو التوصيل.",
+      "btnAll": "كل الفواتير",
+      "btnBalance": "بذمم مستحقة",
+      "btnReady": "جاهزة للتسليم",
+      "summaryDebtTitle": "ملخص الذمم المستحقة",
+      "summaryReadyTitle": "ملخص الجاهز للتسليم",
+      "totalOutstanding": "إجمالي المبالغ المتبقية",
+      "invoicesWithBalance": "عدد الفواتير ذات رصيد مستحق",
+      "readyInvoiceCount": "عدد الفواتير الجاهزة",
+      "totalReadyValue": "إجمالي قيمة الفواتير (إجمالي الفاتورة)",
+      "searchSection": "بحث",
+      "searchLabel": "رقم فاتورة أو جوال",
+      "searchPlaceholder": "Search by invoice number or mobile number",
+      "searching": "جاري البحث…",
+      "searchNote": "يدعم البحث الجزئي (مثل 104 أو 0507). لا حاجة لإدخال الرقم كاملاً.",
+      "colInvoiceNo": "رقم الفاتورة",
+      "colCustomer": "العميل",
+      "colMobile": "الجوال",
+      "colDate": "تاريخ الفاتورة",
+      "colDeliveryDate": "موعد التسليم",
+      "colTotal": "الإجمالي",
+      "colPaid": "المدفوع",
+      "colBalance": "المتبقي",
+      "colFulfillmentStatus": "حالة التشغيل",
+      "colPaymentStatus": "السداد",
+      "colView": "عرض",
+      "colDetails": "التفصيل",
+      "emptySearch": "لا نتائج للبحث.",
+      "emptyBalance": "لا توجد فواتير بذمم مستحقة حالياً.",
+      "emptyReady": "لا توجد فواتير جاهزة للتسليم حالياً.",
+      "emptyDefault": "لا فواتير بعد. أنشئ فاتورة من نقطة البيع.",
+      "viewLink": "عرض",
+      "openWorkLink": "فتح العمل",
+      "errorLoadingServer": "Server error loading invoices. If this persists, run database migrations (invoice schema) on the API host.",
+      "errorLoading": "Could not load invoices.",
+      "retry": "Retry"
+    },
+    "customers": {
+      "title": "العملاء",
+      "description": "بحث سريع والرصيد المستحق لكل عميل.",
+      "newCustomer": "عميل جديد",
+      "newCustomerTitle": "عميل جديد",
+      "detailTitle": "بطاقة عميل",
+      "colCode": "الكود",
+      "colName": "الاسم",
+      "colMobile": "الجوال",
+      "colBalance": "مستحق",
+      "emptyMessage": "لا عملاء بعد. أضف عميلاً أو سجّله من البيع.",
+      "open": "فتح"
+    },
+    "workers": {
+      "title": "العمال",
+      "newWorkerTitle": "عامل جديد",
+      "detailTitle": "بطاقة عامل"
+    },
+    "fabrics": {
+      "title": "مخزون القماش",
+      "newTitle": "لفة قماش جديدة",
+      "editTitle": "تعديل لفة قماش"
+    },
+    "readyMade": {
+      "title": "جاهز للبيع",
+      "newTitle": "منتج جاهز جديد",
+      "editTitle": "تعديل منتج جاهز",
+      "conversionsTitle": "تحويلات الجاهز"
+    },
+    "products": {
+      "title": "منتج"
+    },
+    "accounts": {
+      "title": "الحركة المالية",
+      "expensesTitle": "المصاريف"
+    },
+    "settings": {
+      "title": "إعدادات المحل"
+    },
+    "workshop": {
+      "capacityTitle": "طاقة الورشة"
+    },
+    "shifts": {
+      "title": "الورديات"
+    },
+    "reports": {
+      "title": "التقارير"
+    },
+    "payroll": {
+      "title": "مستحقات وأجور"
+    },
+    "models": {
+      "title": "موديلات التفصيل"
+    },
+    "production": {
+      "title": "إنتاج الموديلات",
+      "samplesTitle": "تفصيل للعرض",
+      "samplesPerformanceTitle": "أداء موديلات العرض"
+    },
+    "notFound": {
+      "title": "الصفحة غير موجودة",
+      "message": "الرابط الذي فتحته غير صحيح أو تم حذف الصفحة.",
+      "btnHome": "العودة للرئيسية"
+    }
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "nav": {
+    "groups": {
+      "day": "Today",
+      "stock": "Inventory & Models",
+      "orders": "Invoices & Customers",
+      "workshop": "Workshop",
+      "admin": "Finance"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "pos": "Point of Sale",
+      "production": "Model Production",
+      "productionSamples": "Sample Tailoring",
+      "productionSamplesPerformance": "Sample Model Performance",
+      "readyMade": "Ready to Sell",
+      "readyMadeConversions": "Ready-made Conversions",
+      "fabrics": "Fabrics",
+      "models": "Tailoring Models",
+      "invoices": "Invoices",
+      "customers": "Customers",
+      "workshopTracking": "Track Tailoring Stages",
+      "workers": "Workers",
+      "payroll": "Payroll & Wages",
+      "workshopCapacity": "Workshop Capacity",
+      "reports": "Reports",
+      "shifts": "Shifts (Cashier)",
+      "accounts": "Financial Movements",
+      "expenses": "Expenses",
+      "settings": "Shop Settings",
+      "users": "Users & Permissions",
+      "audit": "Audit Log",
+      "fabricsMgmt": "Fabric Stock"
+    }
+  },
+  "topbar": {
+    "openMenu": "Open menu",
+    "logout": "Logout",
+    "notifications": "Notifications",
+    "switchLanguage": "Switch language",
+    "markAllRead": "Mark all as read",
+    "noNotifications": "No notifications"
+  },
+  "sidebar": {
+    "systemLabel": "Management System",
+    "shopTitle": "Abaya Shop"
+  },
+  "status": {
+    "fulfillment": {
+      "VOID": "Void",
+      "DELIVERED": "Delivered",
+      "READY_FOR_DELIVERY": "Ready for Delivery",
+      "IN_WORKSHOP": "In Workshop",
+      "NO_TAILORING": "No Tailoring (Ready Sale)"
+    },
+    "payment": {
+      "void": "Void",
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "partial": "Partially Paid"
+    },
+    "job": {
+      "new": "New",
+      "in_progress": "In Progress",
+      "ready": "Ready",
+      "delivered": "Delivered"
+    },
+    "relatedInvoice": {
+      "void": "Void",
+      "delivered": "Delivered",
+      "paid": "Paid",
+      "unpaid": "Unpaid"
+    }
+  },
+  "roles": {
+    "OWNER": "Owner",
+    "MANAGER": "Manager",
+    "ADMIN": "Admin",
+    "SELLER": "Seller",
+    "WORKER": "Workshop Worker",
+    "WORKSHOP_SUPERVISOR": "Workshop Supervisor",
+    "ACCOUNTANT": "Accountant"
+  },
+  "common": {
+    "loading": "Loading…",
+    "loadingStats": "Loading statistics…",
+    "loadingData": "Loading…",
+    "error": "Failed to load",
+    "errorStats": "Failed to load remaining statistics.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "noData": "No data.",
+    "retry": "Retry",
+    "search": "Search",
+    "view": "View",
+    "open": "Open",
+    "new": "New",
+    "submit": "Submit",
+    "back": "Back",
+    "print": "Print",
+    "pieces": "pieces",
+    "stages": "stages",
+    "shopName": "Abaya Shop"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Abaya Shop — Operations Dashboard",
+      "username": "Username",
+      "usernamePlaceholder": "Enter your username",
+      "password": "Password",
+      "submit": "Sign In",
+      "submitting": "Signing in…",
+      "invalidCredentials": "Incorrect username or password",
+      "passwordRequired": "Please enter your password"
+    }
+  },
+  "pages": {
+    "dashboard": {
+      "title": "Dashboard",
+      "descriptionWorker": "Workshop and pending tailoring work — no financial data.",
+      "descriptionManager": "Daily financial summary, balances, delivery, and tailoring — without accounting complexity.",
+      "sectionOperations": "Operations & Delivery",
+      "sectionFinancials": "Today — Cash & Estimated Profit",
+      "sectionFinancialsNote": "Collections = payments recorded today on non-void invoices. Net today = Collections − Expenses − Workshop wages completed today.",
+      "sectionTrends": "📊 Trends & Performance",
+      "sectionInventory": "Inventory",
+      "sectionInventoryDebt": "Balances & Inventory",
+      "sectionTailoring": "Tailoring Orders",
+      "loadingDebtSummary": "Loading balance and delivery summary…",
+      "errorDebtSummary": "Failed to load statistics.",
+      "salesTodayCard": "Today's Collections (Payments)",
+      "expensesTodayCard": "Today's Expenses",
+      "wagesTodayCard": "Workshop Wages Today",
+      "netTodayCard": "Net Today",
+      "salesTodayNote": "Invoices issued today (total): {{amount}} — for comparison with collections, not necessarily the same amount.",
+      "collectionsTodayLabel": "Today's Collections",
+      "yesterdayLabel": "Yesterday:",
+      "sameLastWeekLabel": "Same day last week:",
+      "last7Days": "Last 7 Days",
+      "totalLabel": "Total:",
+      "kpiOnTimeRate": "On-Time Delivery Rate (30 days)",
+      "kpiOverdue": "Overdue Orders Now",
+      "kpiDeliveries30d": "Deliveries (30 days)",
+      "kpiSalesToday": "Today's Sales",
+      "topProductsTitle": "🏆 Top Selling Products (This Month)",
+      "topWorkersTitle": "⭐ Top Performing Workers (This Week)",
+      "customerBalancesCard": "Total Customer Balances",
+      "lowStockCard": "Low Stock Fabrics",
+      "openJobsCard": "In Progress (Not Delivered)",
+      "readyJobsCard": "Ready in Workshop",
+      "overdueJobsCard": "Overdue for Delivery",
+      "btnOpenSale": "Open Sale",
+      "btnRegisterExpense": "Register Expense",
+      "btnInvoicesTailoring": "Invoices & Tailoring",
+      "btnFinancialMovement": "Financial Movements",
+      "btnAllReports": "All Reports",
+      "deltaNew": "▲ New",
+      "deltaNoChange": "≈ No Change"
+    },
+    "invoices": {
+      "title": "Invoices",
+      "titleBalance": "Invoices with Outstanding Balances",
+      "titleReady": "Invoices Ready for Delivery",
+      "descAll": "Search by invoice number or mobile — results appear in the table below.",
+      "descBalance": "All invoices with a remaining balance — unpaid or partially paid only.",
+      "descReady": "Invoices where tailoring is complete (or no tailoring) and delivery hasn't been recorded yet — ready for pickup or delivery.",
+      "btnAll": "All Invoices",
+      "btnBalance": "Outstanding Balances",
+      "btnReady": "Ready for Delivery",
+      "summaryDebtTitle": "Outstanding Balances Summary",
+      "summaryReadyTitle": "Ready for Delivery Summary",
+      "totalOutstanding": "Total Remaining Amount",
+      "invoicesWithBalance": "Invoices with Outstanding Balance",
+      "readyInvoiceCount": "Ready Invoice Count",
+      "totalReadyValue": "Total Invoice Value",
+      "searchSection": "Search",
+      "searchLabel": "Invoice number or mobile",
+      "searchPlaceholder": "Search by invoice number or mobile number",
+      "searching": "Searching…",
+      "searchNote": "Supports partial search (e.g. 104 or 0507). No need to enter the full number.",
+      "colInvoiceNo": "Invoice #",
+      "colCustomer": "Customer",
+      "colMobile": "Mobile",
+      "colDate": "Invoice Date",
+      "colDeliveryDate": "Delivery Date",
+      "colTotal": "Total",
+      "colPaid": "Paid",
+      "colBalance": "Balance",
+      "colFulfillmentStatus": "Fulfillment Status",
+      "colPaymentStatus": "Payment",
+      "colView": "View",
+      "colDetails": "Details",
+      "emptySearch": "No search results.",
+      "emptyBalance": "No invoices with outstanding balances currently.",
+      "emptyReady": "No invoices ready for delivery currently.",
+      "emptyDefault": "No invoices yet. Create one from Point of Sale.",
+      "viewLink": "View",
+      "openWorkLink": "Open Work",
+      "errorLoadingServer": "Server error loading invoices. If this persists, run database migrations (invoice schema) on the API host.",
+      "errorLoading": "Could not load invoices.",
+      "retry": "Retry"
+    },
+    "customers": {
+      "title": "Customers",
+      "description": "Quick search and outstanding balance per customer.",
+      "newCustomer": "New Customer",
+      "newCustomerTitle": "New Customer",
+      "detailTitle": "Customer Card",
+      "colCode": "Code",
+      "colName": "Name",
+      "colMobile": "Mobile",
+      "colBalance": "Balance",
+      "emptyMessage": "No customers yet. Add a customer or register one from the sale.",
+      "open": "Open"
+    },
+    "workers": {
+      "title": "Workers",
+      "newWorkerTitle": "New Worker",
+      "detailTitle": "Worker Card"
+    },
+    "fabrics": {
+      "title": "Fabric Stock",
+      "newTitle": "New Fabric Roll",
+      "editTitle": "Edit Fabric Roll"
+    },
+    "readyMade": {
+      "title": "Ready to Sell",
+      "newTitle": "New Ready-made Product",
+      "editTitle": "Edit Ready-made Product",
+      "conversionsTitle": "Ready-made Conversions"
+    },
+    "products": {
+      "title": "Product"
+    },
+    "accounts": {
+      "title": "Financial Movements",
+      "expensesTitle": "Expenses"
+    },
+    "settings": {
+      "title": "Shop Settings"
+    },
+    "workshop": {
+      "capacityTitle": "Workshop Capacity"
+    },
+    "shifts": {
+      "title": "Shifts"
+    },
+    "reports": {
+      "title": "Reports"
+    },
+    "payroll": {
+      "title": "Payroll & Wages"
+    },
+    "models": {
+      "title": "Tailoring Models"
+    },
+    "production": {
+      "title": "Model Production",
+      "samplesTitle": "Sample Tailoring",
+      "samplesPerformanceTitle": "Sample Model Performance"
+    },
+    "notFound": {
+      "title": "Page Not Found",
+      "message": "The page you're looking for doesn't exist.",
+      "btnHome": "Go to Dashboard"
+    }
+  }
+}

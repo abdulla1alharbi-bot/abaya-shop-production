@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { arSA } from "date-fns/locale/ar-SA";
+import { enUS } from "date-fns/locale/en-US";
+import { useTranslation } from "react-i18next";
 import { useServerNotificationStore } from "@/store/serverNotificationStore";
+import { useLangStore } from "@/store/langStore";
 import { Button } from "@/components/ui/button";
 
 export function NotificationBell() {
@@ -11,6 +14,9 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { lang } = useLangStore();
+  const dateLocale = lang === "ar" ? arSA : enUS;
 
   useEffect(() => {
     void fetch();
@@ -28,7 +34,7 @@ export function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         type="button"
-        aria-label="الإشعارات"
+        aria-label={t("topbar.notifications")}
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-800 hover:text-white"
         onClick={() => setOpen((o) => !o)}
       >
@@ -41,9 +47,9 @@ export function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-xl border border-border bg-popover shadow-xl" dir="rtl">
+        <div className="absolute end-0 top-full z-50 mt-2 w-80 rounded-xl border border-border bg-popover shadow-xl">
           <div className="flex items-center justify-between border-b px-4 py-3">
-            <span className="text-sm font-semibold">الإشعارات</span>
+            <span className="text-sm font-semibold">{t("topbar.notifications")}</span>
             {unreadCount > 0 ? (
               <Button
                 type="button"
@@ -52,14 +58,14 @@ export function NotificationBell() {
                 className="h-7 text-xs"
                 onClick={() => void markAllRead()}
               >
-                تعليم الكل كمقروء
+                {t("topbar.markAllRead")}
               </Button>
             ) : null}
           </div>
 
           <ul className="max-h-[360px] overflow-y-auto divide-y divide-border">
             {items.length === 0 ? (
-              <li className="px-4 py-8 text-center text-sm text-muted-foreground">لا توجد إشعارات</li>
+              <li className="px-4 py-8 text-center text-sm text-muted-foreground">{t("topbar.noNotifications")}</li>
             ) : (
               items.map((n) => (
                 <li
@@ -74,7 +80,7 @@ export function NotificationBell() {
                   <p className="font-medium leading-snug">{n.title}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground leading-snug">{n.message}</p>
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: arSA })}
+                    {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: dateLocale })}
                   </p>
                 </li>
               ))

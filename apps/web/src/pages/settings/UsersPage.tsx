@@ -1,6 +1,7 @@
 import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Pencil } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,18 +19,9 @@ type UserRow = {
   isActive: boolean;
 };
 
-const ROLE_LABELS: Record<Role, string> = {
-  OWNER: "مالك",
-  MANAGER: "مدير",
-  ADMIN: "مسؤول",
-  SELLER: "بائع",
-  WORKER: "عامل ورشة",
-  WORKSHOP_SUPERVISOR: "مشرف ورشة",
-  ACCOUNTANT: "محاسب",
-};
-
 export function UsersPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
 
   const { data: items, isLoading } = useQuery({
     queryKey: ["users"],
@@ -47,14 +39,16 @@ export function UsersPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="المستخدمين والصلاحيات"
-        description="حسابات الدخول حسب الدور؛ تعديل الصلاحية لكل إذن يدويّاً أثناء الحاجة فقط من شاشة المستخدم."
+        title={t("nav.items.users")}
+        description={t("pages.settings.usersDescription", {
+          defaultValue: "حسابات الدخول حسب الدور؛ تعديل الصلاحية لكل إذن يدويّاً أثناء الحاجة فقط من شاشة المستخدم.",
+        })}
         actions={
           can("users.create") ? (
             <Button asChild size="sm">
               <Link to="/settings/users/new">
                 <Plus className="me-1 h-4 w-4" />
-                مستخدم جديد
+                {t("pages.settings.newUser", { defaultValue: "مستخدم جديد" })}
               </Link>
             </Button>
           ) : null
@@ -65,26 +59,26 @@ export function UsersPage() {
         <table className="w-full min-w-[800px] text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
-              <th className="px-4 py-3 text-start font-medium">اسم المستخدم</th>
-              <th className="px-4 py-3 text-start font-medium">الاسم الكامل</th>
-              <th className="px-4 py-3 text-start font-medium">الدور</th>
-              <th className="px-4 py-3 text-start font-medium">الحالة</th>
-              <th className="px-4 py-3 text-start font-medium">الجوال</th>
-              <th className="px-4 py-3 text-start font-medium">البريد (اختياري)</th>
-              <th className="px-4 py-3 text-end font-medium">إجراءات</th>
+              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colUsername", { defaultValue: "اسم المستخدم" })}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colFullName", { defaultValue: "الاسم الكامل" })}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colRole", { defaultValue: "الدور" })}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colStatus", { defaultValue: "الحالة" })}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("pages.customers.colMobile")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colEmail", { defaultValue: "البريد (اختياري)" })}</th>
+              <th className="px-4 py-3 text-end font-medium">{t("pages.settings.colActions", { defaultValue: "إجراءات" })}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  جاري التحميل…
+                  {t("common.loadingData")}
                 </td>
               </tr>
             ) : !items?.length ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  لا يوجد مستخدمون بعد.
+                  {t("pages.settings.noUsers", { defaultValue: "لا يوجد مستخدمون بعد." })}
                 </td>
               </tr>
             ) : (
@@ -95,13 +89,13 @@ export function UsersPage() {
                   </td>
                   <td className="px-4 py-3">{u.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {ROLE_LABELS[u.role as Role] ?? u.role}
+                    {t(`roles.${u.role}`, { defaultValue: u.role })}
                   </td>
                   <td className="px-4 py-3">
                     {u.isActive ? (
-                      <Badge variant="secondary">نشط</Badge>
+                      <Badge variant="secondary">{t("pages.settings.statusActive", { defaultValue: "نشط" })}</Badge>
                     ) : (
-                      <Badge variant="outline">موقوف</Badge>
+                      <Badge variant="outline">{t("pages.settings.statusInactive", { defaultValue: "موقوف" })}</Badge>
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground" dir="ltr">
@@ -115,7 +109,7 @@ export function UsersPage() {
                       <Button variant="ghost" size="sm" asChild>
                         <Link to={`/settings/users/${u.id}/edit`}>
                           <Pencil className="me-1 h-4 w-4" />
-                          تعديل
+                          {t("common.edit")}
                         </Link>
                       </Button>
                     ) : (

@@ -14,7 +14,8 @@
       "Bash(pnpm --filter @abaya-shop/api tsc --noEmit)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\GEMENG\\\\Desktop\\\\abaya-shop-main\" -Directory)",
       "Bash(Select-Object Name)",
-      "Bash(ls -la \"C:\\\\Users\\\\GEMENG\\\\Desktop\\\\abaya-shop-main\\\\\" | head -20)"
+      "Bash(ls -la \"C:\\\\Users\\\\GEMENG\\\\Desktop\\\\abaya-shop-main\\\\\" | head -20)",
+      "Bash(Get-ChildItem -Force)"
     ]
   }
 }

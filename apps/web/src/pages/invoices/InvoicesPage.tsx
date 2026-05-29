@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { getApiErrorMessage, isServerError } from "@/lib/apiErrors";
 import { formatAED } from "@/lib/money";
-import { invoiceFulfillmentLabel } from "@/lib/invoiceOperationalLabels";
+import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { useIsWorker } from "@/hooks/useIsWorker";
 import { cn } from "@/lib/utils";
 
@@ -39,13 +40,6 @@ type InvoiceListMeta = {
   readyInvoiceCount?: number;
   totalReadyValueFils?: number;
 };
-
-function paymentStatusAr(inv: InvoiceListItem): string {
-  if (inv.isVoid) return "ملغاة";
-  if (inv.balanceFils <= 0) return "مسددة";
-  if (inv.paidFils <= 0) return "غير مدفوع";
-  return "مدفوع جزئياً";
-}
 
 function fulfillmentBadgeClass(s: string): string {
   switch (s) {
@@ -92,13 +86,14 @@ export function InvoicesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const balanceDueMode = searchParams.get("balanceDue") === "true";
   const readyForDeliveryMode = searchParams.get("readyForDelivery") === "true";
+  const { t } = useTranslation();
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedQ(searchInput.trim()), 350);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setDebouncedQ(searchInput.trim()), 350);
+    return () => window.clearTimeout(timer);
   }, [searchInput]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -123,26 +118,33 @@ export function InvoicesPage() {
   const meta = data?.meta;
 
   const pageTitle = balanceDueMode
-    ? "فواتير بذمم مستحقة"
+    ? t("pages.invoices.titleBalance")
     : readyForDeliveryMode
-      ? "فواتير جاهزة للتسليم"
-      : "الفواتير";
+      ? t("pages.invoices.titleReady")
+      : t("pages.invoices.title");
 
   const colCount = isWorker ? 8 : 12;
 
   const pageDescription = balanceDueMode
-    ? "جميع الفواتير التي يتبقّى عليها مبلغ — غير المسددة أو المسددة جزئياً فقط."
+    ? t("pages.invoices.descBalance")
     : readyForDeliveryMode
-      ? "فواتير اكتمل فيها التفصيل (أو بدون تفصيل) ولم يُسجَّل تسليمها بعد — جاهزة للاستلام أو التوصيل."
-      : "ابحث برقم الفاتورة أو رقم الجوال — النتائج تظهر في الجدول أدناه.";
+      ? t("pages.invoices.descReady")
+      : t("pages.invoices.descAll");
 
   const emptyMessage = debouncedQ
-    ? "لا نتائج للبحث."
+    ? t("pages.invoices.emptySearch")
     : balanceDueMode
-      ? "لا توجد فواتير بذمم مستحقة حالياً."
+      ? t("pages.invoices.emptyBalance")
       : readyForDeliveryMode
-        ? "لا توجد فواتير جاهزة للتسليم حالياً."
-        : "لا فواتير بعد. أنشئ فاتورة من نقطة البيع.";
+        ? t("pages.invoices.emptyReady")
+        : t("pages.invoices.emptyDefault");
+
+  function paymentStatusLabel(inv: InvoiceListItem): string {
+    if (inv.isVoid) return t("status.payment.void");
+    if (inv.balanceFils <= 0) return t("status.payment.paid");
+    if (inv.paidFils <= 0) return t("status.payment.unpaid");
+    return t("status.payment.partial");
+  }
 
   return (
     <div className="space-y-6">
@@ -157,7 +159,7 @@ export function InvoicesPage() {
               size="sm"
               onClick={() => setListMode(setSearchParams, "all")}
             >
-              كل الفواتير
+              {t("pages.invoices.btnAll")}
             </Button>
             {!isWorker ? (
               <>
@@ -167,7 +169,7 @@ export function InvoicesPage() {
                   size="sm"
                   onClick={() => setListMode(setSearchParams, "balance")}
                 >
-                  بذمم مستحقة
+                  {t("pages.invoices.btnBalance")}
                 </Button>
                 <Button
                   type="button"
@@ -175,7 +177,7 @@ export function InvoicesPage() {
                   size="sm"
                   onClick={() => setListMode(setSearchParams, "ready")}
                 >
-                  جاهزة للتسليم
+                  {t("pages.invoices.btnReady")}
                 </Button>
               </>
             ) : null}
@@ -186,18 +188,18 @@ export function InvoicesPage() {
       {!isWorker && balanceDueMode && meta && typeof meta.totalOutstandingFils === "number" && !isLoading ? (
         <section
           className="rounded-xl border border-amber-200/90 bg-amber-50/70 p-4 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/25"
-          aria-label="ملخص الذمم"
+          aria-label={t("pages.invoices.summaryDebtTitle")}
         >
-          <h2 className="text-sm font-semibold text-amber-950 dark:text-amber-100">ملخص الذمم المستحقة</h2>
+          <h2 className="text-sm font-semibold text-amber-950 dark:text-amber-100">{t("pages.invoices.summaryDebtTitle")}</h2>
           <dl className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">إجمالي المبالغ المتبقية</dt>
+              <dt className="text-xs font-medium text-muted-foreground">{t("pages.invoices.totalOutstanding")}</dt>
               <dd className="mt-1 text-2xl font-bold tabular-nums text-amber-950 dark:text-amber-50">
                 {formatAED(meta.totalOutstandingFils)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">عدد الفواتير ذات رصيد مستحق</dt>
+              <dt className="text-xs font-medium text-muted-foreground">{t("pages.invoices.invoicesWithBalance")}</dt>
               <dd className="mt-1 text-2xl font-bold tabular-nums text-amber-950 dark:text-amber-50">
                 {meta.invoiceCountWithBalance ?? meta.total}
               </dd>
@@ -209,18 +211,18 @@ export function InvoicesPage() {
       {!isWorker && readyForDeliveryMode && meta && typeof meta.totalReadyValueFils === "number" && !isLoading ? (
         <section
           className="rounded-xl border border-emerald-200/90 bg-emerald-50/70 p-4 shadow-sm dark:border-emerald-900/50 dark:bg-emerald-950/25"
-          aria-label="ملخص الجاهز للتسليم"
+          aria-label={t("pages.invoices.summaryReadyTitle")}
         >
-          <h2 className="text-sm font-semibold text-emerald-950 dark:text-emerald-100">ملخص الجاهز للتسليم</h2>
+          <h2 className="text-sm font-semibold text-emerald-950 dark:text-emerald-100">{t("pages.invoices.summaryReadyTitle")}</h2>
           <dl className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">عدد الفواتير الجاهزة</dt>
+              <dt className="text-xs font-medium text-muted-foreground">{t("pages.invoices.readyInvoiceCount")}</dt>
               <dd className="mt-1 text-2xl font-bold tabular-nums text-emerald-950 dark:text-emerald-50">
                 {meta.readyInvoiceCount ?? meta.total}
               </dd>
             </div>
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">إجمالي قيمة الفواتير (إجمالي الفاتورة)</dt>
+              <dt className="text-xs font-medium text-muted-foreground">{t("pages.invoices.totalReadyValue")}</dt>
               <dd className="mt-1 text-2xl font-bold tabular-nums text-emerald-950 dark:text-emerald-50">
                 {formatAED(meta.totalReadyValueFils)}
               </dd>
@@ -232,12 +234,12 @@ export function InvoicesPage() {
       <section className="rounded-xl border bg-card p-4 shadow-sm">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <Search className="h-4 w-4" />
-          بحث
+          {t("pages.invoices.searchSection")}
         </h2>
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[220px] flex-1">
             <Label className="text-xs" htmlFor="invoice-search">
-              رقم فاتورة أو جوال
+              {t("pages.invoices.searchLabel")}
             </Label>
             <Input
               id="invoice-search"
@@ -245,27 +247,25 @@ export function InvoicesPage() {
               dir="ltr"
               inputMode="search"
               autoComplete="off"
-              placeholder="Search by invoice number or mobile number"
+              placeholder={t("pages.invoices.searchPlaceholder")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
-          {isFetching ? <span className="text-xs text-muted-foreground">جاري البحث…</span> : null}
+          {isFetching ? <span className="text-xs text-muted-foreground">{t("pages.invoices.searching")}</span> : null}
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          يدعم البحث الجزئي (مثل 104 أو 0507). لا حاجة لإدخال الرقم كاملاً.
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">{t("pages.invoices.searchNote")}</p>
       </section>
 
       {isError ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <p className="font-medium text-destructive">
             {isServerError(error)
-              ? "Server error loading invoices. If this persists, run database migrations (invoice schema) on the API host."
-              : getApiErrorMessage(error, "Could not load invoices.")}
+              ? t("pages.invoices.errorLoadingServer")
+              : getApiErrorMessage(error, t("pages.invoices.errorLoading"))}
           </p>
           <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => void refetch()}>
-            Retry
+            {t("pages.invoices.retry")}
           </Button>
         </div>
       ) : null}
@@ -274,31 +274,31 @@ export function InvoicesPage() {
         <table className="w-full min-w-[1100px] text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-3 py-2.5 text-left text-sm font-semibold text-foreground">رقم الفاتورة</th>
-              <th className="px-3 py-2.5 text-left text-sm font-semibold text-foreground">العميل</th>
-              <th className="px-3 py-2.5 text-left text-sm font-semibold text-foreground">الجوال</th>
-              <th className="px-3 py-2.5 text-left text-sm font-semibold text-foreground">تاريخ الفاتورة</th>
-              <th className="px-3 py-2.5 text-left text-sm font-semibold text-foreground">موعد التسليم</th>
+              <th className="px-3 py-2.5 text-start text-sm font-semibold text-foreground">{t("pages.invoices.colInvoiceNo")}</th>
+              <th className="px-3 py-2.5 text-start text-sm font-semibold text-foreground">{t("pages.invoices.colCustomer")}</th>
+              <th className="px-3 py-2.5 text-start text-sm font-semibold text-foreground">{t("pages.invoices.colMobile")}</th>
+              <th className="px-3 py-2.5 text-start text-sm font-semibold text-foreground">{t("pages.invoices.colDate")}</th>
+              <th className="px-3 py-2.5 text-start text-sm font-semibold text-foreground">{t("pages.invoices.colDeliveryDate")}</th>
               {!isWorker ? (
                 <>
-                  <th className="px-3 py-2.5 text-right text-sm font-semibold text-foreground">الإجمالي</th>
-                  <th className="px-3 py-2.5 text-right text-sm font-semibold text-foreground">المدفوع</th>
-                  <th className="px-3 py-2.5 text-right text-sm font-semibold text-foreground">المتبقي</th>
+                  <th className="px-3 py-2.5 text-end text-sm font-semibold text-foreground">{t("pages.invoices.colTotal")}</th>
+                  <th className="px-3 py-2.5 text-end text-sm font-semibold text-foreground">{t("pages.invoices.colPaid")}</th>
+                  <th className="px-3 py-2.5 text-end text-sm font-semibold text-foreground">{t("pages.invoices.colBalance")}</th>
                 </>
               ) : null}
-              <th className="px-3 py-2.5 text-left text-sm font-semibold text-foreground">حالة التشغيل</th>
+              <th className="px-3 py-2.5 text-start text-sm font-semibold text-foreground">{t("pages.invoices.colFulfillmentStatus")}</th>
               {!isWorker ? (
-                <th className="px-3 py-2.5 text-left text-sm font-semibold text-foreground">السداد</th>
+                <th className="px-3 py-2.5 text-start text-sm font-semibold text-foreground">{t("pages.invoices.colPaymentStatus")}</th>
               ) : null}
-              <th className="px-3 py-2.5 text-center text-sm font-semibold text-foreground">عرض</th>
-              <th className="px-3 py-2.5 text-center text-sm font-semibold text-foreground">التفصيل</th>
+              <th className="px-3 py-2.5 text-center text-sm font-semibold text-foreground">{t("pages.invoices.colView")}</th>
+              <th className="px-3 py-2.5 text-center text-sm font-semibold text-foreground">{t("pages.invoices.colDetails")}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={colCount} className="px-4 py-8 text-center text-muted-foreground">
-                  جاري التحميل…
+                  {t("common.loadingData")}
                 </td>
               </tr>
             ) : isError ? (
@@ -354,7 +354,7 @@ export function InvoicesPage() {
                         fulfillmentBadgeClass(inv.fulfillmentStatus),
                       )}
                     >
-                      {invoiceFulfillmentLabel(inv.fulfillmentStatus)}
+                      {t(invoiceFulfillmentKey(inv.fulfillmentStatus))}
                     </span>
                   </td>
                   {!isWorker ? (
@@ -365,7 +365,7 @@ export function InvoicesPage() {
                           paymentBadgeClass(inv),
                         )}
                       >
-                        {paymentStatusAr(inv)}
+                        {paymentStatusLabel(inv)}
                       </span>
                     </td>
                   ) : null}
@@ -375,7 +375,7 @@ export function InvoicesPage() {
                       to={`/invoices/${inv.id}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      عرض
+                      {t("pages.invoices.viewLink")}
                     </Link>
                   </td>
                   <td className="px-3 py-3 text-center">
@@ -384,7 +384,7 @@ export function InvoicesPage() {
                       to={`/invoices/${inv.id}`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      فتح العمل
+                      {t("pages.invoices.openWorkLink")}
                     </Link>
                   </td>
                 </tr>

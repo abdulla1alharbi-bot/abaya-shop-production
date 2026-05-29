@@ -1,36 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Sidebar, SidebarPanel } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { useServerNotificationStore } from "@/store/serverNotificationStore";
 
-/** Short Arabic titles for the top bar — matches sidebar wording */
-const titles: Record<string, string> = {
-  "/dashboard": "الرئيسية",
-  "/pos": "البيع — كاشير",
-  "/production": "إنتاج الموديلات",
-  "/production/samples": "تفصيل للعرض",
-  "/production/samples/performance": "أداء موديلات العرض",
-  "/invoices": "الفواتير",
-  "/ready-made": "جاهز للبيع",
-  "/ready-made/conversions": "تحويلات الجاهز",
-  "/fabrics": "مخزون القماش",
-  "/models": "موديلات التفصيل",
-  "/workers": "العمال",
-  "/payroll": "مستحقات وأجور",
-  "/customers": "العملاء",
-  "/reports": "التقارير",
-  "/accounts": "الحركة المالية",
-  "/settings": "إعدادات المحل",
-  "/workshop/capacity": "طاقة الورشة",
-  "/shifts": "الورديات",
+const titleKeys: Record<string, string> = {
+  "/dashboard": "nav.items.dashboard",
+  "/pos": "nav.items.pos",
+  "/production": "nav.items.production",
+  "/production/samples": "nav.items.productionSamples",
+  "/production/samples/performance": "nav.items.productionSamplesPerformance",
+  "/invoices": "nav.items.invoices",
+  "/ready-made": "nav.items.readyMade",
+  "/ready-made/conversions": "nav.items.readyMadeConversions",
+  "/fabrics": "nav.items.fabricsMgmt",
+  "/models": "nav.items.models",
+  "/workers": "nav.items.workers",
+  "/payroll": "nav.items.payroll",
+  "/customers": "nav.items.customers",
+  "/reports": "nav.items.reports",
+  "/accounts": "nav.items.accounts",
+  "/settings": "nav.items.settings",
+  "/workshop/capacity": "nav.items.workshopCapacity",
+  "/shifts": "pages.shifts.title",
 };
 
 export function AppLayout() {
   const location = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const fetchNotifications = useServerNotificationStore((s) => s.fetch);
+  const { t } = useTranslation();
 
   useEffect(() => {
     void fetchNotifications();
@@ -38,21 +39,20 @@ export function AppLayout() {
 
   const title = useMemo(() => {
     const path = location.pathname;
-    if (titles[path]) return titles[path];
-    const prefix = Object.keys(titles)
+    if (titleKeys[path]) return t(titleKeys[path]);
+    const prefix = Object.keys(titleKeys)
       .filter((k) => path.startsWith(k) && k !== "/dashboard")
       .sort((a, b) => b.length - a.length)[0];
-    if (prefix) return titles[prefix] ?? "محل العبايات";
-    if (path.startsWith("/customers/")) return path.includes("/new") ? "عميل جديد" : "بطاقة عميل";
-    if (path.startsWith("/invoices/")) return "تفاصيل فاتورة";
-    if (path.startsWith("/workers/")) return path.includes("/new") ? "عامل جديد" : "بطاقة عامل";
-    if (path.startsWith("/ready-made/")) return path.includes("/new") ? "منتج جاهز جديد" : "تعديل منتج جاهز";
-    if (path.startsWith("/fabrics/")) return path.includes("/new") ? "لفة قماش جديدة" : "تعديل لفة قماش";
-    if (path.startsWith("/products/")) return "منتج";
-    if (path.startsWith("/inventory/fabric-rolls/")) return "لفة قماش";
-    if (path.startsWith("/accounts/")) return "المصاريف";
-    return "محل العبايات";
-  }, [location.pathname]);
+    if (prefix) return t(titleKeys[prefix] ?? "common.shopName");
+    if (path.startsWith("/customers/")) return path.includes("/new") ? t("pages.customers.newCustomerTitle") : t("pages.customers.detailTitle");
+    if (path.startsWith("/invoices/")) return t("pages.invoices.title");
+    if (path.startsWith("/workers/")) return path.includes("/new") ? t("pages.workers.newWorkerTitle") : t("pages.workers.detailTitle");
+    if (path.startsWith("/ready-made/")) return path.includes("/new") ? t("pages.readyMade.newTitle") : t("pages.readyMade.editTitle");
+    if (path.startsWith("/fabrics/")) return path.includes("/new") ? t("pages.fabrics.newTitle") : t("pages.fabrics.editTitle");
+    if (path.startsWith("/products/")) return t("pages.products.title");
+    if (path.startsWith("/accounts/")) return t("pages.accounts.expensesTitle");
+    return t("common.shopName");
+  }, [location.pathname, t]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -60,7 +60,7 @@ export function AppLayout() {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-[280px] border-0 p-0">
           <SheetHeader className="sr-only">
-            <SheetTitle>القائمة</SheetTitle>
+            <SheetTitle>{t("topbar.openMenu")}</SheetTitle>
           </SheetHeader>
           <SidebarPanel onNavigate={() => setMobileNavOpen(false)} />
         </SheetContent>

@@ -10,6 +10,13 @@ export const SIMPLE_STATUS_LABELS_AR: Record<SimpleJobStatus, string> = {
   delivered: "تم التسليم",
 };
 
+export const SIMPLE_STATUS_KEYS: Record<SimpleJobStatus, string> = {
+  new: "status.job.new",
+  in_progress: "status.job.in_progress",
+  ready: "status.job.ready",
+  delivered: "status.job.delivered",
+};
+
 export function normalizeJobStage(s: string): string {
   if (s === "RECEIVED") return "NEW";
   return s;
@@ -64,10 +71,11 @@ export function canMarkDelivered(stage: string): boolean {
 export function paymentStatusLabel(balanceFils: number, paidFils: number): {
   key: "paid" | "unpaid" | "partial";
   label: string;
+  i18nKey: string;
 } {
-  if (balanceFils <= 0) return { key: "paid", label: "مدفوع" };
-  if (paidFils <= 0) return { key: "unpaid", label: "غير مدفوع" };
-  return { key: "partial", label: "جزئي" };
+  if (balanceFils <= 0) return { key: "paid", label: "مدفوع", i18nKey: "status.payment.paid" };
+  if (paidFils <= 0) return { key: "unpaid", label: "غير مدفوع", i18nKey: "status.payment.unpaid" };
+  return { key: "partial", label: "جزئي", i18nKey: "status.payment.partial" };
 }
 
 export function stageLabel(stage: string): string {

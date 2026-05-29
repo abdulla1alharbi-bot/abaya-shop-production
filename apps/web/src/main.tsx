@@ -5,6 +5,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import App from "./App.tsx";
 import "./index.css";
+import "@/i18n/index";
+import "@/store/langStore";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
