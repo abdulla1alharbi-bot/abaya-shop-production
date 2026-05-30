@@ -1,5 +1,4 @@
 import type { PrismaClient } from "@prisma/client";
-import { AppError } from "../middleware/error.middleware.js";
 
 export async function getVatRatePercent(prisma: PrismaClient): Promise<number> {
   const s = await prisma.setting.findUnique({ where: { key: "vat_rate" } });
@@ -11,8 +10,10 @@ export async function getDefaultBranchId(prisma: PrismaClient): Promise<string> 
   const b = await prisma.branch.findFirst({ where: { isDefault: true } });
   if (b) return b.id;
   const any = await prisma.branch.findFirst();
-  if (!any) {
-    throw new AppError(500, "No branch configured. Run database seed.", "NO_BRANCH");
-  }
-  return any.id;
+  if (any) return any.id;
+  // No branch exists — auto-create one so the app works out of the box
+  const created = await prisma.branch.create({
+    data: { name: "Main Shop", isDefault: true },
+  });
+  return created.id;
 }

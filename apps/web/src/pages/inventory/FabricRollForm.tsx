@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 
 export function FabricRollForm() {
   const { id } = useParams<{ id: string }>();
@@ -58,10 +59,7 @@ export function FabricRollForm() {
       void navigate("/fabrics");
     },
     onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err instanceof Error ? err.message : "Failed to save. Please try again.");
-      setSaveError(msg);
+      setSaveError(getApiErrorMessage(err, "Failed to save. Please try again."));
     },
   });
 

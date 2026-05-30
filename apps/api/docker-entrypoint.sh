@@ -1,8 +1,15 @@
 #!/bin/sh
 set -e
+
+PRISMA="./apps/api/node_modules/.bin/prisma"
+SCHEMA="./apps/api/prisma/schema.prisma"
+TSX="./apps/api/node_modules/.bin/tsx"
+
 echo "Pushing database schema..."
-./apps/api/node_modules/.bin/prisma db push --schema=./apps/api/prisma/schema.prisma --accept-data-loss
+"$PRISMA" db push --schema="$SCHEMA" --accept-data-loss
+
 echo "Seeding database..."
-./apps/api/node_modules/.bin/prisma db seed --schema=./apps/api/prisma/schema.prisma
+"$TSX" ./apps/api/prisma/seed.ts
+
 echo "Starting API server..."
 exec node apps/api/dist/app.js
