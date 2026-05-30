@@ -43,6 +43,9 @@ importers:
       socket.io:
         specifier: ^4.8.1
         version: 4.8.3
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
       winston:
         specifier: ^3.17.0
         version: 3.19.0
@@ -71,9 +74,6 @@ importers:
       '@types/node':
         specifier: ^22.13.10
         version: 22.19.17
-      tsx:
-        specifier: ^4.19.3
-        version: 4.21.0
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
