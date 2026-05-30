@@ -284,6 +284,7 @@ model FabricRoll {
   isActive        Boolean      @default(true)
   /// FABRIC | LACE
   category        String       @default("FABRIC")
+  imageUrl        String?
   receivedAt      DateTime     @default(now())
   transactions    FabricTransaction[]
   recipes         FabricRecipe[]

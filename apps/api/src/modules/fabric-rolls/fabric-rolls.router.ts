@@ -71,6 +71,7 @@ const rollBody = z.object({
   lowStockAt: z.number().positive().optional(),
   isActive: z.boolean().optional(),
   category: z.enum(["FABRIC", "LACE"]).optional().default("FABRIC"),
+  imageUrl: z.string().optional().nullable(),
 });
 
 fabricRollsRouter.post(
@@ -97,6 +98,7 @@ fabricRollsRouter.post(
         status: "FULL",
         isActive: body.isActive ?? true,
         category: body.category ?? "FABRIC",
+        imageUrl: body.imageUrl ?? null,
       },
       include: { branch: true },
     });
@@ -152,6 +154,7 @@ fabricRollsRouter.patch(
         availableMeters,
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
         ...(body.category !== undefined ? { category: body.category } : {}),
+        ...(body.imageUrl !== undefined ? { imageUrl: body.imageUrl } : {}),
       },
       include: { branch: true },
     });
@@ -192,6 +195,30 @@ fabricRollsRouter.post(
       return u;
     });
     res.status(200).json({ success: true, data: updated });
+  }),
+);
+
+fabricRollsRouter.delete(
+  "/:id",
+  requirePermission("fabrics.edit"),
+  asyncHandler(async (req, res) => {
+    const id = req.params.id;
+    const roll = await prisma.fabricRoll.findUnique({
+      where: { id },
+      include: { jobMaterials: true, productionBatches: true },
+    });
+    if (!roll) throw new AppError(404, "Fabric roll not found", "NOT_FOUND");
+    if (roll.usedMeters > 0) {
+      throw new AppError(400, "Cannot delete a roll that has been used in orders", "ROLL_IN_USE");
+    }
+    if (roll.jobMaterials.length > 0 || roll.productionBatches.length > 0) {
+      throw new AppError(400, "Cannot delete a roll that is linked to orders", "ROLL_IN_USE");
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.fabricTransaction.deleteMany({ where: { rollId: id } });
+      await tx.fabricRoll.delete({ where: { id } });
+    });
+    res.status(200).json({ success: true });
   }),
 );
 
