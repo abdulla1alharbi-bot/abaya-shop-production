@@ -42,6 +42,7 @@ export function FabricRollsPage() {
 
   const [tab, setTab] = useState<Tab>("FABRIC");
   const [restockRoll, setRestockRoll] = useState<Roll | null>(null);
+  const [adjustRoll, setAdjustRoll] = useState<Roll | null>(null);
   const [meters, setMeters] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -73,8 +74,32 @@ export function FabricRollsPage() {
     },
   });
 
+  const adjust = useMutation({
+    mutationFn: async ({ id, meters, reason }: { id: string; meters: number; reason: string }) => {
+      await api.post(`/fabric-rolls/${id}/adjust`, { meters, reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fabric-rolls"] });
+      setAdjustRoll(null);
+      setMeters("");
+      setReason("");
+      setError("");
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message;
+      setError(msg === "Not enough available meters" ? "الكمية المطلوبة تتجاوز المتاح." : "حدث خطأ، تحقق من البيانات وحاول مجدداً.");
+    },
+  });
+
   function openRestock(roll: Roll) {
     setRestockRoll(roll);
+    setMeters("");
+    setReason("");
+    setError("");
+  }
+
+  function openAdjust(roll: Roll) {
+    setAdjustRoll(roll);
     setMeters("");
     setReason("");
     setError("");
@@ -87,6 +112,19 @@ export function FabricRollsPage() {
       return;
     }
     restock.mutate({ id: restockRoll!.id, meters: val, reason: reason.trim() });
+  }
+
+  function handleAdjustSubmit() {
+    const val = parseFloat(meters);
+    if (!val || val <= 0) {
+      setError("أدخل كمية موجبة صحيحة.");
+      return;
+    }
+    if (val > adjustRoll!.availableMeters) {
+      setError(`لا يمكن خصم أكثر من المتاح (${adjustRoll!.availableMeters.toFixed(2)} م).`);
+      return;
+    }
+    adjust.mutate({ id: adjustRoll!.id, meters: val, reason: reason.trim() });
   }
 
   const filtered = data?.filter((r) => (r.category ?? "FABRIC") === tab) ?? [];
@@ -187,6 +225,16 @@ export function FabricRollsPage() {
                             إضافة
                           </Button>
                         )}
+                        {can("fabrics.edit") && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-red-500 hover:text-red-600"
+                            onClick={() => openAdjust(r)}
+                          >
+                            خصم
+                          </Button>
+                        )}
                         {can("fabrics.edit") ? (
                           <Button variant="link" size="sm" className="h-auto p-0" asChild>
                             <Link to={`/fabrics/${r.id}/edit`}>تعديل</Link>
@@ -203,6 +251,68 @@ export function FabricRollsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Adjust (Deduct) Dialog */}
+      <Dialog open={!!adjustRoll} onOpenChange={(open) => { if (!open) { setAdjustRoll(null); setMeters(""); setReason(""); setError(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>خصم من المخزون</DialogTitle>
+          </DialogHeader>
+          {adjustRoll && (
+            <div className="space-y-4">
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+                <p className="font-medium">{adjustRoll.name}</p>
+                <p className="text-muted-foreground">
+                  {adjustRoll.type} · {adjustRoll.color} —{" "}
+                  متاح حالياً:{" "}
+                  <span className="tabular-nums font-medium">{adjustRoll.availableMeters.toFixed(2)} م</span>
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">كمية الخصم (م) *</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  max={adjustRoll.availableMeters}
+                  value={meters}
+                  onChange={(e) => { setMeters(e.target.value); setError(""); }}
+                  placeholder={`أقصى: ${adjustRoll.availableMeters.toFixed(2)} م`}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">سبب الخصم (اختياري)</label>
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="مثال: إدخال خاطئ، تلف، إلخ"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              {meters && parseFloat(meters) > 0 && parseFloat(meters) <= adjustRoll.availableMeters && (
+                <p className="text-sm text-muted-foreground">
+                  المتاح بعد الخصم:{" "}
+                  <span className="font-semibold text-red-500 tabular-nums">
+                    {(adjustRoll.availableMeters - parseFloat(meters)).toFixed(2)} م
+                  </span>
+                </p>
+              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">إلغاء</Button>
+            </DialogClose>
+            <Button size="sm" variant="destructive" onClick={handleAdjustSubmit} disabled={adjust.isPending}>
+              {adjust.isPending ? "جاري الحفظ…" : "خصم من المخزون"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Restock Dialog */}
       <Dialog open={!!restockRoll} onOpenChange={(open) => !open && setRestockRoll(null)}>
