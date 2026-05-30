@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 
 const EXCLUDED_READY_MADE_CATEGORIES = new Set(["MODEL"]);
 
@@ -378,7 +379,7 @@ export function ProductForm() {
           </Button>
         </div>
         {save.isError ? (
-          <p className="text-sm text-destructive">Could not save product.</p>
+          <p className="text-sm text-destructive">{getApiErrorMessage(save.error)}</p>
         ) : null}
       </form>
     </div>

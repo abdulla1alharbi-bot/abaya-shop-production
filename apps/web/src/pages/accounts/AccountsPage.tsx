@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { formatAED } from "@/lib/money";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -117,6 +118,9 @@ export function AccountsPage() {
           >
             {addIncome.isPending ? "…" : t("common.save")}
           </Button>
+          {addIncome.isError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(addIncome.error)}</p>
+          ) : null}
         </div>
       ) : null}
     </div>

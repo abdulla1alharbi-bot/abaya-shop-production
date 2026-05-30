@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function SettingsPage() {
@@ -176,6 +177,7 @@ export function SettingsPage() {
           {save.isPending ? "…" : t("common.save")}
         </Button>
         {save.isSuccess ? <p className="text-sm text-green-700">{t("settings.saveSuccess")}</p> : null}
+        {save.isError ? <p className="text-sm text-destructive">{getApiErrorMessage(save.error)}</p> : null}
         {!can("settings.manage") ? (
           <p className="text-xs text-muted-foreground">{t("settings.viewOnly")}</p>
         ) : null}

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { WORK_TYPES } from "@abaya-shop/shared";
 import { workTypeLabel } from "@/lib/jobOrderUi";
 
@@ -254,10 +255,16 @@ export function WorkerForm() {
               </div>
             ))}
           </div>
+          {deleteRate.isError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(deleteRate.error)}</p>
+          ) : null}
           <AddRateForm
             onAdd={(workType, rateAed) => addPieceRate.mutate({ workType, rateAed })}
             disabled={addPieceRate.isPending}
           />
+          {addPieceRate.isError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(addPieceRate.error)}</p>
+          ) : null}
         </section>
       ) : null}
     </div>

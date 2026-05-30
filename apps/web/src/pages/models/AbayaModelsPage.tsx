@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { AbayaCatalogType } from "@/lib/abayaTailoringCatalog";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -311,6 +312,7 @@ export function AbayaModelsPage() {
 
   const openCreate = () => {
     if (!canCreate) return;
+    saveMutation.reset();
     resetImagePicker();
     setEditing(null);
     setStagePick(defaultStages());
@@ -330,6 +332,7 @@ export function AbayaModelsPage() {
 
   const openEdit = (row: AbayaModelRow) => {
     if (!canEditModel) return;
+    saveMutation.reset();
     resetImagePicker();
     setEditing(row);
     setStagePick(parseStages(row.workflowStagesJson));
@@ -490,6 +493,12 @@ export function AbayaModelsPage() {
           </button>
         ))}
       </div>
+
+      {deactivateMutation.isError ? (
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {getApiErrorMessage(deactivateMutation.error, "تعذّر إيقاف العنصر.")}
+        </p>
+      ) : null}
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">جاري التحميل…</p>

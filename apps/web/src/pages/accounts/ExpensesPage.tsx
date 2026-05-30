@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -14,6 +16,7 @@ export function ExpensesPage() {
   const { can } = usePermissions();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const { data: categories } = useQuery({
     queryKey: ["expense-categories"],
@@ -61,6 +64,11 @@ export function ExpensesPage() {
       void queryClient.invalidateQueries({ queryKey: ["expenses"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard", "stats"] });
       void queryClient.invalidateQueries({ queryKey: ["reports"] });
+      if (formRef.current) {
+        formRef.current.reset();
+        const dateEl = formRef.current.querySelector<HTMLInputElement>('[name="date"]');
+        if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
+      }
     },
   });
 
@@ -84,14 +92,12 @@ export function ExpensesPage() {
       />
 
       <form
+        ref={formRef}
         className="space-y-3 rounded-lg border bg-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
           if (!can("expenses.create")) return;
           create.mutate(new FormData(e.currentTarget));
-          (e.currentTarget as HTMLFormElement).reset();
-          const dateEl = (e.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>('[name="date"]');
-          if (dateEl) dateEl.value = todayStr;
         }}
       >
         <div className="grid gap-2 sm:grid-cols-2">
@@ -146,6 +152,9 @@ export function ExpensesPage() {
         <Button type="submit" size="sm" disabled={create.isPending || !can("expenses.create")}>
           {create.isPending ? "…" : t("expenses.submitBtn")}
         </Button>
+        {create.isError ? (
+          <p className="text-sm text-destructive">{getApiErrorMessage(create.error)}</p>
+        ) : null}
         {!can("expenses.create") ? (
           <p className="text-xs text-muted-foreground">{t("expenses.noPermission")}</p>
         ) : null}

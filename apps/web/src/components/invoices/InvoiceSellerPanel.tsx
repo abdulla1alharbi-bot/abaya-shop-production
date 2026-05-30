@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { formatAED } from "@/lib/money";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -176,6 +177,9 @@ export function InvoiceSellerPanel({
               {saveDue.isPending ? "…" : "Save date"}
             </Button>
           </div>
+          {saveDue.isError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(saveDue.error)}</p>
+          ) : null}
         </div>
       ) : null}
 

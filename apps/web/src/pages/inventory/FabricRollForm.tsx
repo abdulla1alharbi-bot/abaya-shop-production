@@ -1,3 +1,4 @@
+import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -11,6 +12,7 @@ export function FabricRollForm() {
   const isNew = !id;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [saveError, setSaveError] = React.useState<string | null>(null);
 
   const { data: branches } = useQuery({
     queryKey: ["branches"],
@@ -51,8 +53,15 @@ export function FabricRollForm() {
       }
     },
     onSuccess: () => {
+      setSaveError(null);
       void queryClient.invalidateQueries({ queryKey: ["fabric-rolls"] });
       void navigate("/fabrics");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err instanceof Error ? err.message : "Failed to save. Please try again.");
+      setSaveError(msg);
     },
   });
 
@@ -72,6 +81,7 @@ export function FabricRollForm() {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
+          setSaveError(null);
           save.mutate(new FormData(e.currentTarget));
         }}
       >
@@ -188,6 +198,11 @@ export function FabricRollForm() {
           />
           نشط (يظهر في اختيار القماش للتفصيل)
         </label>
+        {saveError && (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {saveError}
+          </p>
+        )}
         <div className="flex gap-2">
           <Button type="submit" disabled={save.isPending}>
             {save.isPending ? "Saving…" : "Save"}

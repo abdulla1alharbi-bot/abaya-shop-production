@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function CustomerForm() {
@@ -80,7 +81,7 @@ export function CustomerForm() {
             <Link to="/customers">{t("common.cancel")}</Link>
           </Button>
         </div>
-        {save.isError ? <p className="text-sm text-destructive">{t("pages.customers.formSaveFailed")}</p> : null}
+        {save.isError ? <p className="text-sm text-destructive">{getApiErrorMessage(save.error)}</p> : null}
       </form>
     </div>
   );

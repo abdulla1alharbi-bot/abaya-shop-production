@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import {
   isPieceOverdueForInvoice,
   labelForWorkStageKey,
@@ -871,6 +872,11 @@ export function InvoiceDetail() {
                           >
                             {convertToReady.isPending ? "..." : "تحويل إلى جاهز"}
                           </Button>
+                        ) : null}
+                        {convertToReady.isError ? (
+                          <p className="mt-1 text-xs text-destructive">
+                            {getApiErrorMessage(convertToReady.error, "تعذّر التحويل.")}
+                          </p>
                         ) : null}
                       </div>
                     ) : null}
