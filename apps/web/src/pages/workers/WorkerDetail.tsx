@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { workTypeLabel } from "@/lib/jobOrderUi";
 export function WorkerDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [payoutAed, setPayoutAed] = useState("");
   const [payoutMethod, setPayoutMethod] = useState("CASH");
   const [payoutNotes, setPayoutNotes] = useState("");
@@ -71,7 +73,7 @@ export function WorkerDetail() {
   const addPayout = useMutation({
     mutationFn: async () => {
       const amountFils = Math.round((parseFloat(payoutAed) || 0) * 100);
-      if (amountFils <= 0) throw new Error("أدخل مبلغاً صحيحاً");
+      if (amountFils <= 0) throw new Error(t("workers.errorInvalidAmount"));
       await api.post(`/workers/${id}/payouts`, {
         amountFils,
         method: payoutMethod,
@@ -89,8 +91,8 @@ export function WorkerDetail() {
   const addAdjustment = useMutation({
     mutationFn: async () => {
       const amountFils = Math.round((parseFloat(adjAed) || 0) * 100);
-      if (amountFils === 0) throw new Error("أدخل مبلغاً غير صفر");
-      if (!adjReason.trim()) throw new Error("أدخل سبب التعديل");
+      if (amountFils === 0) throw new Error(t("workers.errorNonZeroAmount"));
+      if (!adjReason.trim()) throw new Error(t("workers.errorReasonRequired"));
       await api.post(`/workers/${id}/adjustments`, {
         amountFils,
         reason: adjReason.trim(),
@@ -138,8 +140,8 @@ export function WorkerDetail() {
   if (isLoading || !data) {
     return (
       <div>
-        <PageHeader title="عامل" />
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <PageHeader title={t("workers.workerLabel")} />
+        <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
       </div>
     );
   }
@@ -159,7 +161,7 @@ export function WorkerDetail() {
   try {
     if (data.specializations) {
       const p = JSON.parse(String(data.specializations));
-      if (Array.isArray(p)) specsDisplay = p.map((x: string) => workTypeLabel(x)).join("، ");
+      if (Array.isArray(p)) specsDisplay = p.map((x: string) => workTypeLabel(x, t)).join(", ");
     }
   } catch {
     specsDisplay = String(data.specializations ?? "—");
@@ -169,14 +171,14 @@ export function WorkerDetail() {
     <div className="space-y-8">
       <PageHeader
         title={String(data.name)}
-        description={`${String(data.role)} — ${data.phone ? String(data.phone) : "بدون جوال"}`}
+        description={`${String(data.role)} — ${data.phone ? String(data.phone) : t("common.noPhone")}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/workers/${id}/edit`}>تعديل البيانات والأسعار</Link>
+              <Link to={`/workers/${id}/edit`}>{t("workers.editDataBtn")}</Link>
             </Button>
             <Link to="/workers" className="text-sm text-brand-700 underline">
-              رجوع للقائمة
+              {t("common.backToList")}
             </Link>
           </div>
         }
@@ -184,32 +186,30 @@ export function WorkerDetail() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border bg-card p-4">
-          <h2 className="mb-3 font-semibold">ملخص المستحقات (كل الفترات)</h2>
+          <h2 className="mb-3 font-semibold">{t("workers.balanceSummaryTitle")}</h2>
           <ul className="space-y-2 text-sm">
             <li className="flex justify-between">
-              <span className="text-muted-foreground">إجمالي أجور القطع المسجّلة</span>
+              <span className="text-muted-foreground">{t("workers.totalEarned")}</span>
               <span className="font-medium">{formatAED(balance.earnedFils)}</span>
             </li>
             <li className="flex justify-between">
-              <span className="text-muted-foreground">تعديلات يدوية (±)</span>
+              <span className="text-muted-foreground">{t("workers.manualAdjustments")}</span>
               <span className="font-medium">{formatAED(balance.adjustmentFils)}</span>
             </li>
             <li className="flex justify-between">
-              <span className="text-muted-foreground">دفعات للعامل</span>
+              <span className="text-muted-foreground">{t("workers.payoutsToWorker")}</span>
               <span className="font-medium">{formatAED(balance.payoutFils)}</span>
             </li>
             <li className="flex justify-between border-t pt-2 text-lg font-bold text-amber-900 dark:text-amber-100">
-              <span>المتبقي المستحق</span>
+              <span>{t("workers.remainingDue")}</span>
               <span>{formatAED(balance.dueFils)}</span>
             </li>
           </ul>
-          <p className="mt-2 text-xs text-muted-foreground">
-            المتبقي = الأجور + التعديلات − الدفعات. سجّل دفعة عند دفع كاش أو تحويل للعامل.
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">{t("workers.balanceNote")}</p>
         </section>
 
         <section className="rounded-xl border bg-card p-4">
-          <h2 className="mb-2 font-semibold">الفترة المحددة</h2>
+          <h2 className="mb-2 font-semibold">{t("workers.periodTitle")}</h2>
           <div className="mb-3 flex flex-wrap gap-2">
             <Input type="date" className="h-9 w-[140px]" value={from} onChange={(e) => setFrom(e.target.value)} />
             <Input type="date" className="h-9 w-[140px]" value={to} onChange={(e) => setTo(e.target.value)} />
@@ -217,33 +217,33 @@ export function WorkerDetail() {
           {rangeSummary ? (
             <ul className="space-y-1 text-sm">
               <li className="flex justify-between">
-                <span className="text-muted-foreground">أجور في الفترة</span>
+                <span className="text-muted-foreground">{t("workers.wagesInPeriod")}</span>
                 <span>{formatAED(rangeSummary.earnedFils)}</span>
               </li>
               <li className="flex justify-between">
-                <span className="text-muted-foreground">عدد السجلات (قطع/مهام)</span>
+                <span className="text-muted-foreground">{t("workers.recordsInPeriod")}</span>
                 <span>{rangeSummary.taskCount}</span>
               </li>
               <li className="flex justify-between font-medium">
-                <span className="text-muted-foreground">صافي الفترة (بعد دفعات/تعديلات الفترة)</span>
+                <span className="text-muted-foreground">{t("workers.netPeriod")}</span>
                 <span>{formatAED(rangeSummary.dueFils)}</span>
               </li>
             </ul>
           ) : (
-            <p className="text-xs text-muted-foreground">اختر تواريخاً لعرض ملخص الفترة.</p>
+            <p className="text-xs text-muted-foreground">{t("workers.selectDates")}</p>
           )}
         </section>
       </div>
 
       <section className="rounded-xl border bg-muted/30 p-4">
-        <h2 className="mb-2 font-semibold">بيانات إضافية</h2>
+        <h2 className="mb-2 font-semibold">{t("workers.extraInfoTitle")}</h2>
         <p className="text-sm">
-          <span className="text-muted-foreground">التخصص: </span>
+          <span className="text-muted-foreground">{t("workers.specialty")}</span>
           {specsDisplay}
         </p>
         {data.notes ? (
           <p className="mt-2 text-sm whitespace-pre-wrap">
-            <span className="text-muted-foreground">ملاحظات: </span>
+            <span className="text-muted-foreground">{t("workers.notes")}</span>
             {String(data.notes)}
           </p>
         ) : null}
@@ -251,11 +251,11 @@ export function WorkerDetail() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border bg-card p-4">
-          <h2 className="mb-2 font-semibold">تسجيل دفعة للعامل</h2>
+          <h2 className="mb-2 font-semibold">{t("workers.recordPayoutTitle")}</h2>
           <div className="flex flex-wrap gap-2">
             <Input
               className="h-9 w-28"
-              placeholder="مبلغ AED"
+              placeholder={t("workers.amountPlaceholder")}
               value={payoutAed}
               onChange={(e) => setPayoutAed(e.target.value)}
             />
@@ -264,17 +264,17 @@ export function WorkerDetail() {
               value={payoutMethod}
               onChange={(e) => setPayoutMethod(e.target.value)}
             >
-              <option value="CASH">كاش</option>
-              <option value="TRANSFER">تحويل</option>
+              <option value="CASH">{t("common.cash")}</option>
+              <option value="TRANSFER">{t("common.transfer")}</option>
             </select>
             <Input
               className="h-9 flex-1 min-w-[120px]"
-              placeholder="ملاحظة"
+              placeholder={t("workers.notePlaceholder")}
               value={payoutNotes}
               onChange={(e) => setPayoutNotes(e.target.value)}
             />
             <Button type="button" size="sm" disabled={addPayout.isPending} onClick={() => addPayout.mutate()}>
-              تسجيل دفعة
+              {t("workers.recordPayout")}
             </Button>
           </div>
           {addPayout.isError ? (
@@ -283,10 +283,8 @@ export function WorkerDetail() {
         </section>
 
         <section className="rounded-xl border bg-card p-4">
-          <h2 className="mb-2 font-semibold">تعديل يدوي على الرصيد</h2>
-          <p className="mb-2 text-xs text-muted-foreground">
-            موجب = نزيد المستحقات (مكافأة)، سالب = ننقصها (خصم متفق عليه).
-          </p>
+          <h2 className="mb-2 font-semibold">{t("workers.manualAdjTitle")}</h2>
+          <p className="mb-2 text-xs text-muted-foreground">{t("workers.manualAdjNote")}</p>
           <div className="flex flex-wrap gap-2">
             <Input
               className="h-9 w-28"
@@ -296,12 +294,12 @@ export function WorkerDetail() {
             />
             <Input
               className="h-9 flex-1 min-w-[140px]"
-              placeholder="السبب"
+              placeholder={t("workers.reasonPlaceholder")}
               value={adjReason}
               onChange={(e) => setAdjReason(e.target.value)}
             />
             <Button type="button" size="sm" disabled={addAdjustment.isPending} onClick={() => addAdjustment.mutate()}>
-              إضافة
+              {t("common.add")}
             </Button>
           </div>
           {addAdjustment.isError ? (
@@ -311,15 +309,15 @@ export function WorkerDetail() {
       </div>
 
       <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 font-semibold">سجل الدفعات</h2>
+        <h2 className="mb-2 font-semibold">{t("workers.payoutsLogTitle")}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-2 py-2 text-start">التاريخ</th>
-                <th className="px-2 py-2 text-end">المبلغ</th>
-                <th className="px-2 py-2 text-start">طريقة</th>
-                <th className="px-2 py-2 text-start">ملاحظة</th>
+                <th className="px-2 py-2 text-start">{t("workers.colDate")}</th>
+                <th className="px-2 py-2 text-end">{t("workers.colAmount")}</th>
+                <th className="px-2 py-2 text-start">{t("workers.colMethod")}</th>
+                <th className="px-2 py-2 text-start">{t("workers.colNote")}</th>
                 <th className="px-2 py-2" />
               </tr>
             </thead>
@@ -327,7 +325,7 @@ export function WorkerDetail() {
               {payouts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-2 py-6 text-center text-muted-foreground">
-                    لا دفعات مسجّلة.
+                    {t("workers.noPayouts")}
                   </td>
                 </tr>
               ) : (
@@ -344,10 +342,10 @@ export function WorkerDetail() {
                         size="sm"
                         className="text-destructive"
                         onClick={() => {
-                          if (confirm("حذف سجل الدفعة؟")) deletePayout.mutate(String(p.id));
+                          if (confirm(t("workers.confirmDeletePayout"))) deletePayout.mutate(String(p.id));
                         }}
                       >
-                        حذف
+                        {t("common.delete")}
                       </Button>
                     </td>
                   </tr>
@@ -359,10 +357,10 @@ export function WorkerDetail() {
       </section>
 
       <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 font-semibold">التعديلات اليدوية</h2>
+        <h2 className="mb-2 font-semibold">{t("workers.adjustmentsTitle")}</h2>
         <ul className="space-y-2 text-sm">
           {adjustments.length === 0 ? (
-            <li className="text-muted-foreground">لا تعديلات.</li>
+            <li className="text-muted-foreground">{t("workers.noAdjustments")}</li>
           ) : (
             adjustments.map((a) => (
               <li key={String(a.id)} className="flex justify-between gap-2 border-b pb-2">
@@ -378,22 +376,22 @@ export function WorkerDetail() {
       </section>
 
       <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 font-semibold">طلبات مُعيَّن عليها</h2>
+        <h2 className="mb-2 font-semibold">{t("workers.assignmentsTitle")}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-2 py-2 text-start">طلب</th>
-                <th className="px-2 py-2 text-start">الدور</th>
-                <th className="px-2 py-2 text-start">المرحلة</th>
-                <th className="px-2 py-2 text-start">التسليم</th>
+                <th className="px-2 py-2 text-start">{t("workers.colOrder")}</th>
+                <th className="px-2 py-2 text-start">{t("workers.colRole")}</th>
+                <th className="px-2 py-2 text-start">{t("workers.colStage")}</th>
+                <th className="px-2 py-2 text-start">{t("workers.colDelivery")}</th>
               </tr>
             </thead>
             <tbody>
               {assignments.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-2 py-6 text-center text-muted-foreground">
-                    لا تعيينات من طلبات التفصيل.
+                    {t("workers.noAssignments")}
                   </td>
                 </tr>
               ) : (
@@ -420,7 +418,7 @@ export function WorkerDetail() {
                         </Link>
                         <div className="text-xs text-muted-foreground">{job.customer?.name}</div>
                       </td>
-                      <td className="px-2 py-2">{workTypeLabel(String(a.workType))}</td>
+                      <td className="px-2 py-2">{workTypeLabel(String(a.workType), t)}</td>
                       <td className="px-2 py-2">{JOB_STAGE_LABELS[job.stage] ?? job.stage}</td>
                       <td className="px-2 py-2 whitespace-nowrap">
                         {new Date(job.dueDate).toLocaleDateString()}
@@ -435,14 +433,12 @@ export function WorkerDetail() {
       </section>
 
       <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 font-semibold">تسجيل عمل منجز (قطعة / أجور)</h2>
-        <p className="mb-3 text-xs text-muted-foreground">
-          يُفضّل الربط برقم الطلب إن وُجد؛ يمكن ترك الطلب فارغاً لعمل عام.
-        </p>
+        <h2 className="mb-2 font-semibold">{t("workers.recordLaborTitle")}</h2>
+        <p className="mb-3 text-xs text-muted-foreground">{t("workers.recordLaborNote")}</p>
         <div className="flex flex-wrap items-end gap-2">
           <Input
             className="h-9 w-36 font-mono text-xs"
-            placeholder="معرّف الطلب (اختياري)"
+            placeholder={t("workers.jobIdPlaceholder")}
             value={laborForm.jobOrderId}
             onChange={(e) => setLaborForm((f) => ({ ...f, jobOrderId: e.target.value }))}
           />
@@ -453,30 +449,30 @@ export function WorkerDetail() {
           >
             {WORK_TYPES.map((wt) => (
               <option key={wt} value={wt}>
-                {workTypeLabel(wt)}
+                {workTypeLabel(wt, t)}
               </option>
             ))}
           </select>
           <Input
             className="h-9 w-14"
-            placeholder="كم"
+            placeholder={t("workers.qtyPlaceholder")}
             value={laborForm.qty}
             onChange={(e) => setLaborForm((f) => ({ ...f, qty: e.target.value }))}
           />
           <Input
             className="h-9 w-24"
-            placeholder="سعر القطعة"
+            placeholder={t("workers.piecePricePlaceholder")}
             value={laborForm.rateAed}
             onChange={(e) => setLaborForm((f) => ({ ...f, rateAed: e.target.value }))}
           />
           <Input
             className="h-9 flex-1 min-w-[100px]"
-            placeholder="ملاحظة"
+            placeholder={t("workers.notePlaceholder")}
             value={laborForm.notes}
             onChange={(e) => setLaborForm((f) => ({ ...f, notes: e.target.value }))}
           />
           <Button type="button" size="sm" disabled={addLabor.isPending} onClick={() => addLabor.mutate()}>
-            تسجيل
+            {t("workers.recordBtn")}
           </Button>
         </div>
         {addLabor.isError ? (
@@ -485,23 +481,23 @@ export function WorkerDetail() {
       </section>
 
       <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-2 font-semibold">سجل الأجور (إنتاج)</h2>
+        <h2 className="mb-2 font-semibold">{t("workers.wagesLogTitle")}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-2 py-2 text-start">التاريخ</th>
-                <th className="px-2 py-2 text-start">الطلب</th>
-                <th className="px-2 py-2 text-start">النوع</th>
-                <th className="px-2 py-2 text-end">الكمية</th>
-                <th className="px-2 py-2 text-end">الأجور</th>
+                <th className="px-2 py-2 text-start">{t("workers.colDate")}</th>
+                <th className="px-2 py-2 text-start">{t("workers.colOrder")}</th>
+                <th className="px-2 py-2 text-start">{t("workers.colType")}</th>
+                <th className="px-2 py-2 text-end">{t("workers.colQty")}</th>
+                <th className="px-2 py-2 text-end">{t("workers.colWages")}</th>
               </tr>
             </thead>
             <tbody>
               {productions.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-2 py-8 text-center text-muted-foreground">
-                    لا سجلات بعد.
+                    {t("workers.noRecords")}
                   </td>
                 </tr>
               ) : (
@@ -530,7 +526,7 @@ export function WorkerDetail() {
                           "—"
                         )}
                       </td>
-                      <td className="px-2 py-2">{workTypeLabel(String(p.workType))}</td>
+                      <td className="px-2 py-2">{workTypeLabel(String(p.workType), t)}</td>
                       <td className="px-2 py-2 text-end">{String(p.qty)}</td>
                       <td className="px-2 py-2 text-end font-medium">{formatAED(p.totalFils as number)}</td>
                     </tr>

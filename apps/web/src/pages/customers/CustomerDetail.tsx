@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,26 +16,30 @@ type CustomerNoteRow = {
   author: { id: string; name: string; username: string };
 };
 
-function tierBadge(tier: string): { label: string; cls: string } {
-  if (tier === "GOLD")
+function useTierBadge() {
+  const { t } = useTranslation();
+  return (tier: string): { label: string; cls: string } => {
+    if (tier === "GOLD")
+      return {
+        label: t("customerTiers.gold"),
+        cls: "bg-yellow-100 text-yellow-900 border-yellow-400 dark:bg-yellow-950/40 dark:text-yellow-200",
+      };
+    if (tier === "SILVER")
+      return {
+        label: t("customerTiers.silver"),
+        cls: "bg-zinc-200 text-zinc-900 border-zinc-400 dark:bg-zinc-800 dark:text-zinc-200",
+      };
     return {
-      label: "🏆 ذهبي",
-      cls: "bg-yellow-100 text-yellow-900 border-yellow-400 dark:bg-yellow-950/40 dark:text-yellow-200",
+      label: t("customerTiers.bronze"),
+      cls: "bg-orange-100 text-orange-900 border-orange-400 dark:bg-orange-950/40 dark:text-orange-200",
     };
-  if (tier === "SILVER")
-    return {
-      label: "🥈 فضي",
-      cls: "bg-zinc-200 text-zinc-900 border-zinc-400 dark:bg-zinc-800 dark:text-zinc-200",
-    };
-  return {
-    label: "🥉 برونزي",
-    cls: "bg-orange-100 text-orange-900 border-orange-400 dark:bg-orange-950/40 dark:text-orange-200",
   };
 }
 
 export function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const tierBadge = useTierBadge();
   const [newNote, setNewNote] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -92,11 +97,13 @@ export function CustomerDetail() {
 
   if (!id) return null;
 
+  const { t } = useTranslation();
+
   if (isLoading || !data) {
     return (
       <div>
-        <PageHeader title="عميل" />
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <PageHeader title={t("pages.customers.detailTitle")} />
+        <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
       </div>
     );
   }
@@ -191,7 +198,7 @@ export function CustomerDetail() {
                   {["shoulder", "chest", "waist", "hip", "length", "sleeve"].map((k) =>
                     m[k] != null ? (
                       <span key={k}>
-                        {k}: {String(m[k])}
+                        {t(`measurements.${k}`)}: {String(m[k])}
                       </span>
                     ) : null,
                   )}
@@ -217,12 +224,12 @@ export function CustomerDetail() {
             <Input id="mlabel" name="mlabel" placeholder="مثال: مقاس رسمي / صيف 2025" className="mt-1" />
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <Input name="shoulder" placeholder="كتف" type="number" step={0.1} />
-            <Input name="chest" placeholder="صدر" type="number" step={0.1} />
-            <Input name="waist" placeholder="وسط" type="number" step={0.1} />
-            <Input name="hip" placeholder="ورك" type="number" step={0.1} />
-            <Input name="length" placeholder="طول" type="number" step={0.1} />
-            <Input name="sleeve" placeholder="كم" type="number" step={0.1} />
+            <Input name="shoulder" placeholder={t("measurements.shoulder")} type="number" step={0.1} />
+            <Input name="chest" placeholder={t("measurements.chest")} type="number" step={0.1} />
+            <Input name="waist" placeholder={t("measurements.waist")} type="number" step={0.1} />
+            <Input name="hip" placeholder={t("measurements.hip")} type="number" step={0.1} />
+            <Input name="length" placeholder={t("measurements.length")} type="number" step={0.1} />
+            <Input name="sleeve" placeholder={t("measurements.sleeve")} type="number" step={0.1} />
           </div>
           <div>
             <Label htmlFor="mnotes">ملاحظات القياس</Label>

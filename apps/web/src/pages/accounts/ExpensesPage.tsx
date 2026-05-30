@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function ExpensesPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const { data: categories } = useQuery({
@@ -67,15 +69,15 @@ export function ExpensesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <PageHeader
-        title="المصاريف"
-        description="سجّل مصروفاً تشغيلياً بسرعة: فئة، عنوان، مبلغ، وتاريخ."
+        title={t("expenses.title")}
+        description={t("expenses.description")}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/accounts">الحركة المالية</Link>
+              <Link to="/accounts">{t("expenses.btnAccounts")}</Link>
             </Button>
             <Button variant="secondary" size="sm" asChild>
-              <Link to="/reports">التقارير</Link>
+              <Link to="/reports">{t("expenses.btnReports")}</Link>
             </Button>
           </div>
         }
@@ -94,14 +96,14 @@ export function ExpensesPage() {
       >
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <Label htmlFor="categoryId">الفئة</Label>
+            <Label htmlFor="categoryId">{t("expenses.categoryLabel")}</Label>
             <select
               id="categoryId"
               name="categoryId"
               required
               className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="">— اختر —</option>
+              <option value="">{t("expenses.categoryPlaceholder")}</option>
               {categories?.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -110,22 +112,22 @@ export function ExpensesPage() {
             </select>
           </div>
           <div>
-            <Label htmlFor="amount">المبلغ (درهم)</Label>
+            <Label htmlFor="amount">{t("expenses.amountLabel")}</Label>
             <Input id="amount" name="amount" type="number" step={0.01} min={0.01} required className="mt-1" />
           </div>
         </div>
         <div>
-          <Label htmlFor="description">عنوان المصروف</Label>
+          <Label htmlFor="description">{t("expenses.descriptionLabel")}</Label>
           <Input
             id="description"
             name="description"
             required
-            placeholder="مثلاً: إيجار يناير، كهرباء الشهر، شراء قماش…"
+            placeholder={t("expenses.descriptionPlaceholder")}
             className="mt-1"
           />
         </div>
         <div>
-          <Label htmlFor="notes">ملاحظات (اختياري)</Label>
+          <Label htmlFor="notes">{t("expenses.notesLabel")}</Label>
           <textarea
             id="notes"
             name="notes"
@@ -134,45 +136,45 @@ export function ExpensesPage() {
               "mt-1 flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
               "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
-            placeholder="تفاصيل إضافية، مرجع، مورد…"
+            placeholder={t("expenses.notesPlaceholder")}
           />
         </div>
         <div className="grid gap-2 sm:max-w-xs">
-          <Label htmlFor="date">تاريخ المصروف</Label>
+          <Label htmlFor="date">{t("expenses.dateLabel")}</Label>
           <Input id="date" name="date" type="date" required className="mt-1" defaultValue={todayStr} />
         </div>
         <Button type="submit" size="sm" disabled={create.isPending || !can("expenses.create")}>
-          {create.isPending ? "…" : "تسجيل مصروف"}
+          {create.isPending ? "…" : t("expenses.submitBtn")}
         </Button>
         {!can("expenses.create") ? (
-          <p className="text-xs text-muted-foreground">لا تملك صلاحية تسجيل مصروف جديد.</p>
+          <p className="text-xs text-muted-foreground">{t("expenses.noPermission")}</p>
         ) : null}
       </form>
 
       <div>
-        <h2 className="mb-2 text-sm font-medium text-muted-foreground">آخر المصاريف</h2>
+        <h2 className="mb-2 text-sm font-medium text-muted-foreground">{t("expenses.recentTitle")}</h2>
         <div className="overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/40">
               <tr>
-                <th className="px-4 py-3 text-start font-medium">التاريخ</th>
-                <th className="px-4 py-3 text-start font-medium">الفئة</th>
-                <th className="px-4 py-3 text-start font-medium">العنوان</th>
-                <th className="px-4 py-3 text-start font-medium">ملاحظات</th>
-                <th className="px-4 py-3 text-end font-medium">المبلغ</th>
+                <th className="px-4 py-3 text-start font-medium">{t("expenses.colDate")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("expenses.colCategory")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("expenses.colDescription")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("workers.colNote")}</th>
+                <th className="px-4 py-3 text-end font-medium">{t("expenses.colAmount")}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                    جاري التحميل…
+                    {t("common.loadingData")}
                   </td>
                 </tr>
               ) : !rows?.length ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                    لا مصاريف مسجّلة.
+                    {t("expenses.emptyMessage")}
                   </td>
                 </tr>
               ) : (

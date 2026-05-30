@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ type SampleRow = {
 export function SampleTailoringPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const setTailoringDraft = useCartStore((s) => s.setTailoringDraft);
   const setEditingTailoringId = useCartStore((s) => s.setEditingTailoringId);
   const [modelId, setModelId] = useState("");
@@ -116,8 +118,8 @@ export function SampleTailoringPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="تفصيل للعرض"
-        description="إنشاء نموذج عرض (Showroom Model) بدون عميل، مع تتبع أجور التنفيذ واستخدامه كمرجع تفصيل فقط."
+        title={t("production.samplesTitle")}
+        description={t("production.samplesDesc", { defaultValue: "Create a showroom model without a customer, tracking production wages." })}
       />
 
       <section className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-5">

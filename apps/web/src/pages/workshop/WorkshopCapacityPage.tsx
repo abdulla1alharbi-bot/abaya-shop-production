@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Clock, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { JOB_STAGE_LABELS } from "@abaya-shop/shared";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { api } from "@/lib/api";
+import { useLangStore } from "@/store/langStore";
 
 type WorkshopCapacity = {
   overall: {
@@ -29,50 +31,53 @@ type WorkshopCapacity = {
 };
 
 export function WorkshopCapacityPage() {
+  const { t } = useTranslation();
+  const { lang } = useLangStore();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["workshop", "capacity"],
     queryFn: async () => {
       const res = await api.get<{ success: boolean; data: WorkshopCapacity }>("/job-process/workshop/capacity");
       return res.data.data;
     },
-    refetchInterval: 60_000, // refresh every minute
+    refetchInterval: 60_000,
   });
 
+  const dateLocale = lang === "ar" ? "ar-AE" : "en-AE";
+
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6">
       <PageHeader
-        title="طاقة الورشة"
-        description="عرض لحظي لأحمال العمل لكل عامل في الورشة — يحدّث تلقائياً كل دقيقة."
+        title={t("workshop.capacityTitle")}
+        description={t("workshop.capacityDesc")}
       />
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
       ) : isError || !data ? (
-        <p className="text-sm text-destructive">تعذّر تحميل بيانات الطاقة.</p>
+        <p className="text-sm text-destructive">{t("workshop.errorLoading")}</p>
       ) : (
         <>
-          {/* Overall stats */}
           <section>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
-                title="إجمالي الطلبات النشطة"
+                title={t("workshop.totalActive")}
                 value={String(data.overall.totalActive)}
                 icon={<Activity className="h-4 w-4" />}
               />
               <StatCard
-                title="جاهز للتسليم"
+                title={t("workshop.readyDelivery")}
                 value={String(data.overall.totalReady)}
                 icon={<CheckCircle2 className="h-4 w-4" />}
                 className="border-green-400"
               />
               <StatCard
-                title="في فحص الجودة"
+                title={t("workshop.qualityCheck")}
                 value={String(data.overall.totalInInspection)}
                 icon={<Search className="h-4 w-4" />}
                 className="border-purple-400"
               />
               <StatCard
-                title="طلبات متأخرة"
+                title={t("workshop.overdue")}
                 value={String(data.overall.totalOverdue)}
                 icon={<AlertTriangle className="h-4 w-4" />}
                 className={data.overall.totalOverdue > 0 ? "border-red-400 bg-red-50/40 dark:bg-red-950/20" : ""}
@@ -80,9 +85,8 @@ export function WorkshopCapacityPage() {
             </div>
           </section>
 
-          {/* Per-worker grid */}
           <section>
-            <h2 className="mb-3 text-sm font-semibold">العمال ({data.perWorker.length})</h2>
+            <h2 className="mb-3 text-sm font-semibold">{t("workshop.workersSection")} ({data.perWorker.length})</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {data.perWorker.map((w) => {
                 const isFree = w.backlogCount === 0;
@@ -101,11 +105,11 @@ export function WorkshopCapacityPage() {
                       </div>
                       {isFree ? (
                         <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-800 dark:bg-green-900 dark:text-green-100">
-                          ✓ متاح
+                          {t("workshop.available")}
                         </span>
                       ) : (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900 dark:text-amber-100">
-                          {w.backlogCount} مرحلة
+                          {t("workshop.stagesCount", { count: w.backlogCount })}
                         </span>
                       )}
                     </div>
@@ -122,7 +126,7 @@ export function WorkshopCapacityPage() {
                               </span>
                               {s.dueDate ? (
                                 <span className={s.isOverdue ? "text-red-600 dark:text-red-400 font-bold" : "text-muted-foreground"}>
-                                  {new Date(s.dueDate).toLocaleDateString("ar-AE", { month: "short", day: "numeric" })}
+                                  {new Date(s.dueDate).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}
                                   {s.isOverdue ? " ⚠" : ""}
                                 </span>
                               ) : null}
@@ -131,13 +135,13 @@ export function WorkshopCapacityPage() {
                         </ul>
                         {w.activeStages.length > 5 ? (
                           <p className="mt-1 text-center text-[10px] text-muted-foreground">
-                            + {w.activeStages.length - 5} أخرى
+                            {t("workshop.more", { count: w.activeStages.length - 5 })}
                           </p>
                         ) : null}
                         {w.oldestJobAgeDays > 0 ? (
                           <p className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Clock className="h-3 w-3" />
-                            أقدم طلب: {w.oldestJobAgeDays} يوم
+                            {t("workshop.oldestJob", { days: w.oldestJobAgeDays })}
                           </p>
                         ) : null}
                       </>

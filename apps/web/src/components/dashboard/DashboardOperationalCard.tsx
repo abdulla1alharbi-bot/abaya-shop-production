@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 type DashboardOperationalCardProps = {
@@ -16,18 +17,20 @@ type DashboardOperationalCardProps = {
 
 /**
  * Shared compact dashboard card: title, summary, icon, full-width click target.
- * Matches the “أعمال التفصيل غير المكتملة” card pattern.
  */
 export function DashboardOperationalCard({
   title,
   summary,
-  hint = "اضغط لعرض التفاصيل",
+  hint,
   icon,
   onClick,
   open,
   aside,
   className,
 }: DashboardOperationalCardProps) {
+  const { t } = useTranslation();
+  const defaultHint = hint ?? t("components.invoiceQueue.tapForDetails");
+
   return (
     <section className={cn("rounded-xl border border-border/80 bg-card shadow-sm", className)}>
       <button
@@ -46,7 +49,7 @@ export function DashboardOperationalCard({
         <span className="min-w-0 flex-1 space-y-1">
           <span className="block text-sm font-semibold leading-tight md:text-base">{title}</span>
           <span className="block text-xs text-muted-foreground md:text-sm">{summary}</span>
-          <span className="block text-[11px] text-muted-foreground">{hint}</span>
+          <span className="block text-[11px] text-muted-foreground">{defaultHint}</span>
         </span>
         {aside ? (
           <span className="hidden shrink-0 sm:flex sm:flex-col sm:items-end sm:gap-1">{aside}</span>

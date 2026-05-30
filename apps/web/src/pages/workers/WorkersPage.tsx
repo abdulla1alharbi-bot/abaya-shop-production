@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ type SummaryRow = {
 };
 
 export function WorkersPage() {
+  const { t } = useTranslation();
   const { data: workers, isLoading } = useQuery({
     queryKey: ["workers"],
     queryFn: async () => {
@@ -52,17 +54,17 @@ export function WorkersPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="العمال"
-        description="من يعمل في الورشة ومستحقاته التقريبية."
+        title={t("workers.title")}
+        description={t("workers.description")}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link to="/payroll">المستحقات والدفعات</Link>
+              <Link to="/payroll">{t("workers.btnPayroll")}</Link>
             </Button>
             <Button asChild size="sm">
               <Link to="/workers/new">
                 <Plus className="me-1 h-4 w-4" />
-                إضافة
+                {t("workers.newWorker")}
               </Link>
             </Button>
           </div>
@@ -73,12 +75,12 @@ export function WorkersPage() {
         <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
-              <th className="px-4 py-3 text-start font-medium">الاسم</th>
-              <th className="px-4 py-3 text-start font-medium">الدور</th>
-              <th className="px-4 py-3 text-start font-medium">التخصص</th>
-              <th className="px-4 py-3 text-start font-medium">الجوال</th>
-              <th className="px-4 py-3 text-end font-medium">مستحقات تقريبية</th>
-              <th className="px-4 py-3 text-start font-medium">الحالة</th>
+              <th className="px-4 py-3 text-start font-medium">{t("workers.colName")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("workers.colRole")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("workers.colSpecialty")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("workers.colMobile")}</th>
+              <th className="px-4 py-3 text-end font-medium">{t("workers.colBalance")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("workers.colStatus")}</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -86,13 +88,13 @@ export function WorkersPage() {
             {isLoading ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  جاري التحميل…
+                  {t("common.loadingData")}
                 </td>
               </tr>
             ) : !workers?.length ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  لا يوجد عمال بعد. أضف عاملاً لربطه بطلبات التفصيل وسجل القطع.
+                  {t("workers.emptyMessage")}
                 </td>
               </tr>
             ) : (
@@ -112,7 +114,7 @@ export function WorkersPage() {
                           {(() => {
                             try {
                               const p = JSON.parse(w.specializations) as string[];
-                              return Array.isArray(p) ? p.map((x) => workTypeLabel(x)).join("، ") : "—";
+                              return Array.isArray(p) ? p.map((x) => workTypeLabel(x, t)).join(", ") : "—";
                             } catch {
                               return w.specializations;
                             }
@@ -134,17 +136,17 @@ export function WorkersPage() {
                     </td>
                     <td className="px-4 py-3">
                       {w.isActive ? (
-                        <Badge variant="secondary">نشط</Badge>
+                        <Badge variant="secondary">{t("status.active")}</Badge>
                       ) : (
-                        <Badge variant="outline">موقوف</Badge>
+                        <Badge variant="outline">{t("status.inactive")}</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3 text-end whitespace-nowrap">
                       <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/workers/${w.id}`}>تفاصيل</Link>
+                        <Link to={`/workers/${w.id}`}>{t("common.details")}</Link>
                       </Button>
                       <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/workers/${w.id}/edit`}>تعديل</Link>
+                        <Link to={`/workers/${w.id}/edit`}>{t("common.edit")}</Link>
                       </Button>
                     </td>
                   </tr>
@@ -154,9 +156,7 @@ export function WorkersPage() {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground">
-        المستحقات = إجمالي أجور القطع المسجّلة + التعديلات − الدفعات. التفاصيل من صفحة العامل.
-      </p>
+      <p className="text-xs text-muted-foreground">{t("workers.footerNote")}</p>
     </div>
   );
 }

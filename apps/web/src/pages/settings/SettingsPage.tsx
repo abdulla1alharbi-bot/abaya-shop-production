@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function SettingsPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -46,8 +48,8 @@ export function SettingsPage() {
   if (isLoading || !data) {
     return (
       <div>
-        <PageHeader title="إعدادات المحل" />
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <PageHeader title={t("settings.title")} />
+        <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
       </div>
     );
   }
@@ -55,28 +57,24 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <PageHeader
-        title="إعدادات المحل"
-        description="اسم المحل والضريبة للفواتير، وقيم الأجور الافتراضية لمراحل التفصيل عند عدم تحديدها في المنتج."
+        title={t("settings.title")}
+        description={t("settings.description")}
       />
       {can("users.view") ? (
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm font-medium">المستخدمين</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            إدارة حسابات الدخول: اسم المستخدم وكلمة المرور والأدوار — لا يُشترط البريد لتسجيل الدخول.
-          </p>
+          <p className="text-sm font-medium">{t("settings.usersSection")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settings.usersDesc")}</p>
           <Button variant="outline" size="sm" className="mt-3" asChild>
-            <Link to="/settings/users">فتح المستخدمين والصلاحيات</Link>
+            <Link to="/settings/users">{t("settings.openUsers")}</Link>
           </Button>
         </div>
       ) : null}
       {can("models.view") ? (
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm font-medium">موديلات العباية</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            إدارة أرقام وأسعار الموديلات وأجور الورشة لكل نوع — تُستخدم تلقائياً في طلب التفصيل وربط المنتج.
-          </p>
+          <p className="text-sm font-medium">{t("settings.modelsSection")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settings.modelsDesc")}</p>
           <Button variant="outline" size="sm" className="mt-3" asChild>
-            <Link to="/models">فتح إدارة الموديلات</Link>
+            <Link to="/models">{t("settings.openModels")}</Link>
           </Button>
         </div>
       ) : null}
@@ -90,30 +88,30 @@ export function SettingsPage() {
       >
         <fieldset disabled={!can("settings.manage")} className="space-y-4 border-0 p-0 disabled:opacity-60">
         <div className="grid gap-2">
-          <Label htmlFor="shop_name">اسم المحل (إنجليزي)</Label>
+          <Label htmlFor="shop_name">{t("settings.shopNameEn")}</Label>
           <Input id="shop_name" name="shop_name" defaultValue={data.shop_name ?? ""} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="shop_name_ar">اسم المحل (عربي)</Label>
+          <Label htmlFor="shop_name_ar">{t("settings.shopNameAr")}</Label>
           <Input id="shop_name_ar" name="shop_name_ar" defaultValue={data.shop_name_ar ?? ""} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="vat_rate">نسبة الضريبة %</Label>
+          <Label htmlFor="vat_rate">{t("settings.vatRate")}</Label>
           <Input id="vat_rate" name="vat_rate" defaultValue={data.vat_rate ?? "5"} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="vat_number">الرقم الضريبي</Label>
+          <Label htmlFor="vat_number">{t("settings.vatNumber")}</Label>
           <Input id="vat_number" name="vat_number" defaultValue={data.vat_number ?? ""} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="currency">العملة</Label>
+          <Label htmlFor="currency">{t("settings.currency")}</Label>
           <Input id="currency" name="currency" defaultValue={data.currency ?? "AED"} />
         </div>
         <div className="border-t pt-4">
-          <p className="mb-3 text-sm font-medium">أجور التفصيل الافتراضية (للموديلات بدون أجر محدد)</p>
+          <p className="mb-3 text-sm font-medium">{t("settings.defaultWagesTitle")}</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="grid gap-2">
-              <Label htmlFor="default_cutting_aed">قص (AED)</Label>
+              <Label htmlFor="default_cutting_aed">{t("settings.wageCutting")}</Label>
               <Input
                 id="default_cutting_aed"
                 name="default_cutting_aed"
@@ -128,7 +126,7 @@ export function SettingsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="default_sewing_aed">خياطة (AED)</Label>
+              <Label htmlFor="default_sewing_aed">{t("settings.wageSewing")}</Label>
               <Input
                 id="default_sewing_aed"
                 name="default_sewing_aed"
@@ -143,7 +141,7 @@ export function SettingsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="default_embroidery_aed">تطريز (AED)</Label>
+              <Label htmlFor="default_embroidery_aed">{t("settings.wageEmbroidery")}</Label>
               <Input
                 id="default_embroidery_aed"
                 name="default_embroidery_aed"
@@ -158,7 +156,7 @@ export function SettingsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="default_finishing_aed">تجهيز (AED)</Label>
+              <Label htmlFor="default_finishing_aed">{t("settings.wageFinishing")}</Label>
               <Input
                 id="default_finishing_aed"
                 name="default_finishing_aed"
@@ -175,11 +173,11 @@ export function SettingsPage() {
           </div>
         </div>
         <Button type="submit" disabled={save.isPending || !can("settings.manage")}>
-          {save.isPending ? "…" : "حفظ"}
+          {save.isPending ? "…" : t("common.save")}
         </Button>
-        {save.isSuccess ? <p className="text-sm text-green-700">تم الحفظ.</p> : null}
+        {save.isSuccess ? <p className="text-sm text-green-700">{t("settings.saveSuccess")}</p> : null}
         {!can("settings.manage") ? (
-          <p className="text-xs text-muted-foreground">عرض فقط — لا تملك صلاحية تعديل إعدادات المحل.</p>
+          <p className="text-xs text-muted-foreground">{t("settings.viewOnly")}</p>
         ) : null}
         </fieldset>
       </form>

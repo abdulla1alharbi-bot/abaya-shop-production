@@ -1,5 +1,6 @@
 import { Navigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 
 /**
@@ -7,6 +8,7 @@ import { api } from "@/lib/api";
  */
 export function JobOrderInvoiceRedirect() {
   const { id } = useParams<{ id: string }>();
+  const { t } = useTranslation();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["job-order", id, "invoice-redirect"],
@@ -23,7 +25,7 @@ export function JobOrderInvoiceRedirect() {
   if (!id) return <Navigate to="/invoices" replace />;
   if (isLoading) {
     return (
-      <div className="p-6 text-sm text-muted-foreground">جاري التحميل…</div>
+      <div className="p-6 text-sm text-muted-foreground">{t("common.loadingData")}</div>
     );
   }
   if (isError || !data) return <Navigate to="/invoices" replace />;

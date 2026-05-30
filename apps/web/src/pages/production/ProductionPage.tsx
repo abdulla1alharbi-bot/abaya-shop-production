@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ type BatchRow = {
 
 export function ProductionPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const canViewMonthlyReport = can("reports.sales");
   const qc = useQueryClient();
   const [modelId, setModelId] = useState("");
@@ -124,8 +126,8 @@ export function ProductionPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="إنتاج الموديلات"
-        description="إنشاء إنتاج داخلي بدون فواتير عملاء مع تتبع مراحل التنفيذ والتكلفة."
+        title={t("production.title")}
+        description={t("production.description", { defaultValue: "Create internal production without customer invoices, tracking stages and costs." })}
       />
 
       <section className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-5">

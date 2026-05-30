@@ -1,12 +1,14 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
 
 export function ProductsPage() {
+  const { t } = useTranslation();
   const { data, isLoading } = useQuery({
     queryKey: ["products", "list"],
     queryFn: async () => {
@@ -31,13 +33,13 @@ export function ProductsPage() {
   return (
     <div>
       <PageHeader
-        title="منتجات جاهزة"
-        description="ما يُباع من الرف مع السعر والكمية."
+        title={t("products.title")}
+        description={t("products.description", { defaultValue: "Shelf products with price and quantity." })}
         actions={
           <Button asChild size="sm">
             <Link to="/products/new">
               <Plus className="me-1 h-4 w-4" />
-              إضافة
+              {t("common.add")}
             </Link>
           </Button>
         }
@@ -46,12 +48,12 @@ export function ProductsPage() {
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-4 py-3 text-start font-medium">الرمز</th>
-              <th className="px-4 py-3 text-start font-medium">الاسم</th>
-              <th className="px-4 py-3 text-start font-medium">التصنيف</th>
-              <th className="px-4 py-3 text-end font-medium">السعر</th>
-              <th className="px-4 py-3 text-end font-medium">المخزون</th>
-              <th className="px-4 py-3 text-start font-medium">الحالة</th>
+              <th className="px-4 py-3 text-start font-medium">{t("products.colCode")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("products.colName")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("products.colCategory")}</th>
+              <th className="px-4 py-3 text-end font-medium">{t("products.colPrice")}</th>
+              <th className="px-4 py-3 text-end font-medium">{t("products.colStock")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("products.colStatus")}</th>
               <th className="px-4 py-3 w-20" />
             </tr>
           </thead>
@@ -59,13 +61,13 @@ export function ProductsPage() {
             {isLoading ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  جاري التحميل…
+                  {t("common.loadingData")}
                 </td>
               </tr>
             ) : !data?.length ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  لا منتجات بعد.
+                  {t("products.emptyMessage")}
                 </td>
               </tr>
             ) : (
@@ -76,10 +78,12 @@ export function ProductsPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">{p.category.name}</td>
                   <td className="px-4 py-2.5 text-end">{formatAED(p.priceFils)}</td>
                   <td className="px-4 py-2.5 text-end tabular-nums">{p.stockQty}</td>
-                  <td className="px-4 py-2.5">{p.isActive ? "نشط" : "موقوف"}</td>
+                  <td className="px-4 py-2.5">
+                    {p.isActive ? t("status.active") : t("status.inactive")}
+                  </td>
                   <td className="px-4 py-2.5 text-end">
                     <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                      <Link to={`/products/${p.id}/edit`}>تعديل</Link>
+                      <Link to={`/products/${p.id}/edit`}>{t("common.edit")}</Link>
                     </Button>
                   </td>
                 </tr>

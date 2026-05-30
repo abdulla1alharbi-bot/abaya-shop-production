@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
-import { WORK_TYPES, WORK_TYPE_LABELS } from "@abaya-shop/shared";
+import { WORK_TYPES } from "@abaya-shop/shared";
 
 type SummaryItem = {
   workerId: string;
@@ -22,6 +23,7 @@ type SummaryItem = {
 };
 
 export function PayrollPage() {
+  const { t } = useTranslation();
   const [workerId, setWorkerId] = useState("");
   const [workType, setWorkType] = useState("");
   const [from, setFrom] = useState(() => {
@@ -77,7 +79,7 @@ export function PayrollPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="مستحقات وأجور"
+        title={t("payroll.title")}
         description="ما اكتسبه كل عامل في الفترة المختارة والمتبقي له."
         actions={
           <Button variant="outline" size="sm" asChild>
@@ -122,7 +124,7 @@ export function PayrollPage() {
               <option value="">الكل</option>
               {WORK_TYPES.map((wt) => (
                 <option key={wt} value={wt}>
-                  {WORK_TYPE_LABELS[wt] ?? wt}
+                  {t(`workTypes.${wt}`)}
                 </option>
               ))}
             </select>

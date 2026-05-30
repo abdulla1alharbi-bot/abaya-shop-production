@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ function VarianceBadge({ fils }: { fils: number | null }) {
 export function ShiftsPage() {
   const queryClient = useQueryClient();
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const canManage = can("settings.manage");
 
   const [openingAed, setOpeningAed] = useState("");
@@ -111,7 +113,7 @@ export function ShiftsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6" dir="rtl">
-      <PageHeader title="إدارة الورديات (الكاشير)" />
+      <PageHeader title={t("shifts.title")} />
 
       {/* Active shift panel */}
       {currentQuery.isLoading ? (

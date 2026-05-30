@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ interface PosCustomerBarProps {
 }
 
 export function PosCustomerBar({ variant = "default", className }: PosCustomerBarProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const posCustomerId = useCartStore((s) => s.posCustomerId);
   const posCustomerLabel = useCartStore((s) => s.posCustomerLabel);
@@ -254,27 +256,27 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
             <p className="text-xs font-medium text-muted-foreground">المقاسات (اختياري — تُحفظ مع العميل)</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <div>
-                <Label className="text-xs">كتف</Label>
+                <Label className="text-xs">{t("measurements.shoulder")}</Label>
                 <Input value={qShoulder} onChange={(e) => setQShoulder(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">صدر</Label>
+                <Label className="text-xs">{t("measurements.chest")}</Label>
                 <Input value={qChest} onChange={(e) => setQChest(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">وسط</Label>
+                <Label className="text-xs">{t("measurements.waist")}</Label>
                 <Input value={qWaist} onChange={(e) => setQWaist(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">كم</Label>
+                <Label className="text-xs">{t("measurements.sleeve")}</Label>
                 <Input value={qSleeve} onChange={(e) => setQSleeve(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">ورك</Label>
+                <Label className="text-xs">{t("measurements.hip")}</Label>
                 <Input value={qHip} onChange={(e) => setQHip(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">طول</Label>
+                <Label className="text-xs">{t("measurements.length")}</Label>
                 <Input value={qLength} onChange={(e) => setQLength(e.target.value)} />
               </div>
               <div>

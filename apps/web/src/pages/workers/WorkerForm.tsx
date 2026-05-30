@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
-import { WORK_TYPES, WORK_TYPE_LABELS } from "@abaya-shop/shared";
+import { WORK_TYPES } from "@abaya-shop/shared";
 import { workTypeLabel } from "@/lib/jobOrderUi";
 
 export function WorkerForm() {
@@ -14,6 +15,7 @@ export function WorkerForm() {
   const isNew = !id;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [specs, setSpecs] = useState<string[]>([]);
 
   const { data: existing, isLoading } = useQuery({
@@ -94,8 +96,8 @@ export function WorkerForm() {
   if (!isNew && isLoading) {
     return (
       <div>
-        <PageHeader title="عامل" />
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <PageHeader title={t("workers.workerLabel")} />
+        <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
       </div>
     );
   }
@@ -108,7 +110,7 @@ export function WorkerForm() {
 
   return (
     <div className="mx-auto max-w-lg space-y-8 pb-8">
-      <PageHeader title={isNew ? "عامل جديد" : "تعديل بيانات العامل"} />
+      <PageHeader title={isNew ? t("workers.newTitle") : t("workers.editTitle")} />
 
       <form
         className="space-y-4"
@@ -118,7 +120,7 @@ export function WorkerForm() {
         }}
       >
         <div className="grid gap-2">
-          <Label htmlFor="name">الاسم *</Label>
+          <Label htmlFor="name">{t("workers.formNameLabel")}</Label>
           <Input
             id="name"
             name="name"
@@ -128,18 +130,18 @@ export function WorkerForm() {
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="role">المسمى الوظيفي / الدور في المحل *</Label>
+          <Label htmlFor="role">{t("workers.formRoleLabel")}</Label>
           <Input
             id="role"
             name="role"
-            placeholder="مثال: خيّاط رئيسي، مقصّ، مُطرّز"
+            placeholder={t("workers.formRolePlaceholder")}
             required
             defaultValue={existing ? String(existing.role ?? "") : ""}
             key={String(existing?.role ?? "r")}
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="phone">الجوال</Label>
+          <Label htmlFor="phone">{t("workers.formPhoneLabel")}</Label>
           <Input
             id="phone"
             name="phone"
@@ -149,7 +151,7 @@ export function WorkerForm() {
         </div>
 
         <div>
-          <Label className="mb-2 block">تخصص العمل (يمكن أكثر من نوع)</Label>
+          <Label className="mb-2 block">{t("workers.formSpecialtyLabel")}</Label>
           <div className="flex flex-wrap gap-2">
             {WORK_TYPES.map((wt) => (
               <label
@@ -162,25 +164,25 @@ export function WorkerForm() {
                   onChange={() => toggleSpec(wt)}
                   className="rounded"
                 />
-                {workTypeLabel(wt)}
+                {workTypeLabel(wt, t)}
               </label>
             ))}
           </div>
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="notes">ملاحظات</Label>
+          <Label htmlFor="notes">{t("workers.formNotesLabel")}</Label>
           <textarea
             id="notes"
             name="notes"
             className="min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="ملاحظات داخلية (مواعيد، تأشيرة، إلخ)"
+            placeholder={t("workers.formNotesPlaceholder")}
             defaultValue={existing ? String(existing.notes ?? "") : ""}
           />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="nationality">الجنسية</Label>
+          <Label htmlFor="nationality">{t("workers.formNationalityLabel")}</Label>
           <Input
             id="nationality"
             name="nationality"
@@ -188,7 +190,7 @@ export function WorkerForm() {
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="passportNo">جواز / هوية</Label>
+          <Label htmlFor="passportNo">{t("workers.formPassportLabel")}</Label>
           <Input
             id="passportNo"
             name="passportNo"
@@ -203,33 +205,31 @@ export function WorkerForm() {
               type="checkbox"
               defaultChecked={existing ? Boolean(existing.isActive) : true}
             />
-            <Label htmlFor="isActive">نشط (يظهر في القوائم ويمكن تعيينه على الطلبات)</Label>
+            <Label htmlFor="isActive">{t("workers.formActiveLabel")}</Label>
           </div>
         ) : null}
         <div className="flex gap-2">
           <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? "جاري الحفظ…" : "حفظ"}
+            {save.isPending ? t("common.saving") : t("common.save")}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link to={isNew ? "/workers" : `/workers/${id}`}>إلغاء</Link>
+            <Link to={isNew ? "/workers" : `/workers/${id}`}>{t("common.cancel")}</Link>
           </Button>
         </div>
         {save.isError ? (
-          <p className="text-sm text-destructive">{(save.error as Error).message || "تعذّر الحفظ"}</p>
+          <p className="text-sm text-destructive">{(save.error as Error).message || t("common.saveFailed")}</p>
         ) : null}
       </form>
 
       {!isNew && id ? (
         <section className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 font-semibold">أسعار القطعة الافتراضية لهذا العامل</h2>
-          <p className="mb-3 text-xs text-muted-foreground">
-            عند تسجيل عمل من طلب تفصيل، يمكن اختيار السعر يدوياً؛ هذه القيم مرجعية من الإعدادات العامة:
-          </p>
+          <h2 className="mb-2 font-semibold">{t("workers.defaultPieceRatesTitle")}</h2>
+          <p className="mb-3 text-xs text-muted-foreground">{t("workers.defaultPieceRatesNote")}</p>
           {defaultRates && defaultRates.length > 0 ? (
             <ul className="mb-4 text-xs text-muted-foreground">
               {defaultRates.map((r) => (
                 <li key={r.workType}>
-                  {workTypeLabel(r.workType)}: {(r.rateFils / 100).toFixed(2)} AED
+                  {workTypeLabel(r.workType, t)}: {(r.rateFils / 100).toFixed(2)} AED
                 </li>
               ))}
             </ul>
@@ -240,7 +240,7 @@ export function WorkerForm() {
                 key={pr.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded border px-2 py-1.5 text-sm"
               >
-                <span>{workTypeLabel(pr.workType)}</span>
+                <span>{workTypeLabel(pr.workType, t)}</span>
                 <span className="font-mono">{(pr.rateFils / 100).toFixed(2)} AED</span>
                 <Button
                   type="button"
@@ -249,7 +249,7 @@ export function WorkerForm() {
                   className="text-destructive"
                   onClick={() => deleteRate.mutate(pr.id)}
                 >
-                  حذف
+                  {t("common.delete")}
                 </Button>
               </div>
             ))}
@@ -271,12 +271,13 @@ function AddRateForm({
   onAdd: (workType: string, rateAed: string) => void;
   disabled: boolean;
 }) {
+  const { t } = useTranslation();
   const [wt, setWt] = useState("CUTTING");
   const [rate, setRate] = useState("");
   return (
     <div className="mt-4 flex flex-wrap items-end gap-2 border-t pt-3">
       <div>
-        <Label className="text-xs">نوع العمل</Label>
+        <Label className="text-xs">{t("workers.workType")}</Label>
         <select
           className="mt-1 flex h-9 rounded-md border bg-background px-2 text-sm"
           value={wt}
@@ -284,17 +285,17 @@ function AddRateForm({
         >
           {WORK_TYPES.map((x) => (
             <option key={x} value={x}>
-              {WORK_TYPE_LABELS[x] ?? x}
+              {t(`workTypes.${x}`)}
             </option>
           ))}
         </select>
       </div>
       <div>
-        <Label className="text-xs">سعر القطعة (AED)</Label>
+        <Label className="text-xs">{t("workers.piecePriceAED")}</Label>
         <Input className="mt-1 h-9 w-28" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0" />
       </div>
       <Button type="button" size="sm" disabled={disabled} onClick={() => onAdd(wt, rate)}>
-        إضافة سعر
+        {t("workers.addPrice")}
       </Button>
     </div>
   );

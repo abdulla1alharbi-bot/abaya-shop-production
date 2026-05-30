@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Eye, Package, Scissors, Wallet } from "lucide-react";
 import { DashboardInvoiceModal, DashboardJobProcessModal } from "@/components/dashboard/DashboardTailoringModals";
@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
-import { invoiceFulfillmentLabel } from "@/lib/invoiceOperationalLabels";
+import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export type DashboardQueueStats = {
   invoicesOutstandingFils: number;
@@ -44,11 +45,14 @@ type InvoiceQueueMeta = {
   totalReadyValueFils?: number;
 };
 
-function paymentStatusAr(inv: InvoiceQueueRow): string {
-  if (inv.isVoid) return "ملغاة";
-  if (inv.balanceFils <= 0) return "مسددة";
-  if (inv.paidFils <= 0) return "غير مدفوع";
-  return "مدفوع جزئياً";
+function usePaymentStatusFn() {
+  const { t } = useTranslation();
+  return (inv: InvoiceQueueRow): string => {
+    if (inv.isVoid) return t("status.payment.void");
+    if (inv.balanceFils <= 0) return t("status.payment.paid");
+    if (inv.paidFils <= 0) return t("status.payment.unpaid");
+    return t("status.payment.partial");
+  };
 }
 
 function pickJobProcessId(jobOrders: { id: string; stage: string }[] | undefined): string | null {
@@ -68,23 +72,25 @@ function InvoiceQueueTable({
   onView: (id: string) => void;
   onJob: (invoiceId: string, jobId: string) => void;
 }) {
+  const { t } = useTranslation();
+  const paymentStatus = usePaymentStatusFn();
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[1000px] text-sm">
         <thead>
           <tr className="border-b bg-muted/40 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <th className="px-3 py-2 md:px-4">رقم الفاتورة</th>
-            <th className="px-3 py-2 md:px-4">العميل</th>
-            <th className="px-3 py-2 md:px-4">الجوال</th>
-            <th className="px-3 py-2 md:px-4">تاريخ الفاتورة</th>
-            <th className="px-3 py-2 md:px-4">موعد التسليم</th>
-            <th className="px-3 py-2 text-end md:px-4">الإجمالي</th>
-            <th className="px-3 py-2 text-end md:px-4">المدفوع</th>
-            <th className="px-3 py-2 text-end md:px-4">المتبقي</th>
-            <th className="px-3 py-2 md:px-4">حالة التشغيل</th>
-            <th className="px-3 py-2 md:px-4">السداد</th>
-            <th className="px-3 py-2 text-center md:px-4">عرض</th>
-            <th className="px-3 py-2 text-center md:px-4">التفصيل</th>
+            <th className="px-3 py-2 md:px-4">{t("pages.invoices.colInvoiceNo")}</th>
+            <th className="px-3 py-2 md:px-4">{t("pages.invoices.colCustomer")}</th>
+            <th className="px-3 py-2 md:px-4">{t("pages.invoices.colMobile")}</th>
+            <th className="px-3 py-2 md:px-4">{t("pages.invoices.colDate")}</th>
+            <th className="px-3 py-2 md:px-4">{t("pages.invoices.colDeliveryDate")}</th>
+            <th className="px-3 py-2 text-end md:px-4">{t("pages.invoices.colTotal")}</th>
+            <th className="px-3 py-2 text-end md:px-4">{t("pages.invoices.colPaid")}</th>
+            <th className="px-3 py-2 text-end md:px-4">{t("pages.invoices.colBalance")}</th>
+            <th className="px-3 py-2 md:px-4">{t("pages.invoices.colFulfillmentStatus")}</th>
+            <th className="px-3 py-2 md:px-4">{t("pages.invoices.colPaymentStatus")}</th>
+            <th className="px-3 py-2 text-center md:px-4">{t("pages.invoices.colView")}</th>
+            <th className="px-3 py-2 text-center md:px-4">{t("pages.invoices.colDetails")}</th>
           </tr>
         </thead>
         <tbody>
@@ -130,9 +136,9 @@ function InvoiceQueueTable({
                   </span>
                 </td>
                 <td className="max-w-[140px] px-3 py-2.5 text-xs md:px-4">
-                  {invoiceFulfillmentLabel(inv.fulfillmentStatus)}
+                  {t(invoiceFulfillmentKey(inv.fulfillmentStatus))}
                 </td>
-                <td className="px-3 py-2.5 text-xs md:px-4">{paymentStatusAr(inv)}</td>
+                <td className="px-3 py-2.5 text-xs md:px-4">{paymentStatus(inv)}</td>
                 <td className="px-3 py-2.5 md:px-4">
                   <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
                     <Button
@@ -200,6 +206,7 @@ function useInvoiceQueue(mode: "balance" | "ready" | null, open: boolean) {
 }
 
 export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueStats }) {
+  const { t } = useTranslation();
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [readyOpen, setReadyOpen] = useState(false);
   const [invoiceModalId, setInvoiceModalId] = useState<string | null>(null);
@@ -239,18 +246,18 @@ export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueSta
       <Dialog open={balanceOpen} onOpenChange={setBalanceOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1200px)] max-w-[1200px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1200px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>فواتير بذمم مستحقة</DialogTitle>
+            <DialogTitle>{t("components.invoiceQueue.outstandingTitle")}</DialogTitle>
             <DialogDescription>
-              الفواتير التي يتبقّى عليها مبلغ (غير مسددة أو مسددة جزئياً فقط).
+              {t("pages.invoices.descBalance")}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-auto px-4 py-3 sm:px-6 sm:py-4">
             {balanceQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
             ) : balanceQuery.isError || !balanceQuery.data ? (
-              <p className="text-sm text-destructive">تعذّر تحميل القائمة.</p>
+              <p className="text-sm text-destructive">{t("common.error")}</p>
             ) : balanceQuery.data.items.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">لا توجد فواتير بذمم مستحقة حالياً.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">{t("pages.invoices.emptyBalance")}</p>
             ) : (
               <InvoiceQueueTable
                 items={balanceQuery.data.items}
@@ -266,7 +273,7 @@ export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueSta
       <Dialog open={readyOpen} onOpenChange={setReadyOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1200px)] max-w-[1200px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1200px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>فواتير جاهزة للتسليم</DialogTitle>
+            <DialogTitle>{t("components.invoiceQueue.readyTitle")}</DialogTitle>
             <DialogDescription>
               فواتير اكتمل فيها العمل بالورشة ولم يُسجَّل تسليمها بعد.
             </DialogDescription>
@@ -277,7 +284,7 @@ export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueSta
             ) : readyQuery.isError || !readyQuery.data ? (
               <p className="text-sm text-destructive">تعذّر تحميل القائمة.</p>
             ) : readyQuery.data.items.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">لا توجد فواتير جاهزة للتسليم حالياً.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">{t("pages.invoices.emptyReady")}</p>
             ) : (
               <InvoiceQueueTable
                 items={readyQuery.data.items}
@@ -292,22 +299,22 @@ export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueSta
 
       <div className="grid gap-3 sm:grid-cols-2">
         <DashboardOperationalCard
-          title="ذمم العملاء (مستحق)"
+          title={t("components.invoiceQueue.outstandingTitle")}
           icon={<Wallet className="h-5 w-5" aria-hidden />}
           summary={
             <>
-              {formatAED(stats.invoicesOutstandingFils)} — {stats.invoicesWithBalanceCount} فاتورة بذمة
+              {formatAED(stats.invoicesOutstandingFils)} — {stats.invoicesWithBalanceCount} {t("pages.invoices.title").toLowerCase()}
             </>
           }
           onClick={() => setBalanceOpen(true)}
           open={balanceOpen}
         />
         <DashboardOperationalCard
-          title="جاهزة للتسليم"
+          title={t("components.invoiceQueue.readyTitle")}
           icon={<CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden />}
           summary={
             <>
-              {stats.readyForDeliveryInvoiceCount} فاتورة · إجمالي قيمة الفواتير{" "}
+              {stats.readyForDeliveryInvoiceCount} {t("pages.invoices.title").toLowerCase()} · {t("pages.invoices.totalReadyValue")}{" "}
               {formatAED(stats.readyForDeliveryTotalFils)}
             </>
           }

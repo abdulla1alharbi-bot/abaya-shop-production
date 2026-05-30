@@ -35,24 +35,31 @@ import {
 } from "@/lib/reportDateRange";
 import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { invoiceFulfillmentLabel } from "@/lib/invoiceOperationalLabels";
+import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTranslation } from "react-i18next";
 
 function rangeKey(r: ReportDateRange): string {
   return `${r.from.getTime()}-${r.to.getTime()}`;
 }
 
-function cashFlowTypeLabel(t: "income" | "expense" | "wage"): string {
-  if (t === "income") return "دخل";
-  if (t === "expense") return "مصروف";
-  return "أجر";
+function useCashFlowTypeLabel() {
+  const { t } = useTranslation();
+  return (type: "income" | "expense" | "wage"): string => {
+    if (type === "income") return t("reports.cashFlowIncome");
+    if (type === "expense") return t("reports.cashFlowExpense");
+    return t("reports.cashFlowWage");
+  };
 }
 
-function paymentLabelAr(inv: { balanceFils: number; paidFils: number; isVoid: boolean }): string {
-  if (inv.isVoid) return "ملغاة";
-  if (inv.balanceFils <= 0) return "مسددة";
-  if (inv.paidFils <= 0) return "غير مدفوع";
-  return "مدفوع جزئياً";
+function usePaymentLabel() {
+  const { t } = useTranslation();
+  return (inv: { balanceFils: number; paidFils: number; isVoid: boolean }): string => {
+    if (inv.isVoid) return t("reports.paymentVoid");
+    if (inv.balanceFils <= 0) return t("reports.paymentPaid");
+    if (inv.paidFils <= 0) return t("reports.paymentUnpaid");
+    return t("reports.paymentPartial");
+  };
 }
 
 type InvoiceReportItem = {
@@ -71,6 +78,9 @@ type InvoiceReportItem = {
 
 export function ReportsPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
+  const cashFlowTypeLabel = useCashFlowTypeLabel();
+  const paymentLabelAr = usePaymentLabel();
   const defaults = useMemo(() => defaultReportDateRange(), []);
 
   const { data: shopSettings } = useQuery({
@@ -383,7 +393,7 @@ export function ReportsPage() {
                 <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(inv.totalFils)}</td>
                 <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(inv.paidFils)}</td>
                 <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(inv.balanceFils)}</td>
-                <td className="max-w-[140px] px-3 py-2 text-xs">{invoiceFulfillmentLabel(inv.fulfillmentStatus)}</td>
+                <td className="max-w-[140px] px-3 py-2 text-xs">{t(invoiceFulfillmentKey(inv.fulfillmentStatus))}</td>
                 <td className="px-3 py-2 text-xs">{paymentLabelAr(inv)}</td>
               </tr>
             ))}
@@ -396,63 +406,63 @@ export function ReportsPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="التقارير"
-        description="مبيعات، ذمم، أجور ورشة، نشاط مالي، وأكثر الأصناف طلباً — كلها بفلترة من تاريخ إلى تاريخ."
+        title={t("reports.title")}
+        description={t("reports.description", { defaultValue: "Sales, balances, workshop wages, financial activity, and most requested — all with date range filtering." })}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {can("reports.wages") ? (
           <ReportHubCard
-            title="أجور العمال"
-            description="مراحل التشغيل المكتملة في الورشة — عدد المهام وإجمالي الأجر لكل عامل."
+            title={t("reports.wagesTitle", { defaultValue: "Worker Wages" })}
+            description={t("reports.wagesDesc", { defaultValue: "Completed workshop stages — task count and total wage per worker." })}
             icon={<Users className="h-5 w-5" />}
             onClick={() => setWagesOpen(true)}
           />
         ) : null}
         {can("reports.sales") ? (
           <ReportHubCard
-            title="المبيعات"
-            description="فواتير الفترة: الإجمالي، المدفوع، المتبقي — الدخل النقدي من تقرير النشاط المالي."
+            title={t("reports.salesTitle", { defaultValue: "Sales" })}
+            description={t("reports.salesDesc", { defaultValue: "Period invoices: total, paid, balance — cash income from financial activity report." })}
             icon={<PieChart className="h-5 w-5" />}
             onClick={() => setSalesOpen(true)}
           />
         ) : null}
         {can("reports.sales") ? (
           <ReportHubCard
-            title="الفواتير"
-            description="قائمة الفواتير للفترة (نفس بيانات المبيعات مع تسمية مختلفة)."
+            title={t("pages.invoices.title")}
+            description={t("reports.invoicesDesc", { defaultValue: "Period invoice list (same data as sales with different label)." })}
             icon={<FileSpreadsheet className="h-5 w-5" />}
             onClick={() => setInvoicesOpen(true)}
           />
         ) : null}
         {can("reports.balances") ? (
           <ReportHubCard
-            title="الذمم المستحقة"
-            description="عملاء وفواتير بها متبقي — يمكن تقييدها بتاريخ إنشاء الفاتورة."
+            title={t("reports.balancesTitle", { defaultValue: "Outstanding Balances" })}
+            description={t("reports.balancesDesc", { defaultValue: "Customers and invoices with remaining balance — can filter by invoice creation date." })}
             icon={<Banknote className="h-5 w-5" />}
             onClick={() => setBalancesOpen(true)}
           />
         ) : null}
         {can("reports.sales") ? (
           <ReportHubCard
-            title="طلبات التفصيل"
-            description="طلبات التفصيل المُنشأة في الفترة."
+            title={t("reports.tailoringTitle", { defaultValue: "Tailoring Orders" })}
+            description={t("reports.tailoringDesc", { defaultValue: "Tailoring orders created in the period." })}
             icon={<Scissors className="h-5 w-5" />}
             onClick={() => setTailoringOpen(true)}
           />
         ) : null}
         {can("reports.mostRequested") ? (
           <ReportHubCard
-            title="الأكثر طلباً"
-            description="المنتجات والموديلات الأكثر ظهوراً في بنود الفواتير (تفصيل وجاهز)."
+            title={t("reports.mostRequestedTitle", { defaultValue: "Most Requested" })}
+            description={t("reports.mostRequestedDesc", { defaultValue: "Products and models appearing most in invoice items (tailoring and ready-made)." })}
             icon={<TrendingUp className="h-5 w-5" />}
             onClick={() => setMostRequestedOpen(true)}
           />
         ) : null}
         {can("reports.financial") ? (
           <ReportHubCard
-            title="النشاط المالي"
-            description="تحصيلات، مصروفات، وأجور تشغيل — وصافي الربح للفترة."
+            title={t("reports.cashFlowTitle", { defaultValue: "Financial Activity" })}
+            description={t("reports.cashFlowDesc", { defaultValue: "Collections, expenses, and operating wages — and net profit for the period." })}
             icon={<Wallet className="h-5 w-5" />}
             onClick={() => setCashFlowOpen(true)}
           />

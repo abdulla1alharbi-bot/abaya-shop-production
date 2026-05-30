@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image, LayoutGrid, Table2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,8 @@ import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 const STAGE_ORDER = ["CUTTING", "SEWING", "EMBROIDERY", "FINISHING"] as const;
-const STAGE_LABELS: Record<(typeof STAGE_ORDER)[number], string> = {
+// Stage labels are now translated via i18n keys; keeping as fallback
+const STAGE_LABELS_FALLBACK: Record<(typeof STAGE_ORDER)[number], string> = {
   CUTTING: "قص",
   SEWING: "خياطة",
   EMBROIDERY: "تطريز",
@@ -206,6 +208,7 @@ function ModelCatalogCard({
 /** Tailoring catalog admin — tabs by `AbayaType.code`, card or table view. */
 export function AbayaModelsPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const canCreate = can("models.create");
   const canEditModel = can("models.edit");
   const canDeactivateModel = can("models.delete");
@@ -419,8 +422,8 @@ export function AbayaModelsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-8">
       <PageHeader
-        title="كتالوج التفصيل"
-        description="تصفية حسب نوع الأب (موديل / تطريز / خدمات أخرى). البطاقات للعرض السريع، الجدول للمقارنة التفصيلية."
+        title={t("models.title")}
+        description={t("models.description", { defaultValue: "Filter by type. Cards for quick view, table for detailed comparison." })}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -730,7 +733,7 @@ export function AbayaModelsPage() {
                         setStagePick((s) => ({ ...s, [k]: e.target.checked }))
                       }
                     />
-                    {STAGE_LABELS[k]}
+                    {STAGE_LABELS_FALLBACK[k]}
                   </label>
                 ))}
               </div>

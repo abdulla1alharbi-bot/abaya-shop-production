@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Package } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
@@ -28,6 +29,7 @@ export function ProductGrid() {
   const addRetailItem = useCartStore((s) => s.addRetailItem);
   const posCustomerId = useCartStore((s) => s.posCustomerId);
   const canAdd = Boolean(posCustomerId);
+  const { t } = useTranslation();
 
   const { data: categories } = useQuery({
     queryKey: ["product-categories"],
@@ -55,7 +57,7 @@ export function ProductGrid() {
   const catButtons = useMemo(() => {
     const list = categories ?? [];
     return [
-      { id: "ALL" as const, label: "الكل" },
+      { id: "ALL" as const, label: t("pos.allCategories") },
       ...list.map((c) => ({ id: c.id, label: c.nameAr?.trim() || c.name })),
     ];
   }, [categories]);
@@ -86,11 +88,11 @@ export function ProductGrid() {
           ))}
         </div>
         {isLoading ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">جاري تحميل المنتجات…</p>
+          <p className="py-12 text-center text-sm text-muted-foreground">{t("common.loadingData")}</p>
         ) : !products?.length ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
             <Package className="h-10 w-10 opacity-50" />
-            <p className="text-sm">لا توجد منتجات جاهزة. أضفها من صفحة «جاهز للبيع».</p>
+            <p className="text-sm">{t("pos.noProducts")}</p>
           </div>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">

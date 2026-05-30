@@ -1,16 +1,15 @@
 import { useId, useState } from "react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
+import { enUS } from "date-fns/locale/en-US";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
-function formatReportDate(d: Date): string {
-  return format(d, "d MMMM yyyy", { locale: ar });
-}
+import { useLangStore } from "@/store/langStore";
 
 function DatePickerField({
   label,
@@ -23,6 +22,10 @@ function DatePickerField({
 }) {
   const [open, setOpen] = useState(false);
   const id = useId();
+  const { lang } = useLangStore();
+  const dateLocale = lang === "ar" ? ar : enUS;
+
+  const formatReportDate = (d: Date) => format(d, "d MMMM yyyy", { locale: dateLocale });
 
   return (
     <div className="grid gap-1.5">
@@ -56,7 +59,7 @@ function DatePickerField({
                 setOpen(false);
               }
             }}
-            locale={ar}
+            locale={dateLocale}
             captionLayout="dropdown"
             fromYear={2020}
             toYear={new Date().getFullYear() + 1}
@@ -84,12 +87,13 @@ export function ReportDateRangeBar({
   onApply,
   isFetching,
 }: ReportDateRangeBarProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-      <DatePickerField label="من تاريخ" value={from} onChange={onFromChange} />
-      <DatePickerField label="إلى تاريخ" value={to} onChange={onToChange} />
+      <DatePickerField label={t("components.dateRange.from")} value={from} onChange={onFromChange} />
+      <DatePickerField label={t("components.dateRange.to")} value={to} onChange={onToChange} />
       <Button type="button" variant="secondary" className="h-10" onClick={onApply} disabled={isFetching}>
-        {isFetching ? "جاري…" : "تطبيق"}
+        {isFetching ? t("components.dateRange.applying") : t("components.dateRange.apply")}
       </Button>
     </div>
   );

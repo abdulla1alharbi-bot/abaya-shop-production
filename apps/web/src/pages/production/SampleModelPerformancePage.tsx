@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ type TopModelRow = {
 };
 
 export function SampleModelPerformancePage() {
+  const { t } = useTranslation();
   const [month, setMonth] = useState("");
   const [modelId, setModelId] = useState("");
 
@@ -70,8 +72,8 @@ export function SampleModelPerformancePage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="أداء موديلات العرض"
-        description="قياس أداء نموذج العرض حسب عدد طلبات التفصيل الناتجة منه (وليس مبيعات الجاهز)."
+        title={t("production.samplesPerformanceTitle")}
+        description={t("production.samplesPerformanceDesc", { defaultValue: "Measure showroom model performance by number of tailoring orders generated." })}
       />
 
       <section className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-3">

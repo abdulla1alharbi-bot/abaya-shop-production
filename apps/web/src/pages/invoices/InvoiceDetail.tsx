@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Banknote, MessageCircle, Printer, Trash2 } from "lucide-react";
 import { VOID_CATEGORIES } from "@abaya-shop/shared";
 import { printInvoice } from "@/lib/printInvoice";
@@ -162,6 +163,7 @@ export function InvoiceDetail() {
   const [voidReason, setVoidReason] = useState("");
   const isWorker = useIsWorker();
   const { canAny, can } = usePermissions();
+  const { t } = useTranslation();
   const canConvertToReady = canAny("jobProcess.update", "jobProcess.adminEdit", "readyMade.create");
   const canInspect = can("jobProcess.inspect");
   const canViewCost = can("reports.financial");
@@ -353,7 +355,7 @@ export function InvoiceDetail() {
         <div className="mb-6 flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
           <div className="min-w-0 space-y-3 text-start">
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-              {hideMoney ? "ورشة — بيانات العميل" : "فاتورة وعميل"}
+              {hideMoney ? t("invoiceDetail.workshopCustomerSection", { defaultValue: "Workshop — Customer Info" }) : t("invoiceDetail.customerSection")}
             </h1>
             <div className="space-y-2 text-base">
               <p>
@@ -362,7 +364,7 @@ export function InvoiceDetail() {
               </p>
               <p>
                 <span className="text-muted-foreground">اسم العميل: </span>
-                <span className="font-semibold">{customer?.name ?? "بدون اسم"}</span>
+                <span className="font-semibold">{customer?.name ?? t("invoiceDetail.noCustomer")}</span>
               </p>
               <p>
                 <span className="text-muted-foreground">عدد القطع: </span>
@@ -507,8 +509,8 @@ export function InvoiceDetail() {
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           {hideMoney
-            ? "تفاصيل التفصيل ومراحل كل قطعة مبيّنة في القسم «قطع التفصيل» أدناه."
-            : "تقدّم الورشة ومراحل العاملين لكل قطعة في القسم أدناه — نفس شاشة الدفع والتسليم."}
+            ? t("invoiceDetail.tailoringNote", { defaultValue: "Tailoring details and stages for each piece are shown in the Tailoring Pieces section below." })
+            : t("invoiceDetail.workshopNote", { defaultValue: "Workshop progress and worker stages for each piece below — same as payment and delivery screen." })}
         </p>
       </section>
 

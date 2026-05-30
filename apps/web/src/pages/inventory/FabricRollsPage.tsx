@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ type Tab = "FABRIC" | "LACE";
 
 export function FabricRollsPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<Tab>("FABRIC");
@@ -94,14 +96,14 @@ export function FabricRollsPage() {
   return (
     <div>
       <PageHeader
-        title="مخزون القماش"
-        description="لفات القماش والدانتيل — للتفصيل وخصم المخزون."
+        title={t("fabrics.title")}
+        description={t("fabrics.description", { defaultValue: "Fabric and lace rolls — for tailoring and inventory deduction." })}
         actions={
           can("fabrics.create") ? (
             <Button asChild size="sm">
               <Link to="/fabrics/new">
                 <Plus className="me-1 h-4 w-4" />
-                لفة جديدة
+                {t("fabrics.newTitle")}
               </Link>
             </Button>
           ) : null

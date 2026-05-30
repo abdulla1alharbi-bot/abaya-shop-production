@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { RefreshCw, Save, Scissors, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +41,7 @@ function bodySnapshot(d: Pick<TailoringDraft, "shoulder" | "chest" | "waist" | "
 }
 
 export function TailoringIntakePanel() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const tailoringDraft = useCartStore((s) => s.tailoringDraft);
   const setTailoringDraft = useCartStore((s) => s.setTailoringDraft);
@@ -535,37 +537,37 @@ export function TailoringIntakePanel() {
             <Label>قياسات الجسم (سم)</Label>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
               <Input
-                placeholder="كتف"
+                placeholder={t("measurements.shoulder")}
                 className="h-9"
                 value={tailoringDraft.shoulder}
                 onChange={(e) => setTailoringDraft({ shoulder: e.target.value })}
               />
               <Input
-                placeholder="صدر"
+                placeholder={t("measurements.chest")}
                 className="h-9"
                 value={tailoringDraft.chest}
                 onChange={(e) => setTailoringDraft({ chest: e.target.value })}
               />
               <Input
-                placeholder="وسط"
+                placeholder={t("measurements.waist")}
                 className="h-9"
                 value={tailoringDraft.waist}
                 onChange={(e) => setTailoringDraft({ waist: e.target.value })}
               />
               <Input
-                placeholder="ورك"
+                placeholder={t("measurements.hip")}
                 className="h-9"
                 value={tailoringDraft.hip}
                 onChange={(e) => setTailoringDraft({ hip: e.target.value })}
               />
               <Input
-                placeholder="طول"
+                placeholder={t("measurements.length")}
                 className="h-9"
                 value={tailoringDraft.lengthVal}
                 onChange={(e) => setTailoringDraft({ lengthVal: e.target.value })}
               />
               <Input
-                placeholder="كم"
+                placeholder={t("measurements.sleeve")}
                 className="h-9"
                 value={tailoringDraft.sleeve}
                 onChange={(e) => setTailoringDraft({ sleeve: e.target.value })}

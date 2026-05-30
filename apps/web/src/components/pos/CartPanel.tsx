@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ type PayRow = { method: string; amountAed: string };
 
 export function CartPanel() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const lines = useCartStore((s) => s.lines);
@@ -425,7 +427,7 @@ export function CartPanel() {
                     className="h-9 flex-1 text-xs sm:flex-none"
                     onClick={fillPaidWithTotal}
                   >
-                    {"تعبئة المدفوع = الإجمالي (كاش)"}
+                    {t("pos.fillTotal", { defaultValue: "Fill paid = total (cash)" })}
                   </Button>
                   {hasTailoring ? (
                     <Button
@@ -437,7 +439,7 @@ export function CartPanel() {
                         setPaymentRows([{ method: "CASH", amountAed: (Math.ceil(totalFils / 2) / 100).toFixed(2) }])
                       }
                     >
-                      {"عربون 50٪ — "}{formatAED(Math.ceil(totalFils / 2))}
+                      {t("pos.deposit50", { defaultValue: "50% Deposit — " })}{formatAED(Math.ceil(totalFils / 2))}
                     </Button>
                   ) : null}
                   <Button
@@ -447,12 +449,12 @@ export function CartPanel() {
                     onClick={() => setPaymentRows([{ method: "CASH", amountAed: "" }])}
                     title={"إنشاء الفاتورة بدون تسجيل دفعة الآن — يُسجَّل الإجمالي كرصيد مستحق على العميل"}
                   >
-                    {"بدون دفع الآن"}
+                    {t("pos.noPay", { defaultValue: "No Payment Now" })}
                   </Button>
                 </div>
                 {hasTailoring && paidFils === 0 ? (
                   <p className="rounded-md bg-yellow-50 px-3 py-2 text-xs text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-200">
-                    ⚠ لم يتم تسجيل عربون. سيُسجَّل كامل المبلغ كذمة على العميل. هل أنت متأكد؟
+                    {t("pos.confirmNoPay", { defaultValue: "⚠ No deposit recorded. Full amount will be posted as balance due on customer. Are you sure?" })}
                   </p>
                 ) : null}
 

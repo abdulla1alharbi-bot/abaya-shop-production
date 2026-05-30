@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export function AuditLogPage() {
+  const { t } = useTranslation();
   const [filterEntity, setFilterEntity] = useState("");
   const [filterAction, setFilterAction] = useState("");
   const [offset, setOffset] = useState(0);
@@ -56,13 +58,13 @@ export function AuditLogPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="سجل التدقيق"
-        description="جميع العمليات الحساسة مُسجَّلة هنا. لا يمكن تعديلها أو حذفها."
+        title={t("audit.title")}
+        description={t("audit.description")}
       />
 
       <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          <Label className="text-xs">الكيان</Label>
+          <Label className="text-xs">{t("audit.filterEntity")}</Label>
           <Input
             className="h-8 w-36 text-xs"
             placeholder="Invoice, User…"
@@ -71,7 +73,7 @@ export function AuditLogPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-xs">الإجراء</Label>
+          <Label className="text-xs">{t("audit.filterAction")}</Label>
           <Input
             className="h-8 w-40 text-xs"
             placeholder="INVOICE_VOID…"
@@ -82,20 +84,20 @@ export function AuditLogPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">لا توجد سجلات بعد.</p>
+        <p className="text-sm text-muted-foreground">{t("audit.noRecords")}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/40 text-right text-xs text-muted-foreground">
-                <th className="px-3 py-2 font-medium">التاريخ</th>
-                <th className="px-3 py-2 font-medium">المستخدم</th>
-                <th className="px-3 py-2 font-medium">الإجراء</th>
-                <th className="px-3 py-2 font-medium">الكيان</th>
-                <th className="px-3 py-2 font-medium">القديم</th>
-                <th className="px-3 py-2 font-medium">الجديد</th>
+              <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
+                <th className="px-3 py-2 text-start font-medium">{t("audit.colDate")}</th>
+                <th className="px-3 py-2 text-start font-medium">{t("audit.colUser")}</th>
+                <th className="px-3 py-2 text-start font-medium">{t("audit.colAction")}</th>
+                <th className="px-3 py-2 text-start font-medium">{t("audit.colEntity")}</th>
+                <th className="px-3 py-2 text-start font-medium">{t("audit.colOld")}</th>
+                <th className="px-3 py-2 text-start font-medium">{t("audit.colNew")}</th>
               </tr>
             </thead>
             <tbody>
@@ -150,7 +152,7 @@ export function AuditLogPage() {
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          {total} سجل إجمالاً · يعرض {offset + 1}–{Math.min(offset + limit, total)}
+          {t("audit.totalRecords", { total, from: offset + 1, to: Math.min(offset + limit, total) })}
         </span>
         <div className="flex gap-2">
           <Button
@@ -159,7 +161,7 @@ export function AuditLogPage() {
             disabled={offset === 0}
             onClick={() => setOffset((o) => Math.max(0, o - limit))}
           >
-            السابق
+            {t("audit.prev")}
           </Button>
           <Button
             variant="outline"
@@ -167,7 +169,7 @@ export function AuditLogPage() {
             disabled={offset + limit >= total}
             onClick={() => setOffset((o) => o + limit)}
           >
-            التالي
+            {t("audit.next")}
           </Button>
         </div>
       </div>

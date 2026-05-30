@@ -15,9 +15,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useIsWorker } from "@/hooks/useIsWorker";
 import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
-import { invoiceFulfillmentLabel } from "@/lib/invoiceOperationalLabels";
+import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 const SEARCH_DEBOUNCE_MS = 500;
 const MIN_SEARCH_CHARS = 3;
@@ -36,38 +37,42 @@ type SearchInvoiceRow = {
   customer: { id: string; name: string; mobile: string; code?: string | null } | null;
 };
 
-function listStatusAr(status: string): string {
-  switch (status) {
-    case "VOID":
-      return "ملغاة";
-    case "DELIVERED":
-      return "مُسلَّمة";
-    case "OPEN":
-      return "بها رصيد";
-    case "PAID":
-      return "مسددة";
-    default:
-      return status;
-  }
+function useListStatus() {
+  const { t } = useTranslation();
+  return (status: string): string => {
+    switch (status) {
+      case "VOID": return t("components.globalSearch.labelVoid");
+      case "DELIVERED": return t("components.globalSearch.labelDelivered");
+      case "OPEN": return t("components.globalSearch.labelBalance");
+      case "PAID": return t("components.globalSearch.labelPaid");
+      default: return status;
+    }
+  };
 }
 
-function paymentStatusAr(balanceFils: number, paidFils: number, isVoid: boolean): string {
-  if (isVoid) return "ملغاة";
-  if (balanceFils <= 0) return "مسددة";
-  if (paidFils <= 0) return "غير مدفوع";
-  return "مدفوع جزئياً";
+function usePaymentStatus() {
+  const { t } = useTranslation();
+  return (balanceFils: number, paidFils: number, isVoid: boolean): string => {
+    if (isVoid) return t("status.payment.void");
+    if (balanceFils <= 0) return t("status.payment.paid");
+    if (paidFils <= 0) return t("status.payment.unpaid");
+    return t("status.payment.partial");
+  };
 }
 
-function moneyBadgeAr(balanceFils: number): { label: string; cls: string } {
-  if (balanceFils > 0) {
+function useMoneyBadge() {
+  const { t } = useTranslation();
+  return (balanceFils: number): { label: string; cls: string } => {
+    if (balanceFils > 0) {
+      return {
+        label: t("components.globalSearch.hasBalance"),
+        cls: "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
+      };
+    }
     return {
-      label: "بها رصيد",
-      cls: "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
+      label: t("status.payment.paid"),
+      cls: "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
     };
-  }
-  return {
-    label: "مدفوعة",
-    cls: "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
   };
 }
 
@@ -83,6 +88,8 @@ function GlobalInvoiceQuickViewModal({
   const isWorker = useIsWorker();
   const queryClient = useQueryClient();
   const [sellerOpen, setSellerOpen] = useState(false);
+  const { t } = useTranslation();
+  const paymentStatus = usePaymentStatus();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["invoice", invoiceId],
@@ -113,39 +120,39 @@ function GlobalInvoiceQuickViewModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[min(92vh,780px)] max-w-lg overflow-y-auto">
           <DialogHeader className="text-start">
-            <DialogTitle>معاينة الفاتورة</DialogTitle>
-            <DialogDescription>ملخص سريع — يمكنك فتح الصفحة الكاملة أو إجراءات الدفع من الأزرار أدناه.</DialogDescription>
+            <DialogTitle>{t("components.globalSearch.previewTitle", { defaultValue: "Invoice Preview" })}</DialogTitle>
+            <DialogDescription>{t("components.globalSearch.previewDesc", { defaultValue: "Quick summary — open full page or payment actions from the buttons below." })}</DialogDescription>
           </DialogHeader>
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+            <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
           ) : isError || !data ? (
-            <p className="text-sm text-destructive">تعذّر تحميل الفاتورة.</p>
+            <p className="text-sm text-destructive">{t("common.error")}</p>
           ) : (
             <div className="space-y-4 text-sm">
               <dl className="grid gap-2 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs text-muted-foreground">رقم الفاتورة</dt>
+                  <dt className="text-xs text-muted-foreground">{t("pages.invoices.colInvoiceNo")}</dt>
                   <dd className="font-mono font-semibold">#{String(data.invoiceNo)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground">العميل</dt>
+                  <dt className="text-xs text-muted-foreground">{t("pages.invoices.colCustomer")}</dt>
                   <dd className="font-medium">
                     {(data.customer as { name?: string } | null)?.name ?? "—"}
                   </dd>
                 </div>
                 <div className="sm:col-span-2">
-                  <dt className="text-xs text-muted-foreground">الجوال</dt>
+                  <dt className="text-xs text-muted-foreground">{t("pages.invoices.colMobile")}</dt>
                   <dd className="font-mono" dir="ltr">
                     {(data.customer as { mobile?: string } | null)?.mobile ?? "—"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground">تاريخ الفاتورة</dt>
+                  <dt className="text-xs text-muted-foreground">{t("pages.invoices.colDate")}</dt>
                   <dd>{new Date(String(data.createdAt)).toLocaleString()}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground">موعد التسليم</dt>
+                  <dt className="text-xs text-muted-foreground">{t("pages.invoices.colDeliveryDate")}</dt>
                   <dd>
                     {data.deliveryDate
                       ? new Date(String(data.deliveryDate)).toLocaleString()
@@ -155,15 +162,15 @@ function GlobalInvoiceQuickViewModal({
                 {!hideMoney ? (
                   <>
                     <div>
-                      <dt className="text-xs text-muted-foreground">الإجمالي</dt>
+                      <dt className="text-xs text-muted-foreground">{t("pages.invoices.colTotal")}</dt>
                       <dd className="font-mono tabular-nums">{formatAED(data.totalFils as number)}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-muted-foreground">المدفوع</dt>
+                      <dt className="text-xs text-muted-foreground">{t("pages.invoices.colPaid")}</dt>
                       <dd className="font-mono tabular-nums">{formatAED(data.paidFils as number)}</dd>
                     </div>
                     <div className="sm:col-span-2">
-                      <dt className="text-xs text-muted-foreground">المتبقي</dt>
+                      <dt className="text-xs text-muted-foreground">{t("pages.invoices.colBalance")}</dt>
                       <dd className="font-mono tabular-nums font-semibold text-amber-900 dark:text-amber-100">
                         {formatAED(data.balanceFils as number)}
                       </dd>
@@ -171,14 +178,14 @@ function GlobalInvoiceQuickViewModal({
                   </>
                 ) : null}
                 <div className="sm:col-span-2">
-                  <dt className="text-xs text-muted-foreground">حالة التشغيل / التفصيل</dt>
-                  <dd>{invoiceFulfillmentLabel(String(data.fulfillmentStatus ?? ""))}</dd>
+                  <dt className="text-xs text-muted-foreground">{t("pages.invoices.colFulfillmentStatus")}</dt>
+                  <dd>{t(invoiceFulfillmentKey(String(data.fulfillmentStatus ?? "")))}</dd>
                 </div>
                 {!hideMoney ? (
                   <div className="sm:col-span-2">
-                    <dt className="text-xs text-muted-foreground">حالة السداد</dt>
+                    <dt className="text-xs text-muted-foreground">{t("pages.invoices.colPaymentStatus")}</dt>
                     <dd>
-                      {paymentStatusAr(
+                      {paymentStatus(
                         data.balanceFils as number,
                         data.paidFils as number,
                         Boolean(data.isVoid),
@@ -189,7 +196,7 @@ function GlobalInvoiceQuickViewModal({
               </dl>
 
               <div>
-                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">بنود الفاتورة</h4>
+                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">{t("invoiceDetail.itemsSection")}</h4>
                 <ul className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2 text-xs">
                   {(((data.items as Array<Record<string, unknown>>) ?? []) as Array<{
                     id: string;
@@ -198,7 +205,7 @@ function GlobalInvoiceQuickViewModal({
                     totalFils: number | null;
                     product?: { name?: string } | null;
                   }>).length === 0 ? (
-                    <li className="text-muted-foreground">لا توجد بنود.</li>
+                    <li className="text-muted-foreground">{t("common.noData")}</li>
                   ) : (
                     ((data.items as Array<Record<string, unknown>>) ?? []).map(
                       (raw: Record<string, unknown>) => {
@@ -229,14 +236,14 @@ function GlobalInvoiceQuickViewModal({
 
               <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap">
                 <Button variant="default" size="sm" className="gap-2" onClick={() => onOpenChange(false)}>
-                  عرض التفاصيل
+                  {t("common.view")}
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2">
-                  مسار العمل
+                  {t("components.globalSearch.workProcess", { defaultValue: "Work Process" })}
                 </Button>
                 {!hideMoney ? (
                   <Button type="button" variant="secondary" size="sm" onClick={() => setSellerOpen(true)}>
-                    الدفع والتسليم
+                    {t("components.globalSearch.payDelivery", { defaultValue: "Payment & Delivery" })}
                   </Button>
                 ) : null}
               </div>
@@ -250,7 +257,7 @@ function GlobalInvoiceQuickViewModal({
           <SheetContent side="right" className="w-full overflow-y-auto p-4 sm:max-w-lg">
             <SheetHeader className="mb-4 text-start">
               <SheetTitle className="text-lg">
-                دفع وتسليم — #{String((data as { invoiceNo?: number }).invoiceNo)}
+                {t("components.globalSearch.payDelivery", { defaultValue: "Payment & Delivery" })} — #{String((data as { invoiceNo?: number }).invoiceNo)}
               </SheetTitle>
             </SheetHeader>
             <InvoiceSellerPanel
@@ -313,9 +320,10 @@ function SearchInvoiceDetailsPanel({
   const hideMoney =
     isWorker || Boolean((data as { financialsRedacted?: boolean } | undefined)?.financialsRedacted);
 
+  const { t: tInner } = useTranslation();
   if (!open) return null;
-  if (isLoading) return <p className="px-3 py-2 text-xs text-muted-foreground">جاري تحميل تفاصيل الفاتورة…</p>;
-  if (isError || !data) return <p className="px-3 py-2 text-xs text-destructive">تعذّر تحميل التفاصيل.</p>;
+  if (isLoading) return <p className="px-3 py-2 text-xs text-muted-foreground">{tInner("common.loadingData")}</p>;
+  if (isError || !data) return <p className="px-3 py-2 text-xs text-destructive">{tInner("common.error")}</p>;
 
   const items = ((data.items as Array<Record<string, unknown>>) ?? []).map((raw) => {
     const it = raw as {
@@ -340,19 +348,19 @@ function SearchInvoiceDetailsPanel({
     <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3 text-xs">
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
-          <p className="text-muted-foreground">حالة التشغيل</p>
-          <p className="font-medium">{invoiceFulfillmentLabel(String(data.fulfillmentStatus ?? ""))}</p>
+          <p className="text-muted-foreground">{tInner("pages.invoices.colFulfillmentStatus")}</p>
+          <p className="font-medium">{tInner(invoiceFulfillmentKey(String(data.fulfillmentStatus ?? "")))}</p>
         </div>
         <div>
-          <p className="text-muted-foreground">حالة التسليم</p>
-          <p className="font-medium">{data.deliveredAt ? "تم التسليم" : "غير مسلّمة"}</p>
+          <p className="text-muted-foreground">{tInner("invoiceDetail.deliveredLabel")}</p>
+          <p className="font-medium">{data.deliveredAt ? tInner("status.fulfillment.DELIVERED") : tInner("components.globalSearch.notDelivered", { defaultValue: "Not delivered" })}</p>
         </div>
       </div>
       {!hideMoney ? (
         <div>
-          <p className="mb-1 text-muted-foreground">ملخص المدفوعات</p>
+          <p className="mb-1 text-muted-foreground">{tInner("invoiceDetail.paymentsSection")}</p>
           <p className="font-medium">
-            عدد الدفعات: {payments.length} · المدفوع: {formatAED(data.paidFils as number)} · المتبقي:{" "}
+            {tInner("components.globalSearch.paymentsCount", { defaultValue: "Payments:" })} {payments.length} · {tInner("pages.invoices.colPaid")}: {formatAED(data.paidFils as number)} · {tInner("pages.invoices.colBalance")}:{" "}
             <span className={(data.balanceFils as number) > 0 ? "font-semibold text-amber-800 dark:text-amber-200" : ""}>
               {formatAED(data.balanceFils as number)}
             </span>
@@ -360,10 +368,10 @@ function SearchInvoiceDetailsPanel({
         </div>
       ) : null}
       <div>
-        <p className="mb-1 text-muted-foreground">بنود الفاتورة</p>
+        <p className="mb-1 text-muted-foreground">{tInner("invoiceDetail.itemsSection")}</p>
         <ul className="space-y-1">
           {items.length === 0 ? (
-            <li className="text-muted-foreground">لا توجد بنود.</li>
+            <li className="text-muted-foreground">{tInner("common.noData")}</li>
           ) : (
             items.map((it) => (
               <li key={it.id} className="flex flex-wrap justify-between gap-2 rounded border border-border/60 px-2 py-1.5">
@@ -378,14 +386,14 @@ function SearchInvoiceDetailsPanel({
         </ul>
       </div>
       <div>
-        <p className="mb-1 text-muted-foreground">قطع التفصيل / حالة المسار</p>
+        <p className="mb-1 text-muted-foreground">{tInner("invoiceDetail.tailoringSection")}</p>
         <ul className="space-y-1">
           {jobOrders.length === 0 ? (
-            <li className="text-muted-foreground">لا توجد قطع تفصيل.</li>
+            <li className="text-muted-foreground">{tInner("common.noData")}</li>
           ) : (
             jobOrders.map((j) => (
               <li key={j.id} className="rounded border border-border/60 px-2 py-1.5">
-                <span className="font-medium">{j.productStyle || "قطعة تفصيل"}</span> ·{" "}
+                <span className="font-medium">{j.productStyle || tInner("invoiceDetail.tailoringSection")}</span> ·{" "}
                 <span className="text-muted-foreground">{j.stage}</span>
               </li>
             ))
@@ -410,7 +418,7 @@ function SearchInvoiceDetailsPanel({
         <Sheet open={sellerOpen} onOpenChange={setSellerOpen}>
           <SheetContent side="right" className="w-full overflow-y-auto p-4 sm:max-w-lg">
             <SheetHeader className="mb-4 text-start">
-              <SheetTitle className="text-lg">الدفع والتسليم — #{String(data.invoiceNo)}</SheetTitle>
+              <SheetTitle className="text-lg">{tInner("components.globalSearch.payDelivery", { defaultValue: "Payment & Delivery" })} — #{String(data.invoiceNo)}</SheetTitle>
             </SheetHeader>
             <InvoiceSellerPanel
               key={`${invoiceId}-${String(data.deliveryDate)}-${String(data.paidFils)}-${String(data.deliveredAt)}`}
@@ -458,6 +466,10 @@ function SearchResultsModal({
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const isWorker = useIsWorker();
+  const { t } = useTranslation();
+  const listStatus = useListStatus();
+  const paymentStatus = usePaymentStatus();
+  const moneyBadge = useMoneyBadge();
 
   useEffect(() => {
     if (!open) setExpandedId(null);
@@ -467,9 +479,9 @@ function SearchResultsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(90vh,820px)] max-w-4xl overflow-y-auto" dir="rtl">
         <DialogHeader className="text-start">
-          <DialogTitle>نتائج البحث</DialogTitle>
+          <DialogTitle>{t("components.globalSearch.resultsTitle", { defaultValue: "Search Results" })}</DialogTitle>
           <DialogDescription>
-            تم العثور على {rows.length} فاتورة مطابقة. يمكنك توسيع أي صف لعرض البنود وتفاصيل التفصيل.
+            {t("components.globalSearch.resultsDesc", { count: rows.length, defaultValue: `Found ${rows.length} matching invoices.` })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -479,56 +491,56 @@ function SearchResultsModal({
               typeof inv.totalFils === "number" &&
               typeof inv.paidFils === "number" &&
               typeof inv.balanceFils === "number";
-            const remainingBadge = typeof inv.balanceFils === "number" ? moneyBadgeAr(inv.balanceFils) : null;
+            const remainingBadge = typeof inv.balanceFils === "number" ? moneyBadge(inv.balanceFils) : null;
             const expanded = expandedId === inv.id;
 
             return (
               <div key={inv.id} className="rounded-xl border border-border/70 bg-card p-3">
                 <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
                   <div>
-                    <p className="text-xs text-muted-foreground">رقم الفاتورة</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.invoices.colInvoiceNo")}</p>
                     <p className="font-mono font-semibold">#{inv.invoiceNo}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">العميل</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.invoices.colCustomer")}</p>
                     <p className="font-medium">{inv.customer?.name ?? "—"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">الجوال</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.invoices.colMobile")}</p>
                     <p className="font-mono" dir="ltr">
                       {inv.customer?.mobile ?? "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">تاريخ الفاتورة</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.invoices.colDate")}</p>
                     <p>{new Date(inv.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">حالة التشغيل</p>
-                    <p>{invoiceFulfillmentLabel(String(inv.fulfillmentStatus ?? ""))}</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.invoices.colFulfillmentStatus")}</p>
+                    <p>{t(invoiceFulfillmentKey(String(inv.fulfillmentStatus ?? "")))}</p>
                   </div>
                 </div>
                 <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
                   <div>
-                    <p className="text-xs text-muted-foreground">حالة السداد</p>
+                    <p className="text-xs text-muted-foreground">{t("pages.invoices.colPaymentStatus")}</p>
                     <p>
                       {canShowMoney
-                        ? paymentStatusAr(inv.balanceFils!, inv.paidFils!, Boolean(inv.isVoid))
-                        : listStatusAr(inv.status)}
+                        ? paymentStatus(inv.balanceFils!, inv.paidFils!, Boolean(inv.isVoid))
+                        : listStatus(inv.status)}
                     </p>
                   </div>
                   {canShowMoney ? (
                     <>
                       <div>
-                        <p className="text-xs text-muted-foreground">الإجمالي</p>
+                        <p className="text-xs text-muted-foreground">{t("pages.invoices.colTotal")}</p>
                         <p className="font-mono">{formatAED(inv.totalFils!)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">المدفوع</p>
+                        <p className="text-xs text-muted-foreground">{t("pages.invoices.colPaid")}</p>
                         <p className="font-mono">{formatAED(inv.paidFils!)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">المتبقي</p>
+                        <p className="text-xs text-muted-foreground">{t("pages.invoices.colBalance")}</p>
                         <p
                           className={cn(
                             "font-mono",
@@ -541,8 +553,8 @@ function SearchResultsModal({
                     </>
                   ) : (
                     <div className="sm:col-span-2 lg:col-span-3">
-                      <p className="text-xs text-muted-foreground">المبالغ</p>
-                      <p className="text-muted-foreground">غير متاحة لهذا الدور</p>
+                      <p className="text-xs text-muted-foreground">{t("components.globalSearch.amountsLabel", { defaultValue: "Amounts" })}</p>
+                      <p className="text-muted-foreground">{t("components.globalSearch.amountsRestricted", { defaultValue: "Not available for this role" })}</p>
                     </div>
                   )}
                   <div className="flex items-end">
@@ -561,7 +573,7 @@ function SearchResultsModal({
                     className="gap-1"
                     onClick={() => setExpandedId((prev) => (prev === inv.id ? null : inv.id))}
                   >
-                    عرض التفاصيل
+                    {t("common.view")}
                     <ChevronDown
                       className={cn("h-4 w-4 transition-transform", expanded ? "rotate-180" : "")}
                     />
@@ -589,6 +601,8 @@ function SearchResultsModal({
 export function GlobalInvoiceSearch({ className }: { className?: string }) {
   const { canAny } = usePermissions();
   const canSearch = canAny("invoices.view", "jobProcess.view");
+  const { t } = useTranslation();
+  const listStatus = useListStatus();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [openDropdown, setOpenDropdown] = useState(false);
@@ -681,7 +695,7 @@ export function GlobalInvoiceSearch({ className }: { className?: string }) {
           onFocus={() => {
             if (query.trim().length >= MIN_SEARCH_CHARS) setOpenDropdown(true);
           }}
-          placeholder="ابحث برقم الفاتورة أو الجوال أو اسم العميل"
+          placeholder={t("components.globalSearch.placeholder")}
           className="h-11 pe-24 ps-9"
           dir="rtl"
           autoComplete="off"
@@ -694,14 +708,14 @@ export function GlobalInvoiceSearch({ className }: { className?: string }) {
           onClick={handleOpenByUserIntent}
           disabled={debounced.trim().length < MIN_SEARCH_CHARS}
         >
-          بحث/فتح
+          {t("common.search")}
         </Button>
         {isFetching && debounced.length > 0 ? (
           <Loader2 className="absolute end-[4.75rem] top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         ) : null}
       </div>
       {isQueryTooShort ? (
-        <p className="mt-1 text-xs text-muted-foreground">اكتب 3 أحرف على الأقل لبدء البحث.</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t("components.globalSearch.minChars", { defaultValue: "Type at least 3 characters to search." })}</p>
       ) : null}
 
       {showPanel ? (
@@ -710,10 +724,10 @@ export function GlobalInvoiceSearch({ className }: { className?: string }) {
           role="listbox"
         >
           {isFetching && debounced.length > 0 && !rows ? (
-            <p className="px-3 py-2 text-sm text-muted-foreground">جاري البحث…</p>
+            <p className="px-3 py-2 text-sm text-muted-foreground">{t("components.globalSearch.searching")}</p>
           ) : null}
           {showEmpty ? (
-            <p className="px-3 py-3 text-center text-sm text-muted-foreground">لا توجد نتائج</p>
+            <p className="px-3 py-3 text-center text-sm text-muted-foreground">{t("components.globalSearch.noResults")}</p>
           ) : null}
           {showList
             ? rows!.map((inv) => {
@@ -737,14 +751,14 @@ export function GlobalInvoiceSearch({ className }: { className?: string }) {
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="font-mono font-semibold">#{inv.invoiceNo}</span>
-                      <span className="text-xs text-muted-foreground">{listStatusAr(inv.status)}</span>
+                      <span className="text-xs text-muted-foreground">{listStatus(inv.status)}</span>
                     </div>
                     <div className="font-medium">{cust?.name ?? "—"}</div>
                     <div className="font-mono text-xs text-muted-foreground" dir="ltr">
                       {cust?.mobile ?? "—"}
                     </div>
                     <div className="mt-0.5 flex flex-wrap justify-between gap-2 text-xs">
-                      <span className="text-muted-foreground">المتبقي</span>
+                      <span className="text-muted-foreground">{t("pages.invoices.colBalance")}</span>
                       <span className="font-mono tabular-nums font-medium">
                         {showMoney ? formatAED(inv.balanceFils!) : "—"}
                       </span>

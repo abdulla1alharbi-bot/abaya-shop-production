@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ export function CustomerForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
+  const { t } = useTranslation();
 
   const save = useMutation({
     mutationFn: async (form: FormData) => {
@@ -31,7 +33,7 @@ export function CustomerForm() {
 
   return (
     <div className="mx-auto max-w-md space-y-6">
-      <PageHeader title="عميل جديد" description="الاسم والجوال كافيان للبدء." />
+      <PageHeader title={t("pages.customers.newCustomerTitle")} />
       <form
         className="space-y-4 rounded-lg border bg-card p-4"
         onSubmit={(e) => {
@@ -40,24 +42,24 @@ export function CustomerForm() {
         }}
       >
         <div className="space-y-2">
-          <Label htmlFor="name">الاسم</Label>
+          <Label htmlFor="name">{t("pages.customers.formNameLabel")}</Label>
           <Input id="name" name="name" required autoComplete="name" className="h-10" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="mobile">الجوال</Label>
+          <Label htmlFor="mobile">{t("pages.customers.formMobileLabel")}</Label>
           <Input id="mobile" name="mobile" required inputMode="tel" autoComplete="tel" className="h-10" dir="ltr" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="address">العنوان (اختياري)</Label>
+          <Label htmlFor="address">{t("pages.customers.formAddressLabel")}</Label>
           <Input id="address" name="address" className="h-10" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="notes">ملاحظة (اختياري)</Label>
+          <Label htmlFor="notes">{t("pages.customers.formNoteLabel")}</Label>
           <Input id="notes" name="notes" className="h-10" />
         </div>
         {can("customers.edit") ? (
           <div className="space-y-2">
-            <Label htmlFor="creditLimitAed">حد الائتمان (درهم) — 0 يعني بدون حد</Label>
+            <Label htmlFor="creditLimitAed">{t("pages.customers.formCreditLabel")}</Label>
             <Input
               id="creditLimitAed"
               name="creditLimitAed"
@@ -72,13 +74,13 @@ export function CustomerForm() {
         ) : null}
         <div className="flex flex-wrap gap-2 pt-2">
           <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? "جاري الحفظ…" : "حفظ"}
+            {save.isPending ? t("common.saving") : t("common.save")}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link to="/customers">إلغاء</Link>
+            <Link to="/customers">{t("common.cancel")}</Link>
           </Button>
         </div>
-        {save.isError ? <p className="text-sm text-destructive">تعذّر الحفظ (ربما الجوال مسجّل).</p> : null}
+        {save.isError ? <p className="text-sm text-destructive">{t("pages.customers.formSaveFailed")}</p> : null}
       </form>
     </div>
   );

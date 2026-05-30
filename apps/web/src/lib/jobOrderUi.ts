@@ -82,7 +82,12 @@ export function stageLabel(stage: string): string {
   return JOB_STAGE_LABELS[stage] ?? stage;
 }
 
-export function workTypeLabel(workType: string): string {
+export function workTypeLabel(workType: string, t?: (key: string) => string): string {
+  if (t) {
+    const key = `workTypes.${workType}`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+  }
   return WORK_TYPE_LABELS[workType] ?? workType;
 }
 

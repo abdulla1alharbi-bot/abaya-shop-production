@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, CalendarClock, ClipboardList, Eye, Scissors } from "lucide-react";
 import { JOB_STAGE_LABELS } from "@abaya-shop/shared";
@@ -17,6 +17,7 @@ import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useIsWorker } from "@/hooks/useIsWorker";
+import { useTranslation } from "react-i18next";
 
 type Urgency = "overdue" | "due_today" | "future";
 
@@ -74,24 +75,27 @@ function rowHoverClass(u: Urgency): string {
   }
 }
 
-function urgencyBadge(u: Urgency): { label: string; className: string } {
-  switch (u) {
-    case "overdue":
-      return {
-        label: "متأخر",
-        className: "border-red-300 bg-red-100 text-red-900 dark:bg-red-950/50 dark:text-red-100",
-      };
-    case "due_today":
-      return {
-        label: "مستحق اليوم",
-        className: "border-orange-300 bg-orange-100 text-orange-950 dark:bg-orange-950/40 dark:text-orange-100",
-      };
-    default:
-      return {
-        label: "قيد التنفيذ",
-        className: "border-zinc-200 bg-zinc-100 text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
-      };
-  }
+function useUrgencyBadge() {
+  const { t } = useTranslation();
+  return (u: Urgency): { label: string; className: string } => {
+    switch (u) {
+      case "overdue":
+        return {
+          label: t("components.pendingTailoring.urgent"),
+          className: "border-red-300 bg-red-100 text-red-900 dark:bg-red-950/50 dark:text-red-100",
+        };
+      case "due_today":
+        return {
+          label: t("components.pendingTailoring.dueSoon"),
+          className: "border-orange-300 bg-orange-100 text-orange-950 dark:bg-orange-950/40 dark:text-orange-100",
+        };
+      default:
+        return {
+          label: t("components.pendingTailoring.onTrack"),
+          className: "border-zinc-200 bg-zinc-100 text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
+        };
+    }
+  };
 }
 
 function filterItems(items: PendingItem[], rowFilter: RowFilter): PendingItem[] {
@@ -131,6 +135,8 @@ function itemMatchesSearch(it: PendingItem, needle: string): boolean {
 
 export function PendingTailoringSection() {
   const isWorker = useIsWorker();
+  const { t } = useTranslation();
+  const urgencyBadge = useUrgencyBadge();
   const [invoiceModalId, setInvoiceModalId] = useState<string | null>(null);
   const [jobModal, setJobModal] = useState<{ invoiceId: string; focusJobId: string } | null>(null);
   const [listModalOpen, setListModalOpen] = useState(false);
@@ -182,8 +188,8 @@ export function PendingTailoringSection() {
     return (
       <div className="min-w-0">
         <section className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-          <h2 className="sr-only">أعمال التفصيل غير المكتملة</h2>
-          <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+          <h2 className="sr-only">{t("components.pendingTailoring.sectionTitle")}</h2>
+          <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
         </section>
       </div>
     );
@@ -193,14 +199,14 @@ export function PendingTailoringSection() {
     return (
       <div className="min-w-0">
         <section className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
-          <h2 className="mb-1 text-sm font-semibold">أعمال التفصيل غير المكتملة</h2>
-          <p className="text-sm text-destructive">تعذّر تحميل القائمة.</p>
+          <h2 className="mb-1 text-sm font-semibold">{t("components.pendingTailoring.sectionTitle")}</h2>
+          <p className="text-sm text-destructive">{t("common.error")}</p>
           <button
             type="button"
             className="mt-2 text-sm font-medium text-primary underline"
             onClick={() => void refetch()}
           >
-            إعادة المحاولة
+            {t("common.retry")}
           </button>
         </section>
       </div>
@@ -228,20 +234,20 @@ export function PendingTailoringSection() {
       <Dialog open={listModalOpen} onOpenChange={setListModalOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1200px)] max-w-[1200px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1200px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>أعمال التفصيل غير المكتملة</DialogTitle>
+            <DialogTitle>{t("components.pendingTailoring.sectionTitle")}</DialogTitle>
             <DialogDescription>
-              مرتبة حسب الأولوية: متأخر → مستحق اليوم → لاحقاً، ثم أقرب موعد تسليم. اضغط الصف لعرض ملخص الفاتورة.
+              {t("components.pendingTailoring.dialogDesc", { defaultValue: "Sorted by priority: Overdue → Due Today → Later, then nearest delivery date. Click a row to view invoice summary." })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex shrink-0 flex-col gap-3 border-b bg-muted/20 px-4 py-3 sm:px-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">تصفية:</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("components.pendingTailoring.filter", { defaultValue: "Filter:" })}</span>
               {(
                 [
-                  { id: "all" as const, label: "الكل" },
-                  { id: "overdue" as const, label: "متأخر" },
-                  { id: "due_today" as const, label: "اليوم" },
+                  { id: "all" as const, labelKey: "pos.allCategories" },
+                  { id: "overdue" as const, labelKey: "components.pendingTailoring.urgent" },
+                  { id: "due_today" as const, labelKey: "components.pendingTailoring.dueToday" },
                 ] as const
               ).map((f) => (
                 <Button
@@ -252,7 +258,7 @@ export function PendingTailoringSection() {
                   className="h-8"
                   onClick={() => setRowFilter(f.id)}
                 >
-                  {f.label}
+                  {t(f.labelKey)}
                 </Button>
               ))}
             </div>
@@ -262,7 +268,7 @@ export function PendingTailoringSection() {
                 dir="auto"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="ابحث برقم الفاتورة أو العميل أو الجوال أو الموديل"
+                placeholder={t("components.globalSearch.placeholder")}
                 className="h-9 bg-background"
                 aria-label="بحث في قائمة التفصيل غير المكتمل"
               />
@@ -273,29 +279,25 @@ export function PendingTailoringSection() {
             {filteredItems.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {items.length === 0
-                  ? "لا توجد أيّة أعمال تفصيل غير مكتملة حالياً."
-                  : normalizeSearchQuery(debouncedSearch)
-                    ? "لا توجد نتائج مطابقة"
-                    : rowFilter !== "all"
-                      ? "لا توجد نتائج لهذا التصفية."
-                      : "لا توجد نتائج مطابقة"}
+                  ? t("components.pendingTailoring.noJobs")
+                  : t("common.noData")}
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[920px] text-sm">
                   <thead>
                     <tr className="border-b bg-muted/40 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <th className="px-3 py-2 md:px-4">الأولوية</th>
-                      <th className="px-3 py-2 md:px-4">فاتورة</th>
-                      <th className="px-3 py-2 md:px-4">العميل</th>
-                      <th className="px-3 py-2 md:px-4">الجوال</th>
-                      <th className="px-3 py-2 md:px-4">القطعة / النوع</th>
-                      <th className="px-3 py-2 md:px-4">المرحلة</th>
-                      <th className="px-3 py-2 md:px-4">موعد التسليم</th>
+                      <th className="px-3 py-2 md:px-4">{t("components.pendingTailoring.colPriority", { defaultValue: "Priority" })}</th>
+                      <th className="px-3 py-2 md:px-4">{t("pages.invoices.colInvoiceNo")}</th>
+                      <th className="px-3 py-2 md:px-4">{t("pages.invoices.colCustomer")}</th>
+                      <th className="px-3 py-2 md:px-4">{t("pages.invoices.colMobile")}</th>
+                      <th className="px-3 py-2 md:px-4">{t("components.pendingTailoring.colPiece", { defaultValue: "Piece / Type" })}</th>
+                      <th className="px-3 py-2 md:px-4">{t("components.pendingTailoring.colStage", { defaultValue: "Stage" })}</th>
+                      <th className="px-3 py-2 md:px-4">{t("pages.invoices.colDeliveryDate")}</th>
                       {!isWorker ? (
-                        <th className="px-3 py-2 text-end md:px-4">متبقي الفاتورة</th>
+                        <th className="px-3 py-2 text-end md:px-4">{t("pages.invoices.colBalance")}</th>
                       ) : null}
-                      <th className="px-3 py-2 text-center md:px-4">إجراءات سريعة</th>
+                      <th className="px-3 py-2 text-center md:px-4">{t("components.pendingTailoring.colActions", { defaultValue: "Quick Actions" })}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -402,14 +404,14 @@ export function PendingTailoringSection() {
       </Dialog>
 
       <DashboardOperationalCard
-        title="أعمال التفصيل غير المكتملة"
+        title={t("components.pendingTailoring.sectionTitle")}
         icon={<ClipboardList className="h-5 w-5" aria-hidden />}
         summary={
           <>
-            متأخر: {summary.overdueCount} | اليوم: {summary.dueTodayCount} | لاحقاً: {summary.inProgressCount}
+            {t("components.pendingTailoring.urgent")}: {summary.overdueCount} | {t("components.pendingTailoring.dueSoon")}: {summary.dueTodayCount} | {t("components.pendingTailoring.onTrack")}: {summary.inProgressCount}
           </>
         }
-        hint="اضغط لعرض القائمة الكاملة"
+        hint={t("components.invoiceQueue.tapForDetails")}
         onClick={() => setListModalOpen(true)}
         open={listModalOpen}
         aside={

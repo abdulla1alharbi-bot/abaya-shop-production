@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Package, Scissors } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { GlobalInvoiceSearch } from "@/components/invoices/GlobalInvoiceSearch";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { CartPanel } from "@/components/pos/CartPanel";
@@ -15,6 +16,7 @@ type PosMode = "retail" | "tailoring";
 
 export function POSPage() {
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const canRetail = can("pos.readyMade");
   const canTailoring = can("pos.tailoring");
   const [searchParams] = useSearchParams();
@@ -34,8 +36,8 @@ export function POSPage() {
   return (
     <div className="flex min-h-0 flex-col gap-4 pb-[min(28vh,220px)] lg:pb-0">
       <PageHeader
-        title="البيع"
-        description="أضف للسلة: جاهز من المخزون أو تفصيل. فاتورة واحدة ودفعة واحدة في النهاية."
+        title={t("pos.title")}
+        description={t("pos.description")}
       />
 
       <GlobalInvoiceSearch className="max-w-xl" />
@@ -66,7 +68,7 @@ export function POSPage() {
               )}
             >
               <Package className="h-4 w-4 shrink-0" />
-              منتجات جاهزة
+              {t("pos.readyProducts")}
             </button>
           ) : null}
           {canTailoring ? (
@@ -81,25 +83,25 @@ export function POSPage() {
               )}
             >
               <Scissors className="h-4 w-4 shrink-0" />
-              تفصيل
+              {t("pos.tailoring")}
             </button>
           ) : null}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">لا توجد صلاحية لبيع جاهز أو تفصيل من هذا الحساب.</p>
+        <p className="text-sm text-muted-foreground">{t("pos.noPermission", { defaultValue: "No permission to sell ready products or tailoring from this account." })}</p>
       )}
 
       <div className="grid flex-1 gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
         <section className="min-h-0 space-y-2">
           <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {mode === "retail" ? "اختر المنتجات" : "بيانات الطلب"}
+            {mode === "retail" ? t("pos.selectProducts", { defaultValue: "Select Products" }) : t("pos.orderData", { defaultValue: "Order Details" })}
           </h2>
           {mode === "retail" && canRetail ? (
             <ProductGrid />
           ) : mode === "tailoring" && canTailoring ? (
             <TailoringIntakePanel />
           ) : (
-            <p className="text-sm text-muted-foreground">اختر نوع البيع أعلاه.</p>
+            <p className="text-sm text-muted-foreground">{t("pos.selectSaleType", { defaultValue: "Select a sale type above." })}</p>
           )}
         </section>
 

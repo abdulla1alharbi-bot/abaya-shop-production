@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ type ConversionRow = {
 };
 
 export function ReadyConversionsPage() {
+  const { t } = useTranslation();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [model, setModel] = useState("");
@@ -63,8 +65,8 @@ export function ReadyConversionsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="تحويلات التفصيل إلى جاهز"
-        description="سجل كل قطعة تفصيل تم تحويلها إلى منتج جاهز مع رابط الفاتورة والمنتج."
+        title={t("readyMade.conversionsTitle")}
+        description={t("readyMade.conversionsDesc", { defaultValue: "Record each tailoring piece converted to a ready-made product with invoice and product link." })}
       />
 
       <div className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-5">

@@ -1,4 +1,5 @@
 import { useId, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { PIPELINE_STAGE_KEYS } from "@abaya-shop/shared";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +32,7 @@ export function TailoringPieceProgressStrip({
   invoiceDeliveryDateIso: string | null | undefined;
 }) {
   const baseId = useId();
+  const { t } = useTranslation();
   const sorted = useMemo(
     () => [...workStages].sort((a, b) => a.sortOrder - b.sortOrder),
     [workStages],
@@ -70,7 +72,7 @@ export function TailoringPieceProgressStrip({
           id={`piece-progress-h-${baseId}`}
           className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
         >
-          تقدم المراحل
+          {t("components.progressStrip")}
         </p>
         {total > 0 ? (
           <span className="text-xs font-mono text-muted-foreground tabular-nums" dir="ltr">
