@@ -112,7 +112,7 @@ invoicesRouter.get(
       if (digits.length > 0) {
         const like = `%${digits}%`;
         const matched = await prisma.$queryRaw<{ id: string }[]>(
-          Prisma.sql`SELECT id FROM "Invoice" WHERE CAST("invoiceNo" AS TEXT) LIKE ${like}`,
+          Prisma.sql`SELECT id FROM "Invoice" WHERE CAST("invoiceNo" AS VARCHAR) LIKE ${like}`,
         );
         invoiceIdsByPartialNo = matched.map((r) => r.id);
       }
@@ -276,7 +276,7 @@ invoicesRouter.get(
     if (digits.length > 0) {
       const like = `%${digits}%`;
       const matched = await prisma.$queryRaw<{ id: string }[]>(
-        Prisma.sql`SELECT id FROM "Invoice" WHERE CAST("invoiceNo" AS TEXT) LIKE ${like}`,
+        Prisma.sql`SELECT id FROM "Invoice" WHERE CAST("invoiceNo" AS VARCHAR) LIKE ${like}`,
       );
       invoiceIdsByPartialNo = matched.map((r) => r.id);
     }
