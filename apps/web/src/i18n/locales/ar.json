@@ -10,7 +10,7 @@
     "items": {
       "dashboard": "الرئيسية",
       "pos": "البيع — كاشير",
-      "production": "إنتاج الموديلات",
+      "production": "الإنتاج",
       "productionSamples": "تفصيل للعرض",
       "productionSamplesPerformance": "أداء موديلات العرض",
       "readyMade": "جاهز للبيع",
@@ -20,6 +20,7 @@
       "invoices": "الفواتير",
       "customers": "العملاء",
       "workshopTracking": "متابعة مراحل التفصيل",
+      "workshopBoard": "مهام الورشة",
       "workers": "العمال",
       "payroll": "مستحقات وأجور",
       "workshopCapacity": "طاقة الورشة",
@@ -251,6 +252,12 @@
     "stagesCount": "{{count}} مرحلة",
     "more": "+ {{count}} أخرى",
     "oldestJob": "أقدم طلب: {{days}} يوم"
+  },
+  "workshopBoard": {
+    "title": "مهام الورشة",
+    "desc": "كل الطلبات النشطة مرتّبة حسب المرحلة — يحدّث تلقائياً كل دقيقة. اضغط أي طلب لفتحه.",
+    "searchPlaceholder": "ابحث برقم الطلب أو اسم العميل أو الجوال",
+    "empty": "لا توجد طلبات نشطة في الورشة حالياً."
   },
   "audit": {
     "title": "سجل التدقيق",

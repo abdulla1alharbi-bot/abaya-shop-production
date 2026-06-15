@@ -40,6 +40,35 @@ async function main(): Promise<void> {
     },
   });
 
+  // Test logins for role-aware landing (seller → POS, worker → workshop queue).
+  await prisma.user.upsert({
+    where: { username: "seller" },
+    update: { password: passwordHash, name: "Sales Person", role: "SELLER", isActive: true },
+    create: {
+      username: "seller",
+      email: "seller@abayashop.ae",
+      name: "Sales Person",
+      password: passwordHash,
+      role: "SELLER",
+      phone: "+971500000001",
+      isActive: true,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { username: "worker" },
+    update: { password: passwordHash, name: "Workshop Worker", role: "WORKER", isActive: true },
+    create: {
+      username: "worker",
+      email: "worker@abayashop.ae",
+      name: "Workshop Worker",
+      password: passwordHash,
+      role: "WORKER",
+      phone: "+971500000002",
+      isActive: true,
+    },
+  });
+
   const branch = await prisma.branch.upsert({
     where: { id: "seed-main-branch" },
     update: {},
@@ -434,7 +463,7 @@ async function main(): Promise<void> {
 
   console.log("");
   console.log("══════════════════════════════════════════════════════════");
-  console.log("  SEED COMPLETED SUCCESSFULLY (SQLite)");
+  console.log("  SEED COMPLETED SUCCESSFULLY (PostgreSQL)");
   console.log("══════════════════════════════════════════════════════════");
   console.log("  Login:");
   console.log("    Username: owner");

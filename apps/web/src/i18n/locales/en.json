@@ -10,7 +10,7 @@
     "items": {
       "dashboard": "Dashboard",
       "pos": "Point of Sale",
-      "production": "Model Production",
+      "production": "Production",
       "productionSamples": "Sample Tailoring",
       "productionSamplesPerformance": "Sample Model Performance",
       "readyMade": "Ready to Sell",
@@ -20,6 +20,7 @@
       "invoices": "Invoices",
       "customers": "Customers",
       "workshopTracking": "Track Tailoring Stages",
+      "workshopBoard": "Workshop Tasks",
       "workers": "Workers",
       "payroll": "Payroll & Wages",
       "workshopCapacity": "Workshop Capacity",
@@ -251,6 +252,12 @@
     "stagesCount": "{{count}} stages",
     "more": "+ {{count}} more",
     "oldestJob": "Oldest order: {{days}} days"
+  },
+  "workshopBoard": {
+    "title": "Workshop Tasks",
+    "desc": "All active orders grouped by stage — auto-refreshes every minute. Click any order to open it.",
+    "searchPlaceholder": "Search by job no, customer or mobile",
+    "empty": "No active workshop orders right now."
   },
   "audit": {
     "title": "Audit Log",

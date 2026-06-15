@@ -81,6 +81,7 @@ jobOrdersRouter.get(
     const workerId = queryParamString(q, "workerId");
     const paymentStatus = queryParamString(q, "paymentStatus");
     const overdueOnly = queryParamString(q, "overdue") === "true";
+    const openOnly = queryParamString(q, "open") === "true";
     const dueBefore = parseOptionalDate(q, "dueBefore");
     const dueAfter = parseOptionalDate(q, "dueAfter");
 
@@ -122,6 +123,12 @@ jobOrdersRouter.get(
         dueDate: { lt: startOfToday },
         stage: { notIn: ["DELIVERED", CONVERTED_READY_STAGE] },
       });
+    }
+
+    // Active workshop jobs only — excludes finished/cancelled so the board's
+    // page budget isn't consumed by historical orders.
+    if (openOnly) {
+      and.push({ stage: { notIn: ["DELIVERED", CONVERTED_READY_STAGE, "CANCELLED"] } });
     }
 
     if (dueBefore) and.push({ dueDate: { lte: dueBefore } });

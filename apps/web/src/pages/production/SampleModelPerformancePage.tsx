@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ProductionTabs } from "@/pages/production/ProductionTabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -75,6 +76,7 @@ export function SampleModelPerformancePage() {
         title={t("production.samplesPerformanceTitle")}
         description={t("production.samplesPerformanceDesc", { defaultValue: "Measure showroom model performance by number of tailoring orders generated." })}
       />
+      <ProductionTabs />
 
       <section className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-3">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />

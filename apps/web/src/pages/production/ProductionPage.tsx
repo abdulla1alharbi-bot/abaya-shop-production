@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ProductionTabs } from "@/pages/production/ProductionTabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -129,6 +130,7 @@ export function ProductionPage() {
         title={t("production.title")}
         description={t("production.description", { defaultValue: "Create internal production without customer invoices, tracking stages and costs." })}
       />
+      <ProductionTabs />
 
       <section className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-5">
         <select

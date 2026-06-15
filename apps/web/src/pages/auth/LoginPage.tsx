@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { homeRouteForUser } from "@/lib/homeRoute";
 import type { AuthUser } from "@abaya-shop/shared";
 
 type FormValues = {
@@ -44,7 +45,9 @@ export function LoginPage() {
     password: z.string().min(1, t("auth.login.passwordRequired")),
   });
 
-  const from = (location.state as { from?: { pathname?: string } } | undefined)?.from?.pathname ?? "/dashboard";
+  // Deep link the user was redirected from (e.g. an expired session on /invoices).
+  // When absent, fall back to the role-aware home instead of a fixed page.
+  const deepLink = (location.state as { from?: { pathname?: string } } | undefined)?.from?.pathname;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -52,7 +55,7 @@ export function LoginPage() {
   });
 
   if (user) {
-    return <Navigate to={from} replace />;
+    return <Navigate to={deepLink ?? homeRouteForUser(user)} replace />;
   }
 
   async function onSubmit(values: FormValues) {
@@ -63,7 +66,7 @@ export function LoginPage() {
       });
       if (res.data.success && res.data.data) {
         setAuth(res.data.data.user, res.data.data.accessToken);
-        void navigate(from, { replace: true });
+        void navigate(deepLink ?? homeRouteForUser(res.data.data.user), { replace: true });
       }
     } catch (e) {
       if (axios.isAxiosError(e) && e.response?.status === 400) {

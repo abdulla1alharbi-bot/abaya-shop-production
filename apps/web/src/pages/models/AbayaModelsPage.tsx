@@ -858,7 +858,7 @@ export function AbayaModelsPage() {
           </DialogFooter>
           {saveMutation.isError ? (
             <p className="text-sm text-destructive">
-              {(saveMutation.error as Error).message || "تعذّر الحفظ."}
+              {getApiErrorMessage(saveMutation.error, "تعذّر الحفظ.")}
             </p>
           ) : null}
         </DialogContent>

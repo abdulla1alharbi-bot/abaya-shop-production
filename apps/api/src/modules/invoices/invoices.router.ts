@@ -907,6 +907,17 @@ invoicesRouter.post(
   }),
 );
 
+/** Expected next invoice number (draft preview for POS). Not reserved — the
+ * real number is assigned at checkout, so concurrent sales may shift it. */
+invoicesRouter.get(
+  "/next-invoice-no",
+  requirePermission("pos.use", "invoices.create"),
+  asyncHandler(async (_req, res) => {
+    const invoiceNo = await nextInvoiceNo(prisma);
+    res.json({ success: true, data: { invoiceNo } });
+  }),
+);
+
 invoicesRouter.post(
   "/pos-checkout",
   requireAllPermissions("invoices.create", "pos.use", "pos.checkout"),

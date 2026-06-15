@@ -35,7 +35,14 @@ import { WorkerForm } from "@/pages/workers/WorkerForm";
 import { WorkerDetail } from "@/pages/workers/WorkerDetail";
 import { ShiftsPage } from "@/pages/shifts/ShiftsPage";
 import { WorkshopCapacityPage } from "@/pages/workshop/WorkshopCapacityPage";
+import { WorkshopBoardPage } from "@/pages/workshop/WorkshopBoardPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { homeRouteForUser } from "@/lib/homeRoute";
+
+function HomeRedirect() {
+  const user = useAuthStore((s) => s.user);
+  return <Navigate to={homeRouteForUser(user)} replace />;
+}
 
 function ProtectedRoute() {
   const ready = useAuthBootstrap();
@@ -74,7 +81,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<HomeRedirect />} />
           <Route
             path="/dashboard"
             element={
@@ -306,6 +313,14 @@ export default function App() {
             element={
               <RequirePermission permission="pos.use">
                 <ShiftsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/workshop/board"
+            element={
+              <RequirePermission permission="jobProcess.view">
+                <WorkshopBoardPage />
               </RequirePermission>
             }
           />

@@ -9,9 +9,11 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-# VITE_API_URL is baked into the JS bundle at build time
-ARG VITE_API_URL=http://localhost:3001
+# VITE_* values are baked into the JS bundle at build time
+ARG VITE_API_URL=http://localhost:3001/api
 ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_SOCKET_URL=http://localhost:3001
+ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
 
 RUN pnpm --filter @abaya-shop/shared build
 RUN pnpm --filter @abaya-shop/web build

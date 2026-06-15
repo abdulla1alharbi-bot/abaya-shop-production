@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ProductionTabs } from "@/pages/production/ProductionTabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -121,6 +122,7 @@ export function SampleTailoringPage() {
         title={t("production.samplesTitle")}
         description={t("production.samplesDesc", { defaultValue: "Create a showroom model without a customer, tracking production wages." })}
       />
+      <ProductionTabs />
 
       <section className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-5">
         <select

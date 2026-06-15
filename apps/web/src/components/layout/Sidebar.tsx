@@ -1,13 +1,15 @@
 import {
   Activity,
   BarChart3,
+  ClipboardList,
   Clock,
   CreditCard,
+  Factory,
   FileText,
   Home,
-  Layers,
   Package,
   Receipt,
+  Scissors,
   Settings,
   Shield,
   Shirt,
@@ -20,9 +22,20 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/store/authStore";
+
+type NavBadges = {
+  workshopDueToday: number;
+  invoicesUnpaid: number;
+  fabricsLowStock: number;
+  customersOverCredit: number;
+};
+
+type NavBadgeKey = keyof NavBadges;
 
 type NavEntry = {
   to: string;
@@ -32,7 +45,24 @@ type NavEntry = {
   permission?: string | "auth";
   /** If set, user needs at least one of these (takes precedence over `permission`). */
   anyOf?: string[];
+  /** Live count badge: which count to show, and its urgency tone. */
+  badgeKey?: NavBadgeKey;
+  badgeTone?: "danger" | "warning";
 };
+
+function useNavBadges(enabled: boolean) {
+  return useQuery({
+    queryKey: ["nav-badges"],
+    queryFn: async () => {
+      const res = await api.get<{ success: boolean; data: NavBadges }>("/dashboard/nav-badges");
+      return res.data.data;
+    },
+    enabled,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    refetchOnWindowFocus: true,
+  });
+}
 
 const navGroups: Array<{ id: string; titleKey: string; items: NavEntry[] }> = [
   {
@@ -44,20 +74,8 @@ const navGroups: Array<{ id: string; titleKey: string; items: NavEntry[] }> = [
       {
         to: "/production",
         labelKey: "nav.items.production",
-        icon: Layers,
+        icon: Factory,
         anyOf: ["jobProcess.view", "jobProcess.update", "readyMade.create"],
-      },
-      {
-        to: "/production/samples",
-        labelKey: "nav.items.productionSamples",
-        icon: Layers,
-        anyOf: ["jobProcess.view", "jobProcess.update", "readyMade.create"],
-      },
-      {
-        to: "/production/samples/performance",
-        labelKey: "nav.items.productionSamplesPerformance",
-        icon: BarChart3,
-        anyOf: ["reports.sales"],
       },
     ],
   },
@@ -72,22 +90,51 @@ const navGroups: Array<{ id: string; titleKey: string; items: NavEntry[] }> = [
         icon: FileText,
         anyOf: ["readyMade.view", "jobProcess.view"],
       },
-      { to: "/fabrics", labelKey: "nav.items.fabrics", icon: Package, permission: "fabrics.view" },
-      { to: "/models", labelKey: "nav.items.models", icon: Layers, permission: "models.view" },
+      {
+        to: "/fabrics",
+        labelKey: "nav.items.fabrics",
+        icon: Package,
+        permission: "fabrics.view",
+        badgeKey: "fabricsLowStock",
+        badgeTone: "danger",
+      },
+      { to: "/models", labelKey: "nav.items.models", icon: Scissors, permission: "models.view" },
     ],
   },
   {
     id: "orders",
     titleKey: "nav.groups.orders",
     items: [
-      { to: "/invoices", labelKey: "nav.items.invoices", icon: FileText, permission: "invoices.view" },
-      { to: "/customers", labelKey: "nav.items.customers", icon: UserCircle, permission: "customers.view" },
+      {
+        to: "/invoices",
+        labelKey: "nav.items.invoices",
+        icon: FileText,
+        permission: "invoices.view",
+        badgeKey: "invoicesUnpaid",
+        badgeTone: "warning",
+      },
+      {
+        to: "/customers",
+        labelKey: "nav.items.customers",
+        icon: UserCircle,
+        permission: "customers.view",
+        badgeKey: "customersOverCredit",
+        badgeTone: "danger",
+      },
     ],
   },
   {
     id: "workshop",
     titleKey: "nav.groups.workshop",
     items: [
+      {
+        to: "/workshop/board",
+        labelKey: "nav.items.workshopBoard",
+        icon: ClipboardList,
+        permission: "jobProcess.view",
+        badgeKey: "workshopDueToday",
+        badgeTone: "warning",
+      },
       { to: "/invoices", labelKey: "nav.items.workshopTracking", icon: FileText, permission: "jobProcess.view" },
       { to: "/workers", labelKey: "nav.items.workers", icon: Users, permission: "workers.view" },
       { to: "/payroll", labelKey: "nav.items.payroll", icon: Wallet, permission: "workers.wages" },
@@ -110,6 +157,12 @@ const navGroups: Array<{ id: string; titleKey: string; items: NavEntry[] }> = [
           "reports.mostRequested",
         ],
       },
+      {
+        to: "/production/samples/performance",
+        labelKey: "nav.items.productionSamplesPerformance",
+        icon: BarChart3,
+        permission: "reports.sales",
+      },
       { to: "/shifts", labelKey: "nav.items.shifts", icon: Clock, permission: "pos.use" },
       { to: "/accounts", labelKey: "nav.items.accounts", icon: CreditCard, permission: "reports.financial" },
       { to: "/accounts/expenses", labelKey: "nav.items.expenses", icon: Receipt, permission: "expenses.view" },
@@ -123,9 +176,11 @@ const navGroups: Array<{ id: string; titleKey: string; items: NavEntry[] }> = [
 function NavItem({
   item,
   onNavigate,
+  badges,
 }: {
   item: NavEntry;
   onNavigate?: () => void;
+  badges?: NavBadges;
 }) {
   const { can, canAny } = usePermissions();
   const { t } = useTranslation();
@@ -133,6 +188,7 @@ function NavItem({
     if (!canAny(...item.anyOf)) return null;
   } else if (item.permission !== "auth" && item.permission && !can(item.permission)) return null;
   const Icon = item.icon;
+  const badgeCount = item.badgeKey ? badges?.[item.badgeKey] ?? 0 : 0;
   return (
     <NavLink
       to={item.to}
@@ -147,13 +203,27 @@ function NavItem({
       }
     >
       <Icon className="h-[18px] w-[18px] shrink-0" />
-      <span>{t(item.labelKey)}</span>
+      <span className="flex-1 truncate">{t(item.labelKey)}</span>
+      {badgeCount > 0 ? (
+        <span
+          className={cn(
+            "ms-auto min-w-[20px] shrink-0 rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-white tabular-nums",
+            item.badgeTone === "danger" ? "bg-red-600" : "bg-amber-500",
+          )}
+        >
+          {badgeCount > 99 ? "99+" : badgeCount}
+        </span>
+      ) : null}
     </NavLink>
   );
 }
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation();
+  const { canAny } = usePermissions();
+  // Only poll badge counts when the user can actually see at least one badged item.
+  const hasBadgedItem = canAny("jobProcess.view", "invoices.view", "customers.view", "fabrics.view");
+  const { data: badges } = useNavBadges(hasBadgedItem);
   return (
     <nav className="flex flex-1 flex-col gap-0 overflow-y-auto p-2">
       {navGroups.map((group) => (
@@ -163,7 +233,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           </p>
           <div className="flex flex-col gap-0.5">
             {group.items.map((item) => (
-              <NavItem key={item.to + item.labelKey} item={item} onNavigate={onNavigate} />
+              <NavItem key={item.to + item.labelKey} item={item} onNavigate={onNavigate} badges={badges} />
             ))}
           </div>
         </div>

@@ -82,6 +82,17 @@ export function CartPanel() {
     },
   });
 
+  const { data: nextInvoiceNo } = useQuery({
+    queryKey: ["invoices", "next-no"],
+    queryFn: async () => {
+      const res = await api.get<{ success: boolean; data: { invoiceNo: number } }>(
+        "/invoices/next-invoice-no",
+      );
+      return res.data.data.invoiceNo;
+    },
+    staleTime: 30_000,
+  });
+
   const { data: customerCredit } = useQuery({
     queryKey: ["customer-credit", posCustomerId],
     queryFn: async () => {
@@ -216,8 +227,18 @@ export function CartPanel() {
     <>
       <Card className="border shadow-sm">
         <CardHeader className="space-y-1 pb-3">
-          <CardTitle className="text-base">{"\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u062f\u0641\u0639"}</CardTitle>
-          <p className="text-xs text-muted-foreground">{"\u0627\u0644\u062c\u0627\u0647\u0632 \u0648\u0627\u0644\u062a\u0641\u0635\u064a\u0644 \u064a\u0638\u0647\u0631\u0627\u0646 \u0647\u0646\u0627 \u0645\u0639\u0627\u064b."}</p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1">
+              <CardTitle className="text-base">{"\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u062f\u0641\u0639"}</CardTitle>
+              <p className="text-xs text-muted-foreground">{"\u0627\u0644\u062c\u0627\u0647\u0632 \u0648\u0627\u0644\u062a\u0641\u0635\u064a\u0644 \u064a\u0638\u0647\u0631\u0627\u0646 \u0647\u0646\u0627 \u0645\u0639\u0627\u064b."}</p>
+            </div>
+            {nextInvoiceNo != null ? (
+              <div className="shrink-0 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-center dark:border-amber-800 dark:bg-amber-950/30">
+                <div className="text-[10px] font-medium text-amber-800 dark:text-amber-200">{"\u0641\u0627\u062a\u0648\u0631\u0629 (\u0645\u0633\u0648\u0651\u062f\u0629)"}</div>
+                <div className="text-sm font-semibold tabular-nums text-amber-900 dark:text-amber-100">#{nextInvoiceNo}</div>
+              </div>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {cartEmpty ? (

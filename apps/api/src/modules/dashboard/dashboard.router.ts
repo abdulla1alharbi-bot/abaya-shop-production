@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
@@ -329,6 +330,66 @@ dashboardRouter.get(
     res.status(200).json({
       success: true,
       data: isWorkerRequest(req) ? redactDashboardStatsForWorker(stats as Record<string, unknown>) : stats,
+    });
+  }),
+);
+
+/**
+ * Lightweight live counts for sidebar nav badges. Auth-only (no extra
+ * permission) — the frontend renders each badge only on nav items the user
+ * can already see.
+ */
+dashboardRouter.get(
+  "/nav-badges",
+  asyncHandler(async (req, res) => {
+    // Only return the counts the caller is permitted to see — the financial
+    // ones (unpaid invoices, customers over credit) must not leak to roles the
+    // redaction layer hides them from (e.g. WORKER).
+    const perms = req.user?.permissions ?? [];
+    const can = (p: string) => perms.includes(p);
+
+    const now = new Date();
+    const startToday = startOfLocalDay(now);
+    const endToday = endExclusiveNextLocalDay(now);
+    const zeroRows: { c: number }[] = [{ c: 0 }];
+
+    const [workshopDueToday, invoicesUnpaid, fabricsLow, customersOver] = await Promise.all([
+      // Workshop jobs whose due date is today and still need work
+      can("jobProcess.view")
+        ? prisma.jobOrder.count({
+            where: {
+              stage: { notIn: [...FINISHED_STAGES, "CANCELLED"] },
+              deliveredAt: null,
+              dueDate: { gte: startToday, lt: endToday },
+            },
+          })
+        : Promise.resolve(0),
+      // Non-void invoices with an outstanding balance
+      can("invoices.view")
+        ? prisma.invoice.count({ where: { isVoid: false, balanceFils: { gt: 0 } } })
+        : Promise.resolve(0),
+      // Active fabric rolls at or below their low-stock threshold
+      can("fabrics.view")
+        ? prisma.$queryRaw<{ c: number }[]>(
+            Prisma.sql`SELECT COUNT(*)::int AS c FROM "FabricRoll" WHERE "isActive" = true AND "availableMeters" <= "lowStockAt"`,
+          )
+        : Promise.resolve(zeroRows),
+      // Customers whose balance exceeds a set credit limit
+      can("customers.view")
+        ? prisma.$queryRaw<{ c: number }[]>(
+            Prisma.sql`SELECT COUNT(*)::int AS c FROM "Customer" WHERE "creditLimitFils" > 0 AND "balanceFils" > "creditLimitFils"`,
+          )
+        : Promise.resolve(zeroRows),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        workshopDueToday,
+        invoicesUnpaid,
+        fabricsLowStock: Number(fabricsLow[0]?.c ?? 0),
+        customersOverCredit: Number(customersOver[0]?.c ?? 0),
+      },
     });
   }),
 );
