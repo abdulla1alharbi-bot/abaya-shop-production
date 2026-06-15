@@ -3,7 +3,9 @@
 // Autoincrement on non-id integers is not supported — use explicit values in app/seed.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Include the Alpine/musl + OpenSSL 3 engine so Docker (node:20-alpine) builds work.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

@@ -10,6 +10,8 @@ RUN pnpm install --frozen-lockfile
 # ── Stage 2: build ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 RUN corepack enable pnpm
+# OpenSSL is required by Prisma's engines (schema + query) on Alpine/musl.
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules                  ./node_modules
 COPY --from=deps /app/apps/api/node_modules         ./apps/api/node_modules
@@ -22,6 +24,8 @@ RUN pnpm --filter @abaya-shop/api build
 # ── Stage 3: slim production runtime ───────────────────────────────────────
 FROM node:20-alpine AS runner
 RUN corepack enable pnpm
+# OpenSSL is required at runtime by Prisma's schema engine (db push) and query engine.
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # Install only production deps
