@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -227,20 +227,22 @@ export function CartPanel() {
     <>
       <Card className="border shadow-sm">
         <CardHeader className="space-y-1 pb-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1">
-              <CardTitle className="text-base">{"\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u062f\u0641\u0639"}</CardTitle>
-              <p className="text-xs text-muted-foreground">{"\u0627\u0644\u062c\u0627\u0647\u0632 \u0648\u0627\u0644\u062a\u0641\u0635\u064a\u0644 \u064a\u0638\u0647\u0631\u0627\u0646 \u0647\u0646\u0627 \u0645\u0639\u0627\u064b."}</p>
-            </div>
-            {nextInvoiceNo != null ? (
-              <div className="shrink-0 rounded-lg border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-center dark:border-amber-800 dark:bg-amber-950/30">
-                <div className="text-[10px] font-medium text-amber-800 dark:text-amber-200">{"\u0641\u0627\u062a\u0648\u0631\u0629 (\u0645\u0633\u0648\u0651\u062f\u0629)"}</div>
-                <div className="text-sm font-semibold tabular-nums text-amber-900 dark:text-amber-100">#{nextInvoiceNo}</div>
-              </div>
-            ) : null}
-          </div>
+          <CardTitle className="text-base">{"\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u062f\u0641\u0639"}</CardTitle>
+          <p className="text-xs text-muted-foreground">{"\u0627\u0644\u062c\u0627\u0647\u0632 \u0648\u0627\u0644\u062a\u0641\u0635\u064a\u0644 \u064a\u0638\u0647\u0631\u0627\u0646 \u0647\u0646\u0627 \u0645\u0639\u0627\u064b."}</p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {nextInvoiceNo != null ? (
+            <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+              <div className="flex items-center gap-2.5">
+                <Receipt className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
+                <div>
+                  <div className="text-xs font-medium text-amber-800 dark:text-amber-200">{"\u0631\u0642\u0645 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0627\u0644\u062a\u0627\u0644\u064a"}</div>
+                  <div className="text-2xl font-bold tabular-nums text-amber-900 dark:text-amber-100">#{nextInvoiceNo}</div>
+                </div>
+              </div>
+              <span className="rounded-full bg-amber-200 px-2.5 py-1 text-[11px] font-semibold text-amber-900 dark:bg-amber-900 dark:text-amber-100">{"\u0645\u0633\u0648\u0651\u062f\u0629"}</span>
+            </div>
+          ) : null}
           {cartEmpty ? (
             <p className="text-sm text-muted-foreground">{"\u0644\u0627 \u0634\u064a\u0621 \u0641\u064a \u0627\u0644\u0633\u0644\u0629 \u0628\u0639\u062f."}</p>
           ) : (
