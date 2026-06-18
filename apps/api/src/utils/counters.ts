@@ -17,7 +17,9 @@ export async function nextInvoiceNo(prisma: Db): Promise<number> {
   // Serialize number assignment within the caller's transaction so two
   // simultaneous checkouts can't read the same MAX and collide on the unique
   // invoiceNo. The xact lock is held until the surrounding transaction ends.
-  await prisma.$queryRawUnsafe(`SELECT pg_advisory_xact_lock(${INVOICE_NO_LOCK_KEY})`);
+  // Use $executeRawUnsafe (not $queryRaw): pg_advisory_xact_lock returns `void`,
+  // which $queryRaw cannot deserialize (Prisma P2010).
+  await prisma.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${INVOICE_NO_LOCK_KEY})`);
   const agg = await prisma.invoice.aggregate({ _max: { invoiceNo: true } });
   // Floor at FIRST_INVOICE_NO so numbering starts there even on a fresh DB
   // (or one with lower test invoices); increments normally once past it.
