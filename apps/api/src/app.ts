@@ -29,6 +29,7 @@ import { workersRouter } from "./modules/workers/workers.router.js";
 import { uploadRouter } from "./modules/upload/upload.router.js";
 import { shiftsRouter } from "./modules/shifts/shifts.router.js";
 import { notificationsRouter } from "./modules/notifications/notifications.router.js";
+import { ensureSystemDefaults } from "./bootstrap/ensureSystemDefaults.js";
 import { logger } from "./utils/logger.js";
 
 const app = express();
@@ -88,5 +89,13 @@ httpServer.listen(PORT, () => {
     database: dbKind,
     frontend: FRONTEND_URL,
     env: process.env.NODE_ENV ?? "development",
+  });
+
+  // Self-heal: guarantee the records the app hard-requires exist, regardless of
+  // whether the (demo) seed ran. Non-fatal — the server is already listening.
+  void ensureSystemDefaults().catch((err: unknown) => {
+    logger.error("ensureSystemDefaults failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 });

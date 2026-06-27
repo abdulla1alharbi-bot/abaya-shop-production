@@ -39,6 +39,9 @@ COPY --from=builder /app/apps/api/dist          ./apps/api/dist
 COPY --from=builder /app/apps/api/node_modules  ./apps/api/node_modules
 COPY --from=builder /app/packages/shared/dist   ./packages/shared/dist
 COPY apps/api/prisma                             ./apps/api/prisma
+# `prisma/seed.ts` imports from `../src/...`; the entrypoint runs it via tsx, so
+# the TS sources must be present in the runtime image or seeding fails silently.
+COPY --from=builder /app/apps/api/src           ./apps/api/src
 
 COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 RUN chmod +x ./apps/api/docker-entrypoint.sh

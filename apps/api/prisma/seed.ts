@@ -21,8 +21,9 @@ async function main(): Promise<void> {
 
   const owner = await prisma.user.upsert({
     where: { username: "owner" },
+    // NOTE: never reset `password` on update — re-seeding (which runs on every
+    // container start) must not clobber a password the owner has changed.
     update: {
-      password: passwordHash,
       name: "Shop Owner",
       email: "owner@abayashop.ae",
       role: "OWNER",
@@ -43,7 +44,7 @@ async function main(): Promise<void> {
   // Test logins for role-aware landing (seller → POS, worker → workshop queue).
   await prisma.user.upsert({
     where: { username: "seller" },
-    update: { password: passwordHash, name: "Sales Person", role: "SELLER", isActive: true },
+    update: { name: "Sales Person", role: "SELLER", isActive: true },
     create: {
       username: "seller",
       email: "seller@abayashop.ae",
@@ -57,7 +58,7 @@ async function main(): Promise<void> {
 
   await prisma.user.upsert({
     where: { username: "worker" },
-    update: { password: passwordHash, name: "Workshop Worker", role: "WORKER", isActive: true },
+    update: { name: "Workshop Worker", role: "WORKER", isActive: true },
     create: {
       username: "worker",
       email: "worker@abayashop.ae",

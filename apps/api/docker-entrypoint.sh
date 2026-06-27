@@ -11,9 +11,17 @@ echo "Pushing database schema..."
 
 echo "Seeding database..."
 if [ -f "$TSX" ]; then
-  "$TSX" "$SEED" && echo "Seed complete." || echo "Seed failed (non-fatal — app will auto-create defaults on first use)."
+  if "$TSX" "$SEED"; then
+    echo "Seed complete."
+  else
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "WARNING: SEED FAILED — see the error above. The app still boots;"
+    echo "ensureSystemDefaults() creates the records it hard-requires, but"
+    echo "demo/sample data was NOT seeded. Do not ignore this."
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  fi
 else
-  echo "tsx not found — skipping seed (app will auto-create defaults on first use)."
+  echo "WARNING: tsx not found — skipping seed. ensureSystemDefaults() covers required records on boot."
 fi
 
 echo "Starting API server..."
