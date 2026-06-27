@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import { Check } from "lucide-react";
-import { JOB_STAGE_LABELS, PIPELINE_STAGE_KEYS } from "@abaya-shop/shared";
-
-const STAGE_LABELS_EN: Record<string, string> = {
-  CUTTING: "Cutting",
-  SEWING: "Sewing",
-  EMBROIDERY: "Embroidery",
-  FINISHING: "Finishing",
-};
+import { jobStageLabel, PIPELINE_STAGE_KEYS } from "@abaya-shop/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -415,10 +408,7 @@ export function WorkshopTaskSheet({
         <tbody>
           {sortedStages.map((row) => {
             const badge = statusBadge(row.status, locale);
-            const label =
-              locale === "en"
-                ? (STAGE_LABELS_EN[row.stageKey] ?? row.stageKey)
-                : (JOB_STAGE_LABELS[row.stageKey] ?? row.stageKey);
+            const label = jobStageLabel(row.stageKey, locale);
             const isJobHere = jobStage === row.stageKey;
             const isPipelineKey = (PIPELINE_STAGE_KEYS as readonly string[]).includes(row.stageKey);
             const isActiveRow = isJobHere && isPipelineKey && currentRow?.id === row.id;

@@ -293,7 +293,7 @@
     "wageCutting": "قص (AED)",
     "wageSewing": "خياطة (AED)",
     "wageEmbroidery": "تطريز (AED)",
-    "wageFinishing": "تجهيز (AED)",
+    "wageFinishing": "الشغل اليدوي (AED)",
     "saveSuccess": "تم الحفظ.",
     "viewOnly": "عرض فقط — لا تملك صلاحية تعديل إعدادات المحل.",
     "usersDescription": "حسابات الدخول حسب الدور؛ تعديل الصلاحية لكل إذن يدويّاً أثناء الحاجة فقط من شاشة المستخدم.",
@@ -477,7 +477,10 @@
     "stagesCut": "قص",
     "stagesSew": "خياطة",
     "stagesEmbroider": "تطريز",
-    "stagesFinish": "تجهيز"
+    "stagesFinish": "الشغل اليدوي",
+    "requiredStages": "مراحل الورشة المطلوبة",
+    "requiredStagesHint": "يُنشأ لكل مرحلة سطر في طلب التفصيل بالترتيب.",
+    "defaultWages": "أجور الورشة الافتراضية (د.إ)"
   },
   "fabrics": {
     "title": "مخزون القماش",
@@ -786,7 +789,7 @@
     "SEW_LINING": "بطانة",
     "HAND_EMBROIDERY": "عمل يدوي",
     "MACHINE_EMBROIDERY": "تطريز",
-    "FINISHING": "تجهيز",
+    "FINISHING": "الشغل اليدوي",
     "CUSTOM": "أخرى"
   }
 }

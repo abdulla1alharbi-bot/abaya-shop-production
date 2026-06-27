@@ -475,7 +475,7 @@ export function ReportsPage() {
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
             <DialogTitle>أجور العمال (الورشة)</DialogTitle>
             <DialogDescription>
-              أجور مراحل التشغيل المكتملة (قص، خياطة، تطريز، تجهيز) — كل مهمة مكتملة تُحسب بأجرها المحفوظ. أسفلها
+              أجور مراحل التشغيل المكتملة (قص، خياطة، تطريز، الشغل اليدوي) — كل مهمة مكتملة تُحسب بأجرها المحفوظ. أسفلها
               سجلات الإنتاج للمراجعة.
             </DialogDescription>
           </DialogHeader>

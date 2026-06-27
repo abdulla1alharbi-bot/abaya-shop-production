@@ -291,9 +291,9 @@
     "currency": "Currency",
     "defaultWagesTitle": "Default Tailoring Wages (for models without specified wages)",
     "wageCutting": "Cutting (AED)",
-    "wageSewing": "Sewing (AED)",
+    "wageSewing": "Tailoring (AED)",
     "wageEmbroidery": "Embroidery (AED)",
-    "wageFinishing": "Finishing (AED)",
+    "wageFinishing": "Handwork (AED)",
     "saveSuccess": "Saved successfully.",
     "viewOnly": "View only — you don't have permission to edit shop settings.",
     "usersDescription": "Login accounts by role; manually adjust permissions per user only when needed.",
@@ -474,10 +474,13 @@
   "models": {
     "title": "Tailoring Models",
     "description": "Filter by type. Cards for quick view, table for detailed comparison.",
-    "stagesCut": "Cut",
-    "stagesSew": "Sewing",
+    "stagesCut": "Cutting",
+    "stagesSew": "Tailoring",
     "stagesEmbroider": "Embroidery",
-    "stagesFinish": "Finishing"
+    "stagesFinish": "Handwork",
+    "requiredStages": "Required workshop stages",
+    "requiredStagesHint": "A row is created for each stage in the tailoring order, in sequence.",
+    "defaultWages": "Default workshop wages (AED)"
   },
   "fabrics": {
     "title": "Fabric Stock",
@@ -786,7 +789,7 @@
     "SEW_LINING": "Lining",
     "HAND_EMBROIDERY": "Handwork",
     "MACHINE_EMBROIDERY": "Embroidery",
-    "FINISHING": "Finishing",
+    "FINISHING": "Handwork",
     "CUSTOM": "Other"
   }
 }

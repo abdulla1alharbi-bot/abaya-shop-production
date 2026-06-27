@@ -23,12 +23,12 @@ import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 const STAGE_ORDER = ["CUTTING", "SEWING", "EMBROIDERY", "FINISHING"] as const;
-// Stage labels are now translated via i18n keys; keeping as fallback
-const STAGE_LABELS_FALLBACK: Record<(typeof STAGE_ORDER)[number], string> = {
-  CUTTING: "قص",
-  SEWING: "خياطة",
-  EMBROIDERY: "تطريز",
-  FINISHING: "تجهيز",
+/** Stage key → i18n key for the short workshop-stage label (locale-aware). */
+const STAGE_LABEL_KEY: Record<(typeof STAGE_ORDER)[number], string> = {
+  CUTTING: "models.stagesCut",
+  SEWING: "models.stagesSew",
+  EMBROIDERY: "models.stagesEmbroider",
+  FINISHING: "models.stagesFinish",
 };
 
 type StagePick = Record<(typeof STAGE_ORDER)[number], boolean>;
@@ -172,7 +172,7 @@ function ModelCatalogCard({
         <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
           <span>قص: {filsToAed(row.cuttingWageFils)}</span>
           <span>خياطة: {filsToAed(row.sewingWageFils)}</span>
-          <span>تجهيز: {filsToAed(row.finishingWageFils)}</span>
+          <span>الشغل اليدوي: {filsToAed(row.finishingWageFils)}</span>
           <span>تطريز: {filsToAed(row.embroideryWageFils)}</span>
         </div>
         <div className="border-t pt-2">
@@ -535,7 +535,7 @@ export function AbayaModelsPage() {
                 <th className="px-3 py-2 font-medium">أيام التسليم</th>
                 <th className="px-3 py-2 font-medium">قص</th>
                 <th className="px-3 py-2 font-medium">خياطة</th>
-                <th className="px-3 py-2 font-medium">تجهيز</th>
+                <th className="px-3 py-2 font-medium">الشغل اليدوي</th>
                 <th className="px-3 py-2 font-medium">تطريز</th>
                 <th className="px-3 py-2 font-medium">الحالة</th>
                 {canEditModel || canDeactivateModel ? (
@@ -727,10 +727,8 @@ export function AbayaModelsPage() {
               />
             </div>
             <div className="rounded-md border bg-muted/30 p-3">
-              <p className="mb-2 text-sm font-medium">مراحل الورشة المطلوبة</p>
-              <p className="mb-2 text-xs text-muted-foreground">
-                يُنشأ لكل مرحلة سطر في طلب التفصيل بالترتيب.
-              </p>
+              <p className="mb-2 text-sm font-medium">{t("models.requiredStages")}</p>
+              <p className="mb-2 text-xs text-muted-foreground">{t("models.requiredStagesHint")}</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {STAGE_ORDER.map((k) => (
                   <label key={k} className="flex cursor-pointer items-center gap-2 text-sm">
@@ -742,7 +740,7 @@ export function AbayaModelsPage() {
                         setStagePick((s) => ({ ...s, [k]: e.target.checked }))
                       }
                     />
-                    {STAGE_LABELS_FALLBACK[k]}
+                    {t(STAGE_LABEL_KEY[k])}
                   </label>
                 ))}
               </div>
@@ -787,10 +785,10 @@ export function AbayaModelsPage() {
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">أجور الورشة الافتراضية (د.إ)</p>
+            <p className="text-xs text-muted-foreground">{t("models.defaultWages")}</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="am-cut">قص</Label>
+                <Label htmlFor="am-cut">{t("models.stagesCut")}</Label>
                 <Input
                   id="am-cut"
                   type="number"
@@ -801,7 +799,7 @@ export function AbayaModelsPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="am-sew">خياطة</Label>
+                <Label htmlFor="am-sew">{t("models.stagesSew")}</Label>
                 <Input
                   id="am-sew"
                   type="number"
@@ -812,7 +810,7 @@ export function AbayaModelsPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="am-fin">تجهيز</Label>
+                <Label htmlFor="am-fin">{t("models.stagesFinish")}</Label>
                 <Input
                   id="am-fin"
                   type="number"
@@ -823,7 +821,7 @@ export function AbayaModelsPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="am-emb">تطريز</Label>
+                <Label htmlFor="am-emb">{t("models.stagesEmbroider")}</Label>
                 <Input
                   id="am-emb"
                   type="number"

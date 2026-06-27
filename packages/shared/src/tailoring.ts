@@ -30,13 +30,33 @@ export const JOB_STAGE_LABELS: Record<string, string> = {
   CUTTING: "قص",
   SEWING: "خياطة",
   EMBROIDERY: "تطريز",
-  FINISHING: "تجهيز",
+  FINISHING: "الشغل اليدوي",
   INSPECTION: "فحص الجودة",
   READY: "جاهز",
   DELIVERED: "تم التسليم",
   CANCELLED: "ملغى",
   RECEIVED: "جديد",
 };
+
+/** English stage labels — canonical workshop names (CUTTING/TAILORING/HANDWORK/EMBROIDERY). */
+export const JOB_STAGE_LABELS_EN: Record<string, string> = {
+  NEW: "New",
+  CUTTING: "Cutting",
+  SEWING: "Tailoring",
+  EMBROIDERY: "Embroidery",
+  FINISHING: "Handwork",
+  INSPECTION: "Quality Check",
+  READY: "Ready",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
+  RECEIVED: "New",
+};
+
+/** Locale-aware stage label; falls back to the Arabic map, then the raw key. */
+export function jobStageLabel(stage: string, lang: "ar" | "en" = "ar"): string {
+  const map = lang === "en" ? JOB_STAGE_LABELS_EN : JOB_STAGE_LABELS;
+  return map[stage] ?? JOB_STAGE_LABELS[stage] ?? stage;
+}
 
 /** Work types for assignments & labor (stored as enum-like strings in DB) */
 export const WORK_TYPES = [
@@ -57,7 +77,7 @@ export const WORK_TYPE_LABELS: Record<string, string> = {
   SEW_LINING: "بطانة",
   HAND_EMBROIDERY: "تطريز يدوي",
   MACHINE_EMBROIDERY: "تطريز ماكينة",
-  FINISHING: "تجهيز",
+  FINISHING: "الشغل اليدوي",
   CUSTOM: "أخرى",
 };
 

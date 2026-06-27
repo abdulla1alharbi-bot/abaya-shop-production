@@ -351,7 +351,7 @@ const STAGE_AR: Record<string, string> = {
   CUTTING: "قص",
   SEWING: "خياطة",
   EMBROIDERY: "تطريز",
-  FINISHING: "تجهيز",
+  FINISHING: "الشغل اليدوي",
   INSPECTION: "فحص جودة",
   READY: "جاهز",
   DELIVERED: "تم التسليم",

@@ -762,7 +762,7 @@ export function InvoiceDetail() {
                                 <option value="CUTTING">قص</option>
                                 <option value="SEWING">خياطة</option>
                                 <option value="EMBROIDERY">تطريز</option>
-                                <option value="FINISHING">تجهيز</option>
+                                <option value="FINISHING">الشغل اليدوي</option>
                               </select>
                             </div>
                             <div className="flex gap-2">

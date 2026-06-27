@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { JOB_STAGE_LABELS } from "@abaya-shop/shared";
+import { jobStageLabel } from "@abaya-shop/shared";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { Input } from "@/components/ui/input";
@@ -154,7 +154,7 @@ export function WorkshopBoardPage() {
                 return (
                   <div key={stageKey} className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-muted/20">
                     <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
-                      <span className="text-sm font-semibold">{JOB_STAGE_LABELS[stageKey] ?? stageKey}</span>
+                      <span className="text-sm font-semibold">{jobStageLabel(stageKey, lang)}</span>
                       <span className="rounded-full bg-background px-2 py-0.5 text-xs font-bold text-muted-foreground">
                         {jobs.length}
                       </span>
