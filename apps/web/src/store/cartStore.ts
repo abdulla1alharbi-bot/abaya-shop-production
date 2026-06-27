@@ -45,7 +45,7 @@ interface CartState {
   resetTailoringDraft: () => void;
   setEditingTailoringId: (id: string | null) => void;
   /** Merge draft into cart as new line or replace when editingTailoringId is set */
-  commitTailoringDraft: () => { ok: true } | { ok: false; error: string };
+  commitTailoringDraft: (opts?: { fabricRequired?: boolean }) => { ok: true } | { ok: false; error: string };
   removeTailoringLine: (id: string) => void;
   startEditTailoringLine: (line: TailoringCartLine) => void;
 
@@ -186,13 +186,14 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   setEditingTailoringId: (id) => set({ editingTailoringId: id }),
 
-  commitTailoringDraft: () => {
+  commitTailoringDraft: (opts) => {
     const { tailoringDraft, editingTailoringId, posCustomerId } = get();
+    const fabricRequired = opts?.fabricRequired ?? true;
     const m = parseFloat(tailoringDraft.meters) || 2;
     if (!posCustomerId) {
       return { ok: false, error: "اختر العميل من السلة أولاً." };
     }
-    if (!tailoringDraft.rollId) {
+    if (fabricRequired && !tailoringDraft.rollId) {
       return { ok: false, error: "اختر القماش (اللفة)." };
     }
     if (!Number.isFinite(m) || m <= 0) {

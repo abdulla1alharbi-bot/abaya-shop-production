@@ -227,8 +227,8 @@ export function CartPanel() {
     <>
       <Card className="border shadow-sm">
         <CardHeader className="space-y-1 pb-3">
-          <CardTitle className="text-base">{"\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u062f\u0641\u0639"}</CardTitle>
-          <p className="text-xs text-muted-foreground">{"\u0627\u0644\u062c\u0627\u0647\u0632 \u0648\u0627\u0644\u062a\u0641\u0635\u064a\u0644 \u064a\u0638\u0647\u0631\u0627\u0646 \u0647\u0646\u0627 \u0645\u0639\u0627\u064b."}</p>
+          <CardTitle className="text-base">{t("pos.cart.title")}</CardTitle>
+          <p className="text-xs text-muted-foreground">{t("pos.cart.subtitle")}</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {nextInvoiceNo != null ? (
@@ -236,15 +236,15 @@ export function CartPanel() {
               <div className="flex items-center gap-2.5">
                 <Receipt className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
                 <div>
-                  <div className="text-xs font-medium text-amber-800 dark:text-amber-200">{"\u0631\u0642\u0645 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0627\u0644\u062a\u0627\u0644\u064a"}</div>
+                  <div className="text-xs font-medium text-amber-800 dark:text-amber-200">{t("pos.cart.nextInvoiceNo")}</div>
                   <div className="text-2xl font-bold tabular-nums text-amber-900 dark:text-amber-100">#{nextInvoiceNo}</div>
                 </div>
               </div>
-              <span className="rounded-full bg-amber-200 px-2.5 py-1 text-[11px] font-semibold text-amber-900 dark:bg-amber-900 dark:text-amber-100">{"\u0645\u0633\u0648\u0651\u062f\u0629"}</span>
+              <span className="rounded-full bg-amber-200 px-2.5 py-1 text-[11px] font-semibold text-amber-900 dark:bg-amber-900 dark:text-amber-100">{t("pos.cart.draft")}</span>
             </div>
           ) : null}
           {cartEmpty ? (
-            <p className="text-sm text-muted-foreground">{"\u0644\u0627 \u0634\u064a\u0621 \u0641\u064a \u0627\u0644\u0633\u0644\u0629 \u0628\u0639\u062f."}</p>
+            <p className="text-sm text-muted-foreground">{t("pos.cart.empty")}</p>
           ) : (
             <ul className="max-h-[min(50vh,420px)] space-y-3 overflow-y-auto pr-1 text-sm">
               {lines.map((line) =>
@@ -256,7 +256,7 @@ export function CartPanel() {
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <Badge variant="secondary" className="mb-1 text-[10px]">
-                          {"\u062c\u0627\u0647\u0632"}
+                          {t("pos.cart.ready")}
                         </Badge>
                         <div className="font-medium leading-snug">{line.name}</div>
                       </div>
@@ -266,13 +266,13 @@ export function CartPanel() {
                         size="icon"
                         className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
                         onClick={() => removeRetailLine(line.productId)}
-                        aria-label="\u062d\u0630\u0641 \u0645\u0646 \u0627\u0644\u0633\u0644\u0629"
+                        aria-label={t("pos.cart.removeFromCart")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{"\u0627\u0644\u0643\u0645\u064a\u0629"}</span>
+                      <span className="text-xs text-muted-foreground">{t("pos.cart.qty")}</span>
                       <div className="flex items-center gap-1">
                         <Button
                           type="button"
@@ -328,11 +328,11 @@ export function CartPanel() {
           {!cartEmpty ? (
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{"\u0627\u0644\u0645\u062c\u0645\u0648\u0639 \u0627\u0644\u0641\u0631\u0639\u064a"}</span>
+                <span className="text-muted-foreground">{t("pos.cart.subtotal")}</span>
                 <span>{formatAED(subtotalFils)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-muted-foreground">{"\u062e\u0635\u0645 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 (AED)"}</Label>
+                <Label className="text-muted-foreground">{t("pos.cart.discount")}</Label>
                 <Input
                   className="h-8 max-w-[100px]"
                   type="number"
@@ -346,11 +346,11 @@ export function CartPanel() {
                 />
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{`\u0636\u0631\u064a\u0628\u0629 (${vatPercent}%)`}</span>
+                <span className="text-muted-foreground">{t("pos.cart.vat", { pct: vatPercent })}</span>
                 <span>{formatAED(vatFils)}</span>
               </div>
               <div className="flex justify-between text-base font-semibold">
-                <span>{"\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a"}</span>
+                <span>{t("pos.cart.total")}</span>
                 <span>{formatAED(totalFils)}</span>
               </div>
             </div>
@@ -362,9 +362,9 @@ export function CartPanel() {
             className="h-11 w-full font-semibold"
             disabled={cartEmpty || !posCustomerId || !can("pos.checkout")}
             onClick={() => setCheckoutOpen(true)}
-            title={!can("pos.checkout") ? "\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u0625\u062a\u0645\u0627\u0645 \u0627\u0644\u062f\u0641\u0639" : undefined}
+            title={!can("pos.checkout") ? t("pos.cart.noCheckoutPerm") : undefined}
           >
-            {"\u0625\u062a\u0645\u0627\u0645 \u0627\u0644\u0628\u064a\u0639"}
+            {t("pos.cart.checkout")}
           </Button>
         </CardContent>
       </Card>
@@ -379,36 +379,36 @@ export function CartPanel() {
                 </svg>
               </div>
               <div>
-                <p className="text-lg font-semibold text-green-700 dark:text-green-400">{"\u062a\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0628\u0646\u062c\u0627\u062d"}</p>
+                <p className="text-lg font-semibold text-green-700 dark:text-green-400">{t("pos.pay.successTitle")}</p>
                 <p className="mt-1 text-2xl font-bold">#{successData.invoiceNo}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{"\u062c\u0627\u0631\u064a \u0627\u0644\u0627\u0646\u062a\u0642\u0627\u0644 \u0625\u0644\u0649 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629\u2026"}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{t("pos.pay.redirecting")}</p>
               </div>
             </div>
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle>{"\u0627\u0644\u062f\u0641\u0639"}</DialogTitle>
+                <DialogTitle>{t("pos.pay.title")}</DialogTitle>
                 <DialogDescription>
-                  {"\u0623\u062f\u062e\u0644 \u0627\u0644\u0645\u062f\u0641\u0648\u0639. \u064a\u0645\u0643\u0646 \u062a\u0642\u0633\u064a\u0645 \u0627\u0644\u062f\u0641\u0639\u0627\u062a. \u0627\u0644\u0628\u0627\u0642\u064a \u064a\u064f\u0633\u062c\u064e\u0651\u0644 \u0639\u0644\u0649 \u0627\u0644\u0639\u0645\u064a\u0644 \u0625\u0646 \u0648\u064f\u062c\u062f."}
+                  {t("pos.pay.description")}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-2">
                 <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                  <span className="text-muted-foreground">{"\u0627\u0644\u0639\u0645\u064a\u0644: "}</span>
+                  <span className="text-muted-foreground">{t("pos.pay.customer")}</span>
                   {posCustomerId ? (
                     <span className="font-medium">{posCustomerLabel}</span>
                   ) : (
-                    <span className="text-amber-800 dark:text-amber-200">\u064a\u0631\u062c\u0649 \u0627\u062e\u062a\u064a\u0627\u0631 \u0627\u0644\u0639\u0645\u064a\u0644 \u0623\u0648\u0644\u0627\u064b</span>
+                    <span className="text-amber-800 dark:text-amber-200">{t("pos.pay.selectCustomerFirst")}</span>
                   )}
                   {customerCredit && customerCredit.creditLimitFils > 0 ? (
                     <div className="mt-1 text-xs text-muted-foreground">
-                      \u0627\u0644\u0631\u0635\u064a\u062f: {formatAED(customerCredit.balanceFils)} / \u0627\u0644\u062d\u062f: {formatAED(customerCredit.creditLimitFils)}
+                      {t("pos.pay.balanceLimit", { balance: formatAED(customerCredit.balanceFils), limit: formatAED(customerCredit.creditLimitFils) })}
                     </div>
                   ) : null}
                 </div>
                 {creditLimitExceeded ? (
                   <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
-                    \u26a0 \u062a\u062c\u0627\u0648\u0632 \u062d\u062f \u0627\u0644\u0627\u0626\u062a\u0645\u0627\u0646 \u2014 \u0627\u0644\u0631\u0635\u064a\u062f \u0627\u0644\u062d\u0627\u0644\u064a: {formatAED(customerCredit!.balanceFils)}\u060c \u0627\u0644\u062d\u062f: {formatAED(customerCredit!.creditLimitFils)}
+                    {t("pos.pay.creditExceeded", { balance: formatAED(customerCredit!.balanceFils), limit: formatAED(customerCredit!.creditLimitFils) })}
                     {canCreditOverride ? (
                       <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs">
                         <input
@@ -417,27 +417,27 @@ export function CartPanel() {
                           checked={creditOverride}
                           onChange={(e) => setCreditOverride(e.target.checked)}
                         />
-                        \u062a\u062c\u0627\u0648\u0632 \u0627\u0644\u062d\u062f \u0628\u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631
+                        {t("pos.pay.overrideManager")}
                       </label>
                     ) : (
-                      <p className="mt-1 text-xs">\u064a\u0644\u0632\u0645 \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631 \u0644\u0625\u062a\u0645\u0627\u0645 \u0627\u0644\u0639\u0645\u0644\u064a\u0629.</p>
+                      <p className="mt-1 text-xs">{t("pos.pay.needManager")}</p>
                     )}
                   </div>
                 ) : null}
 
                 <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span>{"\u0627\u0644\u0645\u0633\u062a\u062d\u0642"}</span>
+                    <span>{t("pos.pay.due")}</span>
                     <span className="font-semibold">{formatAED(totalFils)}</span>
                   </div>
                   {changeFils > 0 ? (
                     <div className="flex justify-between text-green-700 dark:text-green-400 font-medium">
-                      <span>{"\u0627\u0644\u062e\u0631\u062f\u0629 (\u0628\u0627\u0642\u064a \u0644\u0644\u0639\u0645\u064a\u0644)"}</span>
+                      <span>{t("pos.pay.change")}</span>
                       <span>{formatAED(changeFils)}</span>
                     </div>
                   ) : (
                     <div className="flex justify-between text-amber-800 dark:text-amber-200">
-                      <span>{"\u0627\u0644\u0645\u062a\u0628\u0642\u064a \u0628\u0639\u062f \u0627\u0644\u062f\u0641\u0639\u0627\u062a"}</span>
+                      <span>{t("pos.pay.remainingAfter")}</span>
                       <span className="font-semibold">{formatAED(remainingFils)}</span>
                     </div>
                   )}
@@ -450,19 +450,19 @@ export function CartPanel() {
                     className="h-9 flex-1 text-xs sm:flex-none"
                     onClick={fillPaidWithTotal}
                   >
-                    {t("pos.fillTotal", { defaultValue: "Fill paid = total (cash)" })}
+                    {t("pos.pay.fillTotal")}
                   </Button>
                   {hasTailoring ? (
                     <Button
                       type="button"
                       variant="outline"
                       className="h-9 flex-1 border-brand-400 text-xs text-brand-700 hover:bg-brand-50 dark:border-brand-600 dark:text-brand-300 dark:hover:bg-brand-950/30 sm:flex-none"
-                      title={`عربون 50٪ — ${formatAED(Math.ceil(totalFils / 2))}`}
+                      title={t("pos.pay.depositTitle", { amount: formatAED(Math.ceil(totalFils / 2)) })}
                       onClick={() =>
                         setPaymentRows([{ method: "CASH", amountAed: (Math.ceil(totalFils / 2) / 100).toFixed(2) }])
                       }
                     >
-                      {t("pos.deposit50", { defaultValue: "50% Deposit — " })}{formatAED(Math.ceil(totalFils / 2))}
+                      {t("pos.pay.deposit50")}{formatAED(Math.ceil(totalFils / 2))}
                     </Button>
                   ) : null}
                   <Button
@@ -470,24 +470,24 @@ export function CartPanel() {
                     variant="outline"
                     className="h-9 flex-1 text-xs sm:flex-none"
                     onClick={() => setPaymentRows([{ method: "CASH", amountAed: "" }])}
-                    title={"إنشاء الفاتورة بدون تسجيل دفعة الآن — يُسجَّل الإجمالي كرصيد مستحق على العميل"}
+                    title={t("pos.pay.noPayTitle")}
                   >
-                    {t("pos.noPay", { defaultValue: "No Payment Now" })}
+                    {t("pos.pay.noPay")}
                   </Button>
                 </div>
                 {hasTailoring && paidFils === 0 ? (
                   <p className="rounded-md bg-yellow-50 px-3 py-2 text-xs text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-200">
-                    {t("pos.confirmNoPay", { defaultValue: "⚠ No deposit recorded. Full amount will be posted as balance due on customer. Are you sure?" })}
+                    {t("pos.pay.confirmNoPay")}
                   </p>
                 ) : null}
 
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Label>{"\u062f\u0641\u0639\u0627\u062a"}</Label>
+                      <Label>{t("pos.pay.payments")}</Label>
                       {isMixedPayment ? (
                         <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-900 dark:bg-brand-950 dark:text-brand-100">
-                          {"\u062f\u0641\u0639 \u0645\u062e\u062a\u0644\u0637"}
+                          {t("pos.pay.mixed")}
                         </span>
                       ) : null}
                     </div>
@@ -499,7 +499,7 @@ export function CartPanel() {
                       onClick={() => setPaymentRows((rows) => [...rows, { method: "TRANSFER", amountAed: "" }])}
                     >
                       <Plus className="h-3 w-3" />
-                      {"\u062f\u0641\u0639\u0629 \u0623\u062e\u0631\u0649"}
+                      {t("pos.pay.anotherPayment")}
                     </Button>
                   </div>
                   {paymentRows.map((row, idx) => (
@@ -513,15 +513,15 @@ export function CartPanel() {
                           setPaymentRows(next);
                         }}
                       >
-                        <option value="CASH">{"\u0643\u0627\u0634"}</option>
-                        <option value="TRANSFER">{"\u062a\u062d\u0648\u064a\u0644"}</option>
-                        <option value="CARD">{"\u0628\u0637\u0627\u0642\u0629"}</option>
+                        <option value="CASH">{t("pos.pay.cash")}</option>
+                        <option value="TRANSFER">{t("pos.pay.transfer")}</option>
+                        <option value="CARD">{t("pos.pay.card")}</option>
                       </select>
                       <Input
                         type="number"
                         min={0}
                         step={0.01}
-                        placeholder="\u0627\u0644\u0645\u0628\u0644\u063a AED"
+                        placeholder={t("pos.pay.amountPh")}
                         value={row.amountAed}
                         onChange={(e) => {
                           const next = [...paymentRows];
@@ -545,7 +545,7 @@ export function CartPanel() {
                 </div>
 
                 <div>
-                  <Label>{"\u0645\u0644\u0627\u062d\u0638\u0627\u062a"}</Label>
+                  <Label>{t("pos.pay.notes")}</Label>
                   <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </div>
 
@@ -557,13 +557,13 @@ export function CartPanel() {
                       checked={saveMeasurementsToProfile}
                       onChange={(e) => setSaveMeasurementsToProfile(e.target.checked)}
                     />
-                    {"\u062d\u0641\u0638 \u0645\u0642\u0627\u0633 \u0622\u062e\u0631 \u0639\u0646\u0635\u0631 \u062a\u0641\u0635\u064a\u0644 \u0639\u0644\u0649 \u0645\u0644\u0641 \u0627\u0644\u0639\u0645\u064a\u0644"}
+                    {t("pos.pay.saveMeasurementProfile")}
                   </label>
                 ) : null}
               </div>
               <DialogFooter className="gap-2 sm:justify-between">
                 <Button type="button" variant="outline" onClick={() => setCheckoutOpen(false)}>
-                  {"\u0625\u0644\u063a\u0627\u0621"}
+                  {t("pos.pay.cancel")}
                 </Button>
                 <Button
                   type="button"
@@ -578,17 +578,17 @@ export function CartPanel() {
                   }
                   onClick={() => checkout.mutate()}
                 >
-                  {checkout.isPending ? "\u062c\u0627\u0631\u064a \u0627\u0644\u062d\u0641\u0638\u2026" : "\u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629"}
+                  {checkout.isPending ? t("pos.pay.creating") : t("pos.pay.createInvoice")}
                 </Button>
               </DialogFooter>
               {checkout.isError ? (
                 <p className={`text-sm ${isCreditLimitError(checkout.error) ? "text-amber-700 dark:text-amber-300" : "text-destructive"}`}>
-                  {getApiErrorMessage(checkout.error, "\u062a\u0639\u0630\u0631 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629.")}
+                  {getApiErrorMessage(checkout.error, t("pos.pay.createFailed"))}
                 </p>
               ) : null}
               <p className="text-center text-xs text-muted-foreground">
                 <Link to="/invoices" className="underline">
-                  {"\u0627\u0644\u0641\u0648\u0627\u062a\u064a\u0631 \u0648\u0645\u0633\u0627\u0631 \u0627\u0644\u0639\u0645\u0644"}
+                  {t("pos.pay.invoicesLink")}
                 </Link>
               </p>
             </>
@@ -612,25 +612,26 @@ function TailoringCartRow({
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const roll = rolls?.find((r) => r.id === line.rollId);
   return (
     <li className="flex flex-col gap-2 border-b pb-3 last:border-0">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <Badge className="mb-1 bg-brand-700 text-[10px] hover:bg-brand-700">{"\u062a\u0641\u0635\u064a\u0644"}</Badge>
+          <Badge className="mb-1 bg-brand-700 text-[10px] hover:bg-brand-700">{t("pos.cart.tailoring")}</Badge>
           <div className="font-medium leading-snug">{tailoringLineDisplayLabel(line, abayaCatalog)}</div>
           <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-            <p>{"\u0642\u0645\u0627\u0634: "}{roll ? `${roll.rollCode} \u00b7 ${roll.name}` : "\u2014"}</p>
+            <p>{t("pos.cart.fabricShort")}{roll ? `${roll.rollCode} \u00b7 ${roll.name}` : "\u2014"}</p>
             <p>
-              {"\u0644\u0648\u0646: "}{roll?.color ?? "\u2014"}
+              {t("pos.cart.colorShort")}{roll?.color ?? "\u2014"}
               {line.colorNote ? ` (${line.colorNote})` : ""}
             </p>
-            <p>{"\u0645\u0642\u0627\u0633: "}{sizeSummary(line)}</p>
-            {line.itemNotes.trim() ? <p>{"\u0645\u0644\u0627\u062d\u0638\u0627\u062a: "}{line.itemNotes}</p> : null}
+            <p>{t("pos.cart.sizeShort")}{sizeSummary(line)}</p>
+            {line.itemNotes.trim() ? <p>{t("pos.cart.notesShort")}{line.itemNotes}</p> : null}
           </div>
         </div>
         <div className="flex shrink-0 gap-1">
-          <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={onEdit} aria-label="\u062a\u0639\u062f\u064a\u0644">
+          <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={onEdit} aria-label={t("pos.cart.edit")}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button
@@ -639,7 +640,7 @@ function TailoringCartRow({
             size="icon"
             className="h-8 w-8 text-destructive hover:text-destructive"
             onClick={onRemove}
-            aria-label="\u062d\u0630\u0641"
+            aria-label={t("pos.cart.delete")}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

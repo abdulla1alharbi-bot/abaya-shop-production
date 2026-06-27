@@ -29,6 +29,9 @@ import type { AbayaCatalogType } from "@/lib/abayaTailoringCatalog";
 /** Meters deducted from stock per line — fixed in UI; backend unchanged. */
 const DEFAULT_METERS = "2";
 
+/** Abaya types that don't consume an inventory fabric roll (price + measurements only). */
+const FABRIC_OPTIONAL_TYPE_CODES = new Set(["WALTER"]);
+
 function bodySnapshot(d: Pick<TailoringDraft, "shoulder" | "chest" | "waist" | "hip" | "lengthVal" | "sleeve">) {
   return JSON.stringify({
     shoulder: d.shoulder,
@@ -54,8 +57,15 @@ export function TailoringIntakePanel() {
   const applyPosMeasurementHint = useCartStore((s) => s.applyPosMeasurementHint);
 
   const [formFlash, setFormFlash] = useState<string | null>(null);
+  const [formFlashOk, setFormFlashOk] = useState(false);
   const [measurementNotice, setMeasurementNotice] = useState<"loaded" | "edited" | null>(null);
   const loadedBodySnapshotRef = useRef("");
+
+  const showFlash = (msg: string, ok: boolean) => {
+    setFormFlash(msg);
+    setFormFlashOk(ok);
+    window.setTimeout(() => setFormFlash(null), ok ? 4000 : 5000);
+  };
 
   const { data: measHint, isFetching: isHintLoading } = useQuery({
     queryKey: ["pos-measurement-hint", posCustomerId],
@@ -118,13 +128,11 @@ export function TailoringIntakePanel() {
       const d = useCartStore.getState().tailoringDraft;
       loadedBodySnapshotRef.current = bodySnapshot(d);
       setMeasurementNotice(hintHasNumericBody(hint) ? "loaded" : null);
-      setFormFlash("تم تحميل آخر مقاس من ملف العميل.");
-      window.setTimeout(() => setFormFlash(null), 4000);
+      showFlash(t("pos.intake.flashLoaded"), true);
       void queryClient.invalidateQueries({ queryKey: ["customer-measurements"] });
     },
     onError: () => {
-      setFormFlash("تعذر تحميل المقاس.");
-      window.setTimeout(() => setFormFlash(null), 4000);
+      showFlash(t("pos.intake.flashLoadFail"), false);
     },
   });
 
@@ -155,13 +163,11 @@ export function TailoringIntakePanel() {
         setMeasurementNotice("loaded");
         void queryClient.invalidateQueries({ queryKey: ["pos-measurement-hint", cid] });
       }
-      setFormFlash("تم حفظ المقاس على ملف العميل.");
-      window.setTimeout(() => setFormFlash(null), 5000);
+      showFlash(t("pos.intake.flashSaved"), true);
       void queryClient.invalidateQueries({ queryKey: ["customer-measurements"] });
     },
     onError: (e: Error) => {
-      setFormFlash(e.message || "تعذر الحفظ");
-      window.setTimeout(() => setFormFlash(null), 5000);
+      showFlash(e.message || t("pos.intake.flashLoadFail"), false);
     },
   });
 
@@ -201,6 +207,9 @@ export function TailoringIntakePanel() {
     () => resolveAbayaType(tailoringDraft.abayaTypeId, abayaCatalog),
     [abayaCatalog, tailoringDraft.abayaTypeId],
   );
+
+  /** Walter (and similar simple types) don't pick an inventory fabric — price + measurements only. */
+  const fabricRequired = !FABRIC_OPTIONAL_TYPE_CODES.has(selectedAbayaType?.code ?? "");
 
   const selectedCatalogModel = useMemo(() => {
     if (!selectedAbayaType || !needsModelPicker(selectedAbayaType) || !tailoringDraft.abayaModelId) {
@@ -266,20 +275,23 @@ export function TailoringIntakePanel() {
       abayaCatalog,
     );
     if (vErr) {
-      setFormFlash(vErr);
-      window.setTimeout(() => setFormFlash(null), 5000);
+      showFlash(vErr, false);
       return;
     }
 
+    // Walter etc. carry no fabric — clear any previously chosen roll so none is reserved.
+    if (!fabricRequired) {
+      useCartStore.getState().setTailoringDraft({ rollId: "" });
+      draftSnap.rollId = "";
+    }
+
     useCartStore.getState().setTailoringDraft({ meters: DEFAULT_METERS, materialCostAed: "0" });
-    const result = useCartStore.getState().commitTailoringDraft();
+    const result = useCartStore.getState().commitTailoringDraft({ fabricRequired });
     if (!result.ok) {
-      setFormFlash(result.error);
-      window.setTimeout(() => setFormFlash(null), 5000);
+      showFlash(result.error, false);
       return;
     }
-    setFormFlash(wasEditing ? "تم التحديث في السلة." : "أُضيف للسلة.");
-    window.setTimeout(() => setFormFlash(null), 4000);
+    showFlash(wasEditing ? t("pos.intake.flashUpdated") : t("pos.intake.flashAdded"), true);
 
     if (!cid) return;
     try {
@@ -305,11 +317,9 @@ export function TailoringIntakePanel() {
       <CardHeader className="space-y-1 pb-3">
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <Scissors className="h-4 w-4 text-muted-foreground" />
-          {editingTailoringId ? "تعديل تفصيل" : "طلب تفصيل"}
+          {editingTailoringId ? t("pos.intake.titleEdit") : t("pos.intake.title")}
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          بعد اختيار العميل أعلى الصفحة، املأ البيانات ثم أضِف للسلة.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("pos.intake.subtitle")}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {!posCustomerId ? (
@@ -317,18 +327,18 @@ export function TailoringIntakePanel() {
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
             role="status"
           >
-            Please select a customer first
+            {t("pos.selectCustomerFirst")}
           </p>
         ) : null}
 
         {posCustomerId && isHintLoading ? (
-          <p className="text-xs text-muted-foreground">جاري تحميل المقاسات…</p>
+          <p className="text-xs text-muted-foreground">{t("pos.intake.loadingMeasurements")}</p>
         ) : null}
         {measurementNotice === "loaded" ? (
-          <p className="text-xs text-muted-foreground">Loaded last measurements</p>
+          <p className="text-xs text-muted-foreground">{t("pos.intake.loaded")}</p>
         ) : null}
         {measurementNotice === "edited" ? (
-          <p className="text-xs font-medium text-brand-800 dark:text-brand-200">Measurements updated</p>
+          <p className="text-xs font-medium text-brand-800 dark:text-brand-200">{t("pos.intake.updated")}</p>
         ) : null}
 
         <fieldset
@@ -336,7 +346,7 @@ export function TailoringIntakePanel() {
           className="min-w-0 space-y-4 border-0 p-0 disabled:pointer-events-none disabled:opacity-55 [&_button]:disabled:opacity-100"
         >
         <div className="space-y-2">
-          <Label htmlFor="abaya-type">نوع العباية</Label>
+          <Label htmlFor="abaya-type">{t("pos.intake.abayaType")}</Label>
           <select
             id="abaya-type"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -352,22 +362,24 @@ export function TailoringIntakePanel() {
             }
           >
             {!abayaCatalog?.types.length ? (
-              <option value="">جاري التحميل…</option>
+              <option value="">{t("pos.intake.loading")}</option>
             ) : (
-              abayaCatalog.types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.labelAr}
+              abayaCatalog.types.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.labelAr}
                 </option>
               ))
             )}
           </select>
-          <p className="text-xs text-muted-foreground">اختر النوع أولاً؛ ثم الموديل أو الوصف إن وُجد.</p>
+          <p className="text-xs text-muted-foreground">{t("pos.intake.typeHint")}</p>
         </div>
 
         {selectedAbayaType && needsModelPicker(selectedAbayaType) ? (
           <div className="space-y-2">
             <Label htmlFor="abaya-model">
-              {selectedAbayaType.subFieldKind === "EMBROIDERY_PICK" ? "تصميم التطريز" : "رقم / اسم الموديل"}
+              {selectedAbayaType.subFieldKind === "EMBROIDERY_PICK"
+                ? t("pos.intake.embroideryDesign")
+                : t("pos.intake.modelLabel")}
             </Label>
             <select
               id="abaya-model"
@@ -382,7 +394,7 @@ export function TailoringIntakePanel() {
                 })
               }
             >
-              <option value="">— اختر —</option>
+              <option value="">{t("pos.intake.choose")}</option>
               {selectedAbayaType.models.map((mod) => (
                 <option key={mod.id} value={mod.id}>
                   {formatModelOption(mod)}
@@ -394,51 +406,57 @@ export function TailoringIntakePanel() {
 
         {selectedAbayaType && needsCustomText(selectedAbayaType) ? (
           <div className="space-y-2">
-            <Label htmlFor="custom-style">وصف التفصيل المخصص</Label>
+            <Label htmlFor="custom-style">{t("pos.intake.customStyle")}</Label>
             <Input
               id="custom-style"
               className="h-10"
               value={tailoringDraft.customStyleText}
               onChange={(e) => setTailoringDraft({ customStyleText: e.target.value })}
-              placeholder="اكتب ما يطلبه العميل بالتفصيل"
+              placeholder={t("pos.intake.customStylePh")}
             />
           </div>
         ) : null}
 
-        <div className="space-y-2">
-          <Label htmlFor="fabric-roll">القماش</Label>
-          <select
-            id="fabric-roll"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={tailoringDraft.rollId}
-            onChange={(e) => setTailoringDraft({ rollId: e.target.value })}
-          >
-            <option value="">— اختر لفة —</option>
-            {fabricRolls?.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.rollCode} · {r.name} ({r.color})
-              </option>
-            ))}
-          </select>
-          {selectedCatalogModel?.defaultFabricRoll ? (
-            <p className="text-xs text-muted-foreground">
-              افتراضي الموديل: {selectedCatalogModel.defaultFabricRoll.rollCode} ·{" "}
-              {selectedCatalogModel.defaultFabricRoll.name} ({selectedCatalogModel.defaultFabricRoll.color})
-            </p>
-          ) : null}
-        </div>
+        {fabricRequired ? (
+          <div className="space-y-2">
+            <Label htmlFor="fabric-roll">{t("pos.intake.fabric")}</Label>
+            <select
+              id="fabric-roll"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={tailoringDraft.rollId}
+              onChange={(e) => setTailoringDraft({ rollId: e.target.value })}
+            >
+              <option value="">{t("pos.intake.chooseRoll")}</option>
+              {fabricRolls?.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.rollCode} · {r.name} ({r.color})
+                </option>
+              ))}
+            </select>
+            {selectedCatalogModel?.defaultFabricRoll ? (
+              <p className="text-xs text-muted-foreground">
+                {t("pos.intake.modelDefaultFabric", {
+                  label: `${selectedCatalogModel.defaultFabricRoll.rollCode} · ${selectedCatalogModel.defaultFabricRoll.name} (${selectedCatalogModel.defaultFabricRoll.color})`,
+                })}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Lace selector */}
-        {laceRolls && laceRolls.length > 0 ? (
+        {fabricRequired && laceRolls && laceRolls.length > 0 ? (
           <div className="space-y-2">
-            <Label htmlFor="lace-roll">الدانتيل <span className="font-normal text-muted-foreground">(اختياري)</span></Label>
+            <Label htmlFor="lace-roll">
+              {t("pos.intake.lace")}{" "}
+              <span className="font-normal text-muted-foreground">({t("pos.intake.optional")})</span>
+            </Label>
             <select
               id="lace-roll"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={tailoringDraft.laceRollId}
               onChange={(e) => setTailoringDraft({ laceRollId: e.target.value })}
             >
-              <option value="">— بدون دانتيل —</option>
+              <option value="">{t("pos.intake.noLace")}</option>
               {laceRolls.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.rollCode} · {r.name} ({r.color})
@@ -447,7 +465,7 @@ export function TailoringIntakePanel() {
             </select>
             {tailoringDraft.laceRollId && (
               <div className="flex items-center gap-2">
-                <Label htmlFor="lace-meters" className="shrink-0 text-xs">أمتار الدانتيل</Label>
+                <Label htmlFor="lace-meters" className="shrink-0 text-xs">{t("pos.intake.laceMeters")}</Label>
                 <Input
                   id="lace-meters"
                   className="h-8 w-24"
@@ -459,7 +477,7 @@ export function TailoringIntakePanel() {
                 />
                 {selectedLaceRoll && (
                   <span className="text-xs text-muted-foreground">
-                    متاح: {selectedLaceRoll.availableMeters.toFixed(1)} م
+                    {t("pos.intake.available", { m: selectedLaceRoll.availableMeters.toFixed(1) })}
                   </span>
                 )}
               </div>
@@ -468,26 +486,28 @@ export function TailoringIntakePanel() {
         ) : null}
 
         <div className="space-y-2">
-          <Label>اللون</Label>
-          {selectedRoll ? (
-            <p className="text-sm font-medium text-foreground">{selectedRoll.color}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">يظهر بعد اختيار القماش</p>
-          )}
+          <Label>{t("pos.intake.color")}</Label>
+          {fabricRequired ? (
+            selectedRoll ? (
+              <p className="text-sm font-medium text-foreground">{selectedRoll.color}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t("pos.intake.colorAfterFabric")}</p>
+            )
+          ) : null}
           <Label htmlFor="color-note" className="text-xs font-normal text-muted-foreground">
-            توضيح لون (اختياري)
+            {t("pos.intake.colorNote")}
           </Label>
           <Input
             id="color-note"
             className="h-10"
             value={tailoringDraft.colorNote}
             onChange={(e) => setTailoringDraft({ colorNote: e.target.value })}
-            placeholder="مثال: نفس عيّنة العميل"
+            placeholder={t("pos.intake.colorNotePh")}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>المقاس</Label>
+          <Label>{t("pos.intake.size")}</Label>
           <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-1">
             <button
               type="button"
@@ -499,7 +519,7 @@ export function TailoringIntakePanel() {
               )}
               onClick={() => setTailoringDraft({ sizeMode: "STANDARD" })}
             >
-              مقاس جاهز
+              {t("pos.intake.sizeStandard")}
             </button>
             <button
               type="button"
@@ -511,14 +531,14 @@ export function TailoringIntakePanel() {
               )}
               onClick={() => setTailoringDraft({ sizeMode: "CUSTOM" })}
             >
-              قياس خاص
+              {t("pos.intake.sizeCustom")}
             </button>
           </div>
         </div>
 
         {tailoringDraft.sizeMode === "STANDARD" ? (
           <div className="space-y-2">
-            <Label htmlFor="std-size">المقاس الجاهز</Label>
+            <Label htmlFor="std-size">{t("pos.intake.readySize")}</Label>
             <select
               id="std-size"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -534,7 +554,7 @@ export function TailoringIntakePanel() {
           </div>
         ) : (
           <div className="space-y-2">
-            <Label>قياسات الجسم (سم)</Label>
+            <Label>{t("pos.intake.bodyMeasurements")}</Label>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
               <Input
                 placeholder={t("measurements.shoulder")}
@@ -578,7 +598,7 @@ export function TailoringIntakePanel() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="sale-price">السعر (درهم)</Label>
+            <Label htmlFor="sale-price">{t("pos.intake.price")}</Label>
             <Input
               id="sale-price"
               className="h-10"
@@ -589,12 +609,10 @@ export function TailoringIntakePanel() {
               value={tailoringDraft.saleAed}
               onChange={(e) => setTailoringDraft({ saleAed: e.target.value })}
             />
-            <p className="text-xs text-muted-foreground">
-              عند اختيار موديل، يُقترح السعر وموعد التسليم والقماش (إن وُجد) من إعدادات الموديل ويمكن تعديلها.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("pos.intake.priceHint")}</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="due">موعد التسليم</Label>
+            <Label htmlFor="due">{t("pos.intake.dueDate")}</Label>
             <Input
               id="due"
               className="h-10"
@@ -603,27 +621,25 @@ export function TailoringIntakePanel() {
               onChange={(e) => setTailoringDraft({ dueDate: e.target.value })}
             />
             {selectedCatalogModel != null && selectedCatalogModel.defaultDeliveryDays < 2 ? (
-              <p className="text-xs text-amber-800 dark:text-amber-200">
-                مدة التسليم الافتراضية لهذا الموديل قصيرة جداً — تأكد من الموعد مع العميل.
-              </p>
+              <p className="text-xs text-amber-800 dark:text-amber-200">{t("pos.intake.shortDeliveryWarn")}</p>
             ) : null}
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="item-notes">ملاحظات (اختياري)</Label>
+          <Label htmlFor="item-notes">{t("pos.intake.notes")}</Label>
           <Input
             id="item-notes"
             className="h-10"
             value={tailoringDraft.itemNotes}
             onChange={(e) => setTailoringDraft({ itemNotes: e.target.value })}
-            placeholder="للورشة: سحّاب، كم، تفاصيل…"
+            placeholder={t("pos.intake.notesPh")}
           />
         </div>
 
         {posCustomerId ? (
           <div className="flex flex-wrap items-center gap-2 border-t pt-3 text-xs">
-            <span className="text-muted-foreground">ملف: {posCustomerLabel}</span>
+            <span className="text-muted-foreground">{t("pos.intake.profile", { name: posCustomerLabel })}</span>
             <Button
               type="button"
               size="sm"
@@ -633,7 +649,7 @@ export function TailoringIntakePanel() {
               onClick={() => saveProfile.mutate()}
             >
               <Save className="h-3 w-3" />
-              حفظ المقاس
+              {t("pos.intake.saveMeasurement")}
             </Button>
             <Button
               type="button"
@@ -644,7 +660,7 @@ export function TailoringIntakePanel() {
               onClick={() => reloadProfile.mutate()}
             >
               <RefreshCw className="h-3 w-3" />
-              تحميل من الملف
+              {t("pos.intake.loadFromProfile")}
             </Button>
           </div>
         ) : null}
@@ -652,10 +668,10 @@ export function TailoringIntakePanel() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" className="h-10 gap-2" onClick={addToCart}>
             <ShoppingBag className="h-4 w-4" />
-            {editingTailoringId ? "تحديث السلة" : "إضافة للسلة"}
+            {editingTailoringId ? t("pos.intake.updateCart") : t("pos.intake.addToCart")}
           </Button>
           <Button type="button" variant="outline" className="h-10" onClick={() => resetTailoringDraft()}>
-            مسح
+            {t("pos.intake.clear")}
           </Button>
         </div>
         </fieldset>
@@ -664,7 +680,7 @@ export function TailoringIntakePanel() {
           <p
             className={cn(
               "rounded-md px-3 py-2 text-center text-sm",
-              formFlash.startsWith("تم") || formFlash.startsWith("أُضيف")
+              formFlashOk
                 ? "bg-green-50 text-green-900 dark:bg-green-950/40 dark:text-green-100"
                 : "bg-destructive/10 text-destructive",
             )}
