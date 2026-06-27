@@ -184,6 +184,19 @@ export function WorkshopTaskSheet({
 
   const currentRow = sortedStages.find((r) => r.stageKey === jobStage);
 
+  /**
+   * Worker from the closest earlier stage that already has one — used to pre-fill
+   * the assignment dropdown so one tailor doing several stages (e.g. cutting + sewing)
+   * is one click instead of re-picking every stage.
+   */
+  const prevStageWithWorker = useMemo(() => {
+    if (!currentRow) return null;
+    const before = sortedStages.filter((r) => r.sortOrder < currentRow.sortOrder && r.workerId);
+    return before.length ? before[before.length - 1]! : null;
+  }, [sortedStages, currentRow?.id, currentRow?.sortOrder]);
+  const prevStageWorkerId = prevStageWithWorker?.workerId ?? "";
+  const prevStageWorkerName = prevStageWithWorker?.worker?.name ?? "";
+
   const [draftWorker, setDraftWorker] = useState("");
   const [draftWageAed, setDraftWageAed] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
@@ -192,7 +205,7 @@ export function WorkshopTaskSheet({
   useEffect(() => {
     if (!currentRow) return;
     if (currentRow.status === "PENDING") {
-      setDraftWorker("");
+      setDraftWorker(prevStageWorkerId);
       setDraftWageAed(String((currentRow.wageFils ?? 0) / 100));
       setDraftNotes(currentRow.notes ?? "");
     } else if (currentRow.status === "IN_PROGRESS") {
@@ -201,7 +214,7 @@ export function WorkshopTaskSheet({
       setDraftNotes(currentRow.notes ?? "");
       setDraftCompletedLocal(toLocalDatetimeValue(new Date().toISOString()));
     }
-  }, [currentRow?.id, currentRow?.status, currentRow?.wageFils, currentRow?.notes, jobStage]);
+  }, [currentRow?.id, currentRow?.status, currentRow?.wageFils, currentRow?.notes, jobStage, prevStageWorkerId]);
 
   const patchStage = useMutation({
     mutationFn: async (stageKey: string) => {
@@ -478,6 +491,25 @@ export function WorkshopTaskSheet({
                           </option>
                         ))}
                       </select>
+                      {prevStageWorkerId ? (
+                        draftWorker === prevStageWorkerId ? (
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {locale === "en"
+                              ? `Same worker as previous stage (${prevStageWorkerName})`
+                              : `نفس عامل المرحلة السابقة (${prevStageWorkerName})`}
+                          </p>
+                        ) : (
+                          <button
+                            type="button"
+                            className="mt-1 text-[11px] text-brand-600 underline-offset-2 hover:underline dark:text-brand-300"
+                            onClick={() => setDraftWorker(prevStageWorkerId)}
+                          >
+                            {locale === "en"
+                              ? `Use previous worker (${prevStageWorkerName})`
+                              : `نفس عامل المرحلة السابقة (${prevStageWorkerName})`}
+                          </button>
+                        )
+                      ) : null}
                     </td>
                     <td className={`${pad} align-top text-xs text-muted-foreground`}>بعد التعيين</td>
                     <td className={`${pad} align-top`}>
