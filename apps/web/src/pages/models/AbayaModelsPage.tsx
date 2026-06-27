@@ -617,11 +617,11 @@ export function AbayaModelsPage() {
       >
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{editing ? "تعديل عنصر" : "عنصر جديد"}</DialogTitle>
+            <DialogTitle>{editing ? t("models.dialogEditTitle") : t("models.dialogNewTitle")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="am-type">نوع العباية الأب</Label>
+              <Label htmlFor="am-type">{t("models.parentType")}</Label>
               <select
                 id="am-type"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
@@ -637,13 +637,13 @@ export function AbayaModelsPage() {
               </select>
               {!editing ? (
                 <p className="text-xs text-muted-foreground">
-                  يُحدَّد تلقائياً حسب التبويب الحالي؛ عند «خدمات أخرى» يمكنك اختيار النوع الفرعي من القائمة.
+                  {t("models.parentTypeHint")}
                 </p>
               ) : null}
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="am-code">الرمز *</Label>
+                <Label htmlFor="am-code">{t("models.code")}</Label>
                 <Input
                   id="am-code"
                   value={form.code}
@@ -652,7 +652,7 @@ export function AbayaModelsPage() {
                 />
               </div>
               <div className="grid gap-2 sm:col-span-1">
-                <Label htmlFor="am-sort">ترتيب العرض</Label>
+                <Label htmlFor="am-sort">{t("models.sortOrder")}</Label>
                 <Input
                   id="am-sort"
                   type="number"
@@ -662,7 +662,7 @@ export function AbayaModelsPage() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="am-name">الاسم *</Label>
+              <Label htmlFor="am-name">{t("models.name")}</Label>
               <Input
                 id="am-name"
                 value={form.name}
@@ -670,7 +670,7 @@ export function AbayaModelsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="model-image-file">صورة الموديل (اختياري)</Label>
+              <Label htmlFor="model-image-file">{t("models.image")}</Label>
               <input
                 ref={modelImageInputRef}
                 id="model-image-file"
@@ -690,7 +690,7 @@ export function AbayaModelsPage() {
                   ) : (
                     <div className="flex h-full flex-col items-center justify-center gap-1 px-2 text-center text-xs text-muted-foreground">
                       <Image className="h-8 w-8 opacity-50" aria-hidden />
-                      لا صورة
+                      {t("models.noImage")}
                     </div>
                   )}
                 </div>
@@ -700,25 +700,23 @@ export function AbayaModelsPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      aria-label="رفع أو اختيار صورة"
+                      aria-label={t("models.uploadImageAria")}
                       onClick={() => modelImageInputRef.current?.click()}
                     >
-                      {localPreviewUrl || storedImageUrl ? "تغيير الصورة" : "رفع صورة"}
+                      {localPreviewUrl || storedImageUrl ? t("models.changeImage") : t("models.uploadImage")}
                     </Button>
                     {localPreviewUrl || storedImageUrl ? (
                       <Button type="button" variant="ghost" size="sm" onClick={clearModelImage}>
-                        إزالة الصورة
+                        {t("models.removeImage")}
                       </Button>
                     ) : null}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    صور حتى 5 ميجابايت. من المعرض أو الكاميرا على الجوال.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("models.imageHint")}</p>
                 </div>
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="am-desc">وصف (اختياري)</Label>
+              <Label htmlFor="am-desc">{t("models.descLabel")}</Label>
               <textarea
                 id="am-desc"
                 className="min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -746,7 +744,7 @@ export function AbayaModelsPage() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="am-price">سعر البيع الافتراضي (د.إ)</Label>
+              <Label htmlFor="am-price">{t("models.defaultPrice")}</Label>
               <Input
                 id="am-price"
                 type="number"
@@ -758,14 +756,14 @@ export function AbayaModelsPage() {
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="am-fabric">القماش الافتراضي (من المخزون)</Label>
+                <Label htmlFor="am-fabric">{t("models.defaultFabric")}</Label>
                 <select
                   id="am-fabric"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={form.defaultFabricRollId}
                   onChange={(e) => setForm((f) => ({ ...f, defaultFabricRollId: e.target.value }))}
                 >
-                  <option value="">— بدون —</option>
+                  <option value="">{t("models.none")}</option>
                   {fabricRolls?.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.rollCode} · {r.name} ({r.color})
@@ -774,7 +772,7 @@ export function AbayaModelsPage() {
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="am-days">مدة التسليم الافتراضية (أيام)</Label>
+                <Label htmlFor="am-days">{t("models.defaultDeliveryDays")}</Label>
                 <Input
                   id="am-days"
                   type="number"
@@ -839,24 +837,24 @@ export function AbayaModelsPage() {
                 checked={form.isActive}
                 onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
               />
-              نشط (يظهر في طلبات التفصيل)
+              {t("models.activeLabel")}
             </label>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-              إلغاء
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
               disabled={saveMutation.isPending}
               onClick={() => saveMutation.mutate()}
             >
-              {saveMutation.isPending ? "…" : editing ? "حفظ" : "إنشاء"}
+              {saveMutation.isPending ? "…" : editing ? t("common.save") : t("models.create")}
             </Button>
           </DialogFooter>
           {saveMutation.isError ? (
             <p className="text-sm text-destructive">
-              {getApiErrorMessage(saveMutation.error, "تعذّر الحفظ.")}
+              {getApiErrorMessage(saveMutation.error, t("common.saveFailed"))}
             </p>
           ) : null}
         </DialogContent>
