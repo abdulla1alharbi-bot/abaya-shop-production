@@ -12,6 +12,7 @@ import { parsePageLimit, parseOptionalDate, queryParamString } from "../../utils
 import { nextJobNo } from "../../utils/counters.js";
 import {
   PIPELINE_STAGE_KEYS,
+  activateJobPipeline,
   createPipelineRowsForJob,
   initialPipelineStage,
   nextStageAfterComplete,
@@ -20,6 +21,7 @@ import {
   resolvePipelineStageKeysFromModelJson,
   wageForPipelineStage,
 } from "./jobStageHelpers.js";
+import { syncLinkedProductForAbayaModelId } from "../../utils/abayaModelProductSync.js";
 import {
   deductFabricOnCuttingComplete,
   isCuttingWorkStageDone,
@@ -470,7 +472,12 @@ const completeOneClickBody = z.object({
 });
 
 const initPipelineBody = z.object({
-  productId: z.string().min(1),
+  /**
+   * Optional. When omitted, the product is derived from the job's own linked
+   * abaya model (its synced catalog product), and falls back to default wages
+   * when the piece has no model (exempt types: shayla / niqab / alterations).
+   */
+  productId: z.string().min(1).optional(),
 });
 
 jobOrdersRouter.post(
@@ -1090,6 +1097,30 @@ jobOrdersRouter.post(
     const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
     const wageDefaults = parseWageDefaults(settingsMap);
 
+    // Resolve the catalog product outside the pipeline transaction:
+    //   1) explicit productId from the request (legacy / manual override), else
+    //   2) the product already linked on the job, else
+    //   3) the job's abaya model's synced product (ensured up to date), else
+    //   4) none → default-wage pipeline (exempt types with no model).
+    const jobPre = await prisma.jobOrder.findUnique({
+      where: { id: jobId },
+      select: { id: true, productId: true, abayaModelId: true, workStages: { select: { id: true }, take: 1 } },
+    });
+    if (!jobPre) throw new AppError(404, "Job order not found", "NOT_FOUND");
+    if (jobPre.workStages.length > 0) {
+      throw new AppError(400, "Job already has pipeline stages", "ALREADY_EXISTS");
+    }
+
+    let productId: string | null = body.productId ?? jobPre.productId ?? null;
+    if (!productId && jobPre.abayaModelId) {
+      await syncLinkedProductForAbayaModelId(jobPre.abayaModelId);
+      const am = await prisma.abayaModel.findUnique({
+        where: { id: jobPre.abayaModelId },
+        select: { productId: true },
+      });
+      productId = am?.productId ?? null;
+    }
+
     const data = await prisma.$transaction(async (tx) => {
       const job = await tx.jobOrder.findUnique({
         where: { id: jobId },
@@ -1099,30 +1130,23 @@ jobOrdersRouter.post(
       if (job.workStages.length > 0) {
         throw new AppError(400, "Job already has pipeline stages", "ALREADY_EXISTS");
       }
-      const productRow = await tx.product.findUnique({ where: { id: body.productId } });
-      if (!productRow) throw new AppError(404, "Product not found", "NOT_FOUND");
 
-      let pipelineKeys = resolvePipelineStageKeysFromModelJson(null);
-      if (job.abayaModelId) {
-        const am = await tx.abayaModel.findUnique({ where: { id: job.abayaModelId } });
-        if (am) pipelineKeys = resolvePipelineStageKeysFromModelJson(am.workflowStagesJson);
-      }
-      await createPipelineRowsForJob(tx, job.id, productRow, wageDefaults, pipelineKeys);
-      const stage0 = initialPipelineStage(pipelineKeys);
-      const j = await tx.jobOrder.update({
-        where: { id: job.id },
-        data: { productId: productRow.id, stage: stage0 },
+      const stage0 = await activateJobPipeline(tx, {
+        jobId: job.id,
+        productId,
+        abayaModelId: job.abayaModelId,
+        wageDefaults,
       });
       await tx.jobStageLog.create({
         data: {
-          jobOrderId: j.id,
+          jobOrderId: job.id,
           stage: stage0,
           changedById: userId,
-          notes: `Pipeline linked to product ${productRow.name}`,
+          notes: "Workshop pipeline activated",
         },
       });
       return tx.jobOrder.findUnique({
-        where: { id: j.id },
+        where: { id: job.id },
         include: {
           customer: true,
           product: true,

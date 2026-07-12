@@ -14,10 +14,8 @@ import { nextInvoiceNo, nextJobNo } from "../../utils/counters.js";
 import { allocateByLineShares } from "../../utils/invoiceAllocation.js";
 import { syncInvoiceJobsFinancials } from "../../utils/invoiceJobSync.js";
 import {
-  createPipelineRowsForJob,
-  initialPipelineStage,
+  activateJobPipeline,
   parseWageDefaults,
-  resolvePipelineStageKeysFromModelJson,
 } from "../job-orders/jobStageHelpers.js";
 import {
   canMarkInvoiceDelivered,
@@ -784,6 +782,11 @@ invoicesRouter.post(
         throw new AppError(500, "Invoice items out of sync", "CONFIG");
       }
 
+      const settingsRows = await tx.setting.findMany();
+      const wageDefaults = parseWageDefaults(
+        Object.fromEntries(settingsRows.map((s) => [s.key, s.value])),
+      );
+
       for (let k = 0; k < body.items.length; k++) {
         const it = body.items[k]!;
         const invoiceItem = inv.items[k]!;
@@ -803,7 +806,7 @@ invoicesRouter.post(
             customerId: body.customerId,
             measurementId: it.measurementId,
             productStyle: it.productStyle.trim(),
-            stage: it.productId ? "CUTTING" : "NEW",
+            stage: "NEW",
             priority: "NORMAL",
             dueDate: new Date(it.dueDate),
             fabricSource: "STOCK",
@@ -823,32 +826,24 @@ invoicesRouter.post(
           },
         });
 
+        // Always activate the workshop pipeline (cutting/sewing/…) so every
+        // tailoring piece is ready to work — using the linked catalog model's
+        // wages when present, or default wages for exempt types / no model.
+        const stage0 = await activateJobPipeline(tx, {
+          jobId: j.id,
+          productId: it.productId ?? null,
+          abayaModelId: it.abayaModelId ?? null,
+          wageDefaults,
+        });
+
         await tx.jobStageLog.create({
           data: {
             jobOrderId: j.id,
-            stage: j.stage,
+            stage: stage0,
             changedById: salesPersonId,
             notes: `Invoice #${invoiceNo}`,
           },
         });
-
-        if (it.productId) {
-          const productRow = await tx.product.findUnique({ where: { id: it.productId } });
-          if (!productRow) throw new AppError(400, "Catalog product not found", "NOT_FOUND");
-          const settingsRows = await tx.setting.findMany();
-          const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-          const wageDefaults = parseWageDefaults(settingsMap);
-          let pipelineKeys = resolvePipelineStageKeysFromModelJson(null);
-          if (it.abayaModelId) {
-            const am = await tx.abayaModel.findUnique({ where: { id: it.abayaModelId } });
-            if (am) pipelineKeys = resolvePipelineStageKeysFromModelJson(am.workflowStagesJson);
-          }
-          await createPipelineRowsForJob(tx, j.id, productRow, wageDefaults, pipelineKeys);
-          await tx.jobOrder.update({
-            where: { id: j.id },
-            data: { productId: productRow.id, stage: initialPipelineStage(pipelineKeys) },
-          });
-        }
 
         for (const m of it.materials) {
           const materialCostFils = await reserveFabricForMaterial(tx, m.rollId, m.meters);
@@ -1123,6 +1118,10 @@ invoicesRouter.post(
           totalFils,
           paidFils,
         );
+        const settingsRows = await tx.setting.findMany();
+        const wageDefaults = parseWageDefaults(
+          Object.fromEntries(settingsRows.map((s) => [s.key, s.value])),
+        );
         for (let k = 0; k < tailoring.length; k++) {
           const it = tailoring[k]!;
           const invItem = tailoringItemRows[k]!;
@@ -1142,7 +1141,7 @@ invoicesRouter.post(
               customerId: body.customerId!,
               measurementId: it.measurementId,
               productStyle: it.productStyle.trim(),
-              stage: it.productId ? "CUTTING" : "NEW",
+              stage: "NEW",
               priority: "NORMAL",
               dueDate: new Date(it.dueDate),
               fabricSource: "STOCK",
@@ -1162,32 +1161,23 @@ invoicesRouter.post(
             },
           });
 
+          // Always activate the workshop pipeline so every tailoring piece is
+          // ready to work — model wages when linked, default wages otherwise.
+          const stage0 = await activateJobPipeline(tx, {
+            jobId: j.id,
+            productId: it.productId ?? null,
+            abayaModelId: it.abayaModelId ?? null,
+            wageDefaults,
+          });
+
           await tx.jobStageLog.create({
             data: {
               jobOrderId: j.id,
-              stage: j.stage,
+              stage: stage0,
               changedById: salesPersonId,
               notes: `Invoice #${invoiceNo}`,
             },
           });
-
-          if (it.productId) {
-            const productRow = await tx.product.findUnique({ where: { id: it.productId } });
-            if (!productRow) throw new AppError(400, "Catalog product not found", "NOT_FOUND");
-            const settingsRows = await tx.setting.findMany();
-            const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-            const wageDefaults = parseWageDefaults(settingsMap);
-            let pipelineKeys = resolvePipelineStageKeysFromModelJson(null);
-            if (it.abayaModelId) {
-              const am = await tx.abayaModel.findUnique({ where: { id: it.abayaModelId } });
-              if (am) pipelineKeys = resolvePipelineStageKeysFromModelJson(am.workflowStagesJson);
-            }
-            await createPipelineRowsForJob(tx, j.id, productRow, wageDefaults, pipelineKeys);
-            await tx.jobOrder.update({
-              where: { id: j.id },
-              data: { productId: productRow.id, stage: initialPipelineStage(pipelineKeys) },
-            });
-          }
 
           for (const m of it.materials) {
             const materialCostFils = await reserveFabricForMaterial(tx, m.rollId, m.meters);

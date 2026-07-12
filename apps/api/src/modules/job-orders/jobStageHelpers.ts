@@ -72,11 +72,15 @@ export function nextStageAfterComplete(stageKey: string, orderedKeys: string[]):
   return orderedKeys[i + 1]!;
 }
 
-/** Inserts pipeline rows for a catalog product (default CUTTING → … → FINISHING). */
+/**
+ * Inserts pipeline rows (default CUTTING → … → FINISHING).
+ * `product` may be null — then default wages are used (e.g. exempt types like
+ * shayla / niqab / alterations, or pieces with no linked catalog model).
+ */
 export async function createPipelineRowsForJob(
   tx: Prisma.TransactionClient,
   jobOrderId: string,
-  product: Product,
+  product: Product | null,
   wageDefaults: StageDefaults,
   stageKeys: readonly string[] = PIPELINE_STAGE_KEYS,
 ): Promise<void> {
@@ -94,4 +98,42 @@ export async function createPipelineRowsForJob(
     });
     i += 1;
   }
+}
+
+/**
+ * Activates the workshop pipeline for a job, always.
+ * Resolves stage order from the linked abaya model's `workflowStagesJson` (when
+ * any) and wages from the catalog product (when linked) or the default wages.
+ * Sets the job's `productId` (when resolved) and moves it to the initial stage.
+ * @returns the initial pipeline stage the job was moved to (e.g. "CUTTING").
+ */
+export async function activateJobPipeline(
+  tx: Prisma.TransactionClient,
+  opts: {
+    jobId: string;
+    productId?: string | null;
+    abayaModelId?: string | null;
+    wageDefaults: StageDefaults;
+  },
+): Promise<string> {
+  const product = opts.productId
+    ? await tx.product.findUnique({ where: { id: opts.productId } })
+    : null;
+
+  let pipelineKeys = resolvePipelineStageKeysFromModelJson(null);
+  if (opts.abayaModelId) {
+    const am = await tx.abayaModel.findUnique({
+      where: { id: opts.abayaModelId },
+      select: { workflowStagesJson: true },
+    });
+    if (am) pipelineKeys = resolvePipelineStageKeysFromModelJson(am.workflowStagesJson);
+  }
+
+  await createPipelineRowsForJob(tx, opts.jobId, product, opts.wageDefaults, pipelineKeys);
+  const stage0 = initialPipelineStage(pipelineKeys);
+  await tx.jobOrder.update({
+    where: { id: opts.jobId },
+    data: { ...(product ? { productId: product.id } : {}), stage: stage0 },
+  });
+  return stage0;
 }

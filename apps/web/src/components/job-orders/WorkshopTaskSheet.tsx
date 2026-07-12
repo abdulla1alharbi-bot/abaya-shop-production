@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { Check } from "lucide-react";
 import { jobStageLabel, PIPELINE_STAGE_KEYS } from "@abaya-shop/shared";
@@ -125,8 +125,13 @@ export function WorkshopTaskSheet({
   const canEditWage = can("jobProcess.editWage") || can("jobProcess.adminEdit");
   const canReopen = can("jobProcess.adminEdit") || can("jobProcess.reopenStage");
   const canMarkReady = can("jobProcess.markReady");
-
-  const [initProductId, setInitProductId] = useState("");
+  /**
+   * May activate the workshop pipeline (cutting/sewing/…). Mirrors the
+   * `init-pipeline` endpoint: needs `jobProcess.update` and is NOT a restricted
+   * workshop supervisor (assignWorkers without adminEdit).
+   */
+  const canInitPipeline =
+    can("jobProcess.update") && (!can("jobProcess.assignWorkers") || can("jobProcess.adminEdit"));
 
   const { data: workers } = useQuery({
     queryKey: ["workers", "workshop-sheet"],
@@ -139,18 +144,6 @@ export function WorkshopTaskSheet({
     },
   });
 
-  const { data: catalogProducts } = useQuery({
-    queryKey: ["products", "workshop-init"],
-    queryFn: async () => {
-      const res = await api.get<{
-        success: boolean;
-        data: { items: Array<{ id: string; name: string; sku: string }> };
-      }>("/products", { params: { limit: 200, activeOnly: "true" } });
-      return res.data.data.items;
-    },
-    enabled: workStages.length === 0,
-  });
-
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["job-order", jobId] });
     void queryClient.invalidateQueries({ queryKey: ["job-orders"] });
@@ -159,16 +152,30 @@ export function WorkshopTaskSheet({
     onInvalidateExtras?.();
   };
 
+  // Activates the workshop pipeline from the piece's own model (or default
+  // wages for exempt types with no model). No product picker needed.
   const initPipeline = useMutation({
     mutationFn: async () => {
-      if (!initProductId) throw new Error("اختر موديلاً من الكتالوج");
-      await api.post(`/job-orders/${jobId}/init-pipeline`, { productId: initProductId });
+      await api.post(`/job-orders/${jobId}/init-pipeline`);
     },
-    onSuccess: () => {
-      invalidate();
-      setInitProductId("");
-    },
+    onSuccess: () => invalidate(),
   });
+
+  // Auto-activate the pipeline the moment a not-yet-started piece is opened, so
+  // the workflow (cutting/sewing/…) is ready without any manual model pick.
+  const autoInitFired = useRef(false);
+  useEffect(() => {
+    if (
+      workStages.length === 0 &&
+      canInitPipeline &&
+      jobStage === "NEW" &&
+      !autoInitFired.current &&
+      !initPipeline.isPending
+    ) {
+      autoInitFired.current = true;
+      initPipeline.mutate();
+    }
+  }, [workStages.length, canInitPipeline, jobStage, initPipeline]);
 
   const sortedStages = useMemo(
     () => [...workStages].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -304,37 +311,25 @@ export function WorkshopTaskSheet({
         <p className="mb-2 font-medium">
           طلب #{jobNo} — {productStyle}
         </p>
-        <p className="mb-3 text-muted-foreground">
-          لا يوجد مسار مراحل (قص/خياطة/…). اربط موديلاً من الكتالوج لتفعيل ورشة التتبع والأجور التلقائية.
-        </p>
-        <div className="flex flex-wrap items-end gap-2">
-          <div>
-            <Label className="text-xs">موديل الكتالوج</Label>
-            <select
-              className="mt-1 flex h-9 min-w-[200px] rounded-md border bg-background px-2 text-sm"
-              value={initProductId}
-              onChange={(e) => setInitProductId(e.target.value)}
-            >
-              <option value="">— اختر —</option>
-              {catalogProducts?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.sku})
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={!initProductId || initPipeline.isPending}
-            onClick={() => initPipeline.mutate()}
-          >
-            {initPipeline.isPending ? "…" : "تفعيل المراحل"}
-          </Button>
-        </div>
         {initPipeline.isError ? (
-          <p className="mt-2 text-xs text-destructive">{(initPipeline.error as Error).message}</p>
-        ) : null}
+          <>
+            <p className="mb-2 text-xs text-destructive">{apiErrorMessage(initPipeline.error)}</p>
+            {canInitPipeline ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={initPipeline.isPending}
+                onClick={() => initPipeline.mutate()}
+              >
+                {initPipeline.isPending ? "…" : "إعادة المحاولة — تفعيل المراحل"}
+              </Button>
+            ) : null}
+          </>
+        ) : canInitPipeline ? (
+          <p className="text-muted-foreground">جارٍ تفعيل مراحل العمل (قص / خياطة / …)…</p>
+        ) : (
+          <p className="text-muted-foreground">لم يتم تفعيل مراحل العمل بعد.</p>
+        )}
       </div>
     );
   }
