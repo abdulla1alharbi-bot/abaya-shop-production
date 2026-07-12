@@ -51,6 +51,7 @@ export function CartPanel() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [paymentRows, setPaymentRows] = useState<PayRow[]>([{ method: "CASH", amountAed: "" }]);
   const [notes, setNotes] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
   const [saveMeasurementsToProfile, setSaveMeasurementsToProfile] = useState(false);
   const [successData, setSuccessData] = useState<{ id: string; invoiceNo: number } | null>(null);
   const [creditOverride, setCreditOverride] = useState(false);
@@ -107,6 +108,15 @@ export function CartPanel() {
   const vatPercent = parseFloat(settings?.vat_rate ?? "5") || 5;
 
   const subtotalFils = useMemo(() => subtotalFilsFromLines(lines), [lines]);
+  const lineDiscountFils = useMemo(
+    () =>
+      lines.reduce(
+        (a, l) => a + (l.kind === "retail" ? Math.round(l.discountFils * l.qty) : 0),
+        0,
+      ),
+    [lines],
+  );
+  const totalDiscountFils = lineDiscountFils + invoiceDiscountFils;
   const taxableFils = Math.max(0, subtotalFils - invoiceDiscountFils);
   const vatFils = calcVatFils(taxableFils, vatPercent);
   const totalFils = taxableFils + vatFils;
@@ -139,6 +149,8 @@ export function CartPanel() {
     mutationFn: async () => {
       if (lines.length === 0) throw new Error("\u0627\u0644\u0633\u0644\u0629 \u0641\u0627\u0631\u063a\u0629");
       if (!posCustomerId) throw new Error("\u0627\u062e\u062a\u0631 \u0627\u0644\u0639\u0645\u064a\u0644 \u0623\u0648\u0644\u0627\u064b.");
+      if (totalDiscountFils > 0 && !discountReason.trim())
+        throw new Error("\u0633\u0628\u0628 \u0627\u0644\u062e\u0635\u0645 \u0645\u0637\u0644\u0648\u0628 \u0639\u0646\u062f \u0648\u062c\u0648\u062f \u062e\u0635\u0645 / Discount reason is required");
 
       const payments = paymentRows
         .map((r) => ({
@@ -169,6 +181,7 @@ export function CartPanel() {
         tailoringItems,
         payments,
         invoiceDiscountFils,
+        discountReason: totalDiscountFils > 0 ? discountReason.trim() : undefined,
         notes: notes.trim() || undefined,
         creditOverride: creditOverride || undefined,
       });
@@ -204,6 +217,7 @@ export function CartPanel() {
       clear();
       setPaymentRows([{ method: "CASH", amountAed: "" }]);
       setNotes("");
+      setDiscountReason("");
       setSaveMeasurementsToProfile(false);
       setCreditOverride(false);
       void queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -345,6 +359,20 @@ export function CartPanel() {
                   }}
                 />
               </div>
+              {totalDiscountFils > 0 ? (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="pos-discount-reason" className="shrink-0 text-muted-foreground">
+                    سبب الخصم <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="pos-discount-reason"
+                    className="h-8 flex-1"
+                    placeholder="مطلوب عند وجود خصم"
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                  />
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("pos.cart.vat", { pct: vatPercent })}</span>
                 <span>{formatAED(vatFils)}</span>

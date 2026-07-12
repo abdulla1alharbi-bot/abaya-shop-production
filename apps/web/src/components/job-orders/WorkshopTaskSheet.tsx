@@ -203,9 +203,12 @@ export function WorkshopTaskSheet({
   const [draftWageAed, setDraftWageAed] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
   const [draftCompletedLocal, setDraftCompletedLocal] = useState("");
+  /** Optional fabric waste (meters) captured when completing the CUTTING stage. */
+  const [draftWasteMeters, setDraftWasteMeters] = useState("");
 
   useEffect(() => {
     if (!currentRow) return;
+    setDraftWasteMeters("");
     if (currentRow.status === "PENDING") {
       setDraftWorker(prevStageWorkerId);
       setDraftWageAed(String((currentRow.wageFils ?? 0) / 100));
@@ -251,9 +254,13 @@ export function WorkshopTaskSheet({
       const row = sortedStages.find((r) => r.stageKey === stageKey);
       if (!row || row.status !== "IN_PROGRESS") return;
       const completedAt = fromLocalDatetimeValue(draftCompletedLocal);
+      const waste = parseFloat(draftWasteMeters);
       await api.post(`/job-orders/${jobId}/work-stages/${stageKey}/complete`, {
         completedAt,
         notes: draftNotes.trim() || undefined,
+        ...(stageKey === "CUTTING" && Number.isFinite(waste) && waste > 0
+          ? { wasteMeters: waste }
+          : {}),
       });
     },
     onSuccess: () => invalidate(),
@@ -557,6 +564,22 @@ export function WorkshopTaskSheet({
                     </td>
                     <td className={`${pad} align-top`}>
                       <div className="flex flex-col gap-1">
+                        {row.stageKey === "CUTTING" ? (
+                          <div>
+                            <Label className="text-[10px] text-muted-foreground">
+                              {locale === "en" ? "Fabric waste (m)" : "هدر القماش (متر)"}
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step={0.1}
+                              className="mt-0.5 h-8 max-w-[120px]"
+                              value={draftWasteMeters}
+                              onChange={(e) => setDraftWasteMeters(e.target.value)}
+                              placeholder={t("workshop.optional")}
+                            />
+                          </div>
+                        ) : null}
                         {canEditWage ? (
                           <Button
                             type="button"

@@ -3,11 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { JOB_STAGE_LABELS } from "@abaya-shop/shared";
 import {
   Banknote,
+  BarChart3,
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
   PieChart,
   Printer,
+  Recycle,
+  Scale,
   Scissors,
   TrendingUp,
   Users,
@@ -34,6 +37,7 @@ import {
   type ReportDateRange,
 } from "@/lib/reportDateRange";
 import { formatAED } from "@/lib/money";
+import { exportRowsAsCsv, filsToAmount } from "@/lib/exportCsv";
 import { cn } from "@/lib/utils";
 import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -124,6 +128,19 @@ export function ReportsPage() {
   const [cashDraft, setCashDraft] = useState(defaults);
   const [cashApplied, setCashApplied] = useState(defaults);
 
+  const [profitLossOpen, setProfitLossOpen] = useState(false);
+  const [plDraft, setPlDraft] = useState(defaults);
+  const [plApplied, setPlApplied] = useState(defaults);
+  /** "" = all branches. */
+  const [plBranchId, setPlBranchId] = useState("");
+  const [plExpensesExpanded, setPlExpensesExpanded] = useState(false);
+  const [modelProfitOpen, setModelProfitOpen] = useState(false);
+  const [mpDraft, setMpDraft] = useState(defaults);
+  const [mpApplied, setMpApplied] = useState(defaults);
+  const [wastageOpen, setWastageOpen] = useState(false);
+  const [fwDraft, setFwDraft] = useState(defaults);
+  const [fwApplied, setFwApplied] = useState(defaults);
+
   useEffect(() => {
     if (!cashFlowOpen) {
       setCashFlowShowDetails(false);
@@ -153,6 +170,16 @@ export function ReportsPage() {
   useEffect(() => {
     if (cashFlowOpen) setCashDraft(cashApplied);
   }, [cashFlowOpen, cashApplied]);
+  useEffect(() => {
+    if (profitLossOpen) setPlDraft(plApplied);
+    else setPlExpensesExpanded(false);
+  }, [profitLossOpen, plApplied]);
+  useEffect(() => {
+    if (modelProfitOpen) setMpDraft(mpApplied);
+  }, [modelProfitOpen, mpApplied]);
+  useEffect(() => {
+    if (wastageOpen) setFwDraft(fwApplied);
+  }, [wastageOpen, fwApplied]);
 
   const wagesParams = reportRangeToApiParams(wagesApplied.from, wagesApplied.to);
 
@@ -360,6 +387,102 @@ export function ReportsPage() {
     enabled: cashFlowOpen,
   });
 
+  const branchesQuery = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => {
+      const res = await api.get<{
+        success: boolean;
+        data: Array<{ id: string; name: string; isDefault: boolean }>;
+      }>("/branches");
+      return res.data.data;
+    },
+    enabled: profitLossOpen,
+  });
+
+  const profitLossQuery = useQuery({
+    queryKey: ["reports", "profit-loss", rangeKey(plApplied), plBranchId],
+    queryFn: async () => {
+      const res = await api.get<{
+        success: boolean;
+        data: {
+          from: string;
+          to: string;
+          branchId: string | null;
+          invoiceCount: number;
+          revenueFils: number;
+          vatFils: number;
+          revenueExVatFils: number;
+          returnsFils: number;
+          fabricCogsFils: number;
+          wasteCostFils: number;
+          wagesFils: number;
+          expensesTotalFils: number;
+          expensesByCategory: Array<{ name: string; totalFils: number }>;
+          otherIncomeFils: number;
+          collectedFils: number;
+          netProfitFils: number;
+        };
+      }>("/reports/profit-loss", {
+        params: {
+          ...reportRangeToApiParams(plApplied.from, plApplied.to),
+          ...(plBranchId ? { branchId: plBranchId } : {}),
+        },
+      });
+      return res.data.data;
+    },
+    enabled: profitLossOpen,
+  });
+
+  type ModelProfitRow = {
+    modelId: string;
+    code: string;
+    name: string;
+    jobs: number;
+    revenueFils: number;
+    fabricFils: number;
+    wagesFils: number;
+    marginFils: number;
+    marginPercent: number;
+  };
+  const modelProfitQuery = useQuery({
+    queryKey: ["reports", "model-profitability", rangeKey(mpApplied)],
+    queryFn: async () => {
+      const res = await api.get<{
+        success: boolean;
+        data: { from: string; to: string; rows: ModelProfitRow[] };
+      }>("/reports/model-profitability", { params: reportRangeToApiParams(mpApplied.from, mpApplied.to) });
+      return res.data.data;
+    },
+    enabled: modelProfitOpen,
+  });
+
+  type WastageRow = {
+    modelId: string;
+    code: string;
+    name: string;
+    lines: number;
+    usedMeters: number;
+    wasteMeters: number;
+    wasteCostFils: number;
+    wastePercent: number;
+  };
+  const wastageQuery = useQuery({
+    queryKey: ["reports", "fabric-wastage", rangeKey(fwApplied)],
+    queryFn: async () => {
+      const res = await api.get<{
+        success: boolean;
+        data: {
+          from: string;
+          to: string;
+          rows: WastageRow[];
+          totals: { usedMeters: number; wasteMeters: number; wasteCostFils: number; wastePercent: number };
+        };
+      }>("/reports/fabric-wastage", { params: reportRangeToApiParams(fwApplied.from, fwApplied.to) });
+      return res.data.data;
+    },
+    enabled: wastageOpen,
+  });
+
   const invoiceTable = (rows: InvoiceReportItem[] | undefined, loading: boolean) => {
     if (loading) return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
     if (!rows?.length) return <p className="text-sm text-muted-foreground">{t("reports.noInvoicesInPeriod")}</p>;
@@ -402,6 +525,13 @@ export function ReportsPage() {
       </div>
     );
   };
+
+  const csvButton = (disabled: boolean, onClick: () => void) => (
+    <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={onClick}>
+      <FileSpreadsheet className="me-1 h-4 w-4" />
+      {t("reports.exportCsv", { defaultValue: "تصدير Excel (CSV)" })}
+    </Button>
+  );
 
   return (
     <div className="space-y-8">
@@ -465,6 +595,36 @@ export function ReportsPage() {
             description={t("reports.cashFlowDesc", { defaultValue: "Collections, expenses, and operating wages — and net profit for the period." })}
             icon={<Wallet className="h-5 w-5" />}
             onClick={() => setCashFlowOpen(true)}
+          />
+        ) : null}
+        {can("reports.financial") ? (
+          <ReportHubCard
+            title={t("reports.profitLossTitle", { defaultValue: "قائمة الدخل (ربح وخسارة) / Profit & Loss" })}
+            description={t("reports.profitLossDesc", {
+              defaultValue: "الإيرادات والضريبة والتكاليف وصافي الربح للفترة / Revenue, VAT, costs, and net profit for the period.",
+            })}
+            icon={<Scale className="h-5 w-5" />}
+            onClick={() => setProfitLossOpen(true)}
+          />
+        ) : null}
+        {can("reports.financial") ? (
+          <ReportHubCard
+            title={t("reports.modelProfitTitle", { defaultValue: "ربحية الموديلات / Model Profitability" })}
+            description={t("reports.modelProfitDesc", {
+              defaultValue: "الإيراد والتكلفة وهامش الربح لكل موديل / Revenue, cost, and margin per model.",
+            })}
+            icon={<BarChart3 className="h-5 w-5" />}
+            onClick={() => setModelProfitOpen(true)}
+          />
+        ) : null}
+        {can("reports.financial") ? (
+          <ReportHubCard
+            title={t("reports.fabricWastageTitle", { defaultValue: "هدر القماش / Fabric Wastage" })}
+            description={t("reports.fabricWastageDesc", {
+              defaultValue: "الأمتار المستخدمة والهدر وتكلفته لكل موديل / Used meters, waste, and its cost per model.",
+            })}
+            icon={<Recycle className="h-5 w-5" />}
+            onClick={() => setWastageOpen(true)}
           />
         ) : null}
       </div>
@@ -660,6 +820,31 @@ export function ReportsPage() {
               <Printer className="me-1 h-4 w-4" />
               {t("reports.printPdf")}
             </Button>
+            {csvButton(!salesReportQuery.data, () => {
+              const d = salesReportQuery.data;
+              if (!d) return;
+              exportRowsAsCsv(
+                "sales-invoices",
+                [
+                  t("reports.colNo"),
+                  t("reports.colCustomer"),
+                  t("reports.colMobile"),
+                  t("reports.colInvoiceDate"),
+                  t("reports.colTotal"),
+                  t("reports.colPaid"),
+                  t("reports.colRemaining"),
+                ],
+                d.items.map((i) => [
+                  i.invoiceNo,
+                  i.customer?.name ?? "",
+                  i.customer?.mobile ?? "",
+                  new Date(i.createdAt).toLocaleString(),
+                  filsToAmount(i.totalFils),
+                  filsToAmount(i.paidFils),
+                  filsToAmount(i.balanceFils),
+                ]),
+              );
+            })}
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {salesReportQuery.data?.summary ? (
@@ -785,6 +970,29 @@ export function ReportsPage() {
               <Printer className="me-1 h-4 w-4" />
               {t("reports.printPdf")}
             </Button>
+            {csvButton(!receivablesQuery.data, () => {
+              const d = receivablesQuery.data;
+              if (!d) return;
+              exportRowsAsCsv(
+                "receivables",
+                [
+                  t("reports.colNo"),
+                  t("reports.colCustomer"),
+                  t("reports.colDays"),
+                  t("reports.colTotal"),
+                  t("reports.colPaid"),
+                  t("reports.colRemaining"),
+                ],
+                d.unpaidInvoices.map((inv) => [
+                  inv.invoiceNo,
+                  inv.customer?.name ?? "",
+                  inv.daysSince,
+                  filsToAmount(inv.totalFils),
+                  filsToAmount(inv.paidFils),
+                  filsToAmount(inv.balanceFils),
+                ]),
+              );
+            })}
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {receivablesQuery.isLoading ? (
@@ -1144,6 +1352,20 @@ export function ReportsPage() {
               <Printer className="me-1 h-4 w-4" />
               {t("reports.printPdf")}
             </Button>
+            {csvButton(!financialActivityQuery.data, () => {
+              const d = financialActivityQuery.data;
+              if (!d) return;
+              exportRowsAsCsv(
+                "financial-activity",
+                [t("reports.colType"), t("reports.colStatement"), t("reports.colAmount"), t("reports.colDate")],
+                d.entries.map((row) => [
+                  cashFlowTypeLabel(row.type),
+                  row.description,
+                  filsToAmount(row.amountFils),
+                  new Date(row.date).toLocaleString(),
+                ]),
+              );
+            })}
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {financialActivityQuery.isLoading ? (
@@ -1317,6 +1539,448 @@ export function ReportsPage() {
                   </div>
                 ) : null}
               </>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profit & Loss */}
+      <Dialog open={profitLossOpen} onOpenChange={setProfitLossOpen}>
+        <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,860px)] max-w-[860px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[860px]">
+          <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
+            <DialogTitle>
+              {t("reports.profitLossDialogTitle", { defaultValue: "قائمة الدخل (ربح وخسارة) / Profit & Loss" })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("reports.profitLossDialogDesc", {
+                defaultValue:
+                  "الإيرادات ناقص المرتجعات والتكاليف والمصروفات = صافي الربح / Revenue minus returns, costs, and expenses = net profit.",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
+            <div className="flex-1">
+              <ReportDateRangeBar
+                from={plDraft.from}
+                to={plDraft.to}
+                onFromChange={(v) => setPlDraft((d) => ({ ...d, from: v }))}
+                onToChange={(v) => setPlDraft((d) => ({ ...d, to: v }))}
+                onApply={() => setPlApplied(normalizeReportRange(plDraft.from, plDraft.to))}
+                isFetching={profitLossQuery.isFetching}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="pl-branch" className="text-xs text-muted-foreground">
+                {t("reports.branchFilter", { defaultValue: "الفرع / Branch" })}
+              </Label>
+              <select
+                id="pl-branch"
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={plBranchId}
+                onChange={(e) => setPlBranchId(e.target.value)}
+              >
+                <option value="">{t("reports.allBranches", { defaultValue: "كل الفروع / All branches" })}</option>
+                {(branchesQuery.data ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {csvButton(!profitLossQuery.data, () => {
+              const d = profitLossQuery.data;
+              if (!d) return;
+              exportRowsAsCsv(
+                "profit-loss",
+                ["البند / Item", "المبلغ / Amount (AED)"],
+                [
+                  ["الإيرادات (شامل الضريبة) / Revenue (incl. VAT)", filsToAmount(d.revenueFils)],
+                  ["منها ضريبة القيمة المضافة / of which VAT", filsToAmount(d.vatFils)],
+                  ["الإيرادات (صافي الضريبة) / Revenue (ex. VAT)", filsToAmount(d.revenueExVatFils)],
+                  ["(−) المرتجعات / Returns", filsToAmount(d.returnsFils)],
+                  ["(−) تكلفة القماش / Fabric cost", filsToAmount(d.fabricCogsFils)],
+                  ["منها هدر / of which waste", filsToAmount(d.wasteCostFils)],
+                  ["(−) أجور الورشة / Workshop wages", filsToAmount(d.wagesFils)],
+                  ["(−) المصروفات / Expenses", filsToAmount(d.expensesTotalFils)],
+                  ...d.expensesByCategory.map(
+                    (c) => [`مصروفات: ${c.name}`, filsToAmount(c.totalFils)] as [string, string],
+                  ),
+                  ["(+) إيرادات أخرى / Other income", filsToAmount(d.otherIncomeFils)],
+                  ["صافي الربح / Net profit", filsToAmount(d.netProfitFils)],
+                  ["المحصّل فعلياً / Actually collected", filsToAmount(d.collectedFils)],
+                  ["عدد الفواتير / Invoice count", d.invoiceCount],
+                ],
+              );
+            })}
+          </div>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+            {profitLossQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+            ) : profitLossQuery.isError ? (
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
+            ) : profitLossQuery.data ? (
+              <>
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full min-w-[520px] text-sm">
+                    <tbody>
+                      <tr className="border-b border-border/50">
+                        <td className="px-3 py-2 font-medium">الإيرادات (شامل الضريبة) / Revenue (incl. VAT)</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(profitLossQuery.data.revenueFils)}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50 text-muted-foreground">
+                        <td className="px-3 py-2 ps-7 text-xs">منها ضريبة القيمة المضافة / of which VAT</td>
+                        <td className="px-3 py-2 text-end font-mono text-xs tabular-nums">
+                          {formatAED(profitLossQuery.data.vatFils)}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50 bg-muted/25 font-semibold">
+                        <td className="px-3 py-2">الإيرادات (صافي الضريبة) / Revenue (ex. VAT)</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(profitLossQuery.data.revenueExVatFils)}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="px-3 py-2">(−) المرتجعات / Returns</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(profitLossQuery.data.returnsFils)}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="px-3 py-2">
+                          (−) تكلفة القماش / Fabric cost
+                          <span className="ms-2 text-xs text-muted-foreground">
+                            (منها هدر / of which waste: {formatAED(profitLossQuery.data.wasteCostFils)})
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(profitLossQuery.data.fabricCogsFils)}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="px-3 py-2">(−) أجور الورشة / Workshop wages</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(profitLossQuery.data.wagesFils)}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border/50">
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-start hover:underline"
+                            onClick={() => setPlExpensesExpanded((v) => !v)}
+                            aria-expanded={plExpensesExpanded}
+                          >
+                            (−) المصروفات / Expenses
+                            {plExpensesExpanded ? (
+                              <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(profitLossQuery.data.expensesTotalFils)}
+                        </td>
+                      </tr>
+                      {plExpensesExpanded
+                        ? profitLossQuery.data.expensesByCategory.map((c, idx) => (
+                            <tr key={`${c.name}-${idx}`} className="border-b border-border/40 bg-muted/15 text-muted-foreground">
+                              <td className="px-3 py-1.5 ps-7 text-xs">{c.name}</td>
+                              <td className="px-3 py-1.5 text-end font-mono text-xs tabular-nums">
+                                {formatAED(c.totalFils)}
+                              </td>
+                            </tr>
+                          ))
+                        : null}
+                      {plExpensesExpanded && !profitLossQuery.data.expensesByCategory.length ? (
+                        <tr className="border-b border-border/40 bg-muted/15 text-muted-foreground">
+                          <td colSpan={2} className="px-3 py-1.5 ps-7 text-xs">
+                            {t("reports.none")}
+                          </td>
+                        </tr>
+                      ) : null}
+                      <tr className="border-b border-border/50">
+                        <td className="px-3 py-2">(+) إيرادات أخرى / Other income</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(profitLossQuery.data.otherIncomeFils)}
+                        </td>
+                      </tr>
+                      <tr
+                        className={cn(
+                          "border-t-2",
+                          profitLossQuery.data.netProfitFils >= 0
+                            ? "bg-green-50/70 dark:bg-green-950/30"
+                            : "bg-red-50/70 dark:bg-red-950/30",
+                        )}
+                      >
+                        <td className="px-3 py-3 text-base font-bold">صافي الربح / Net Profit</td>
+                        <td
+                          className={cn(
+                            "px-3 py-3 text-end font-mono text-base font-bold tabular-nums",
+                            profitLossQuery.data.netProfitFils >= 0
+                              ? "text-green-700 dark:text-green-400"
+                              : "text-red-700 dark:text-red-400",
+                          )}
+                        >
+                          {formatAED(profitLossQuery.data.netProfitFils)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 sm:grid-cols-2">
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">
+                      المحصّل فعلياً (كاش/شبكة/تحويل) / Actually collected{" "}
+                    </span>
+                    <span className="font-semibold tabular-nums">
+                      {formatAED(profitLossQuery.data.collectedFils)}
+                    </span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">{t("reports.invoiceCount")} </span>
+                    <span className="font-semibold tabular-nums">{profitLossQuery.data.invoiceCount}</span>
+                  </p>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Model profitability */}
+      <Dialog open={modelProfitOpen} onOpenChange={setModelProfitOpen}>
+        <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1000px)] max-w-[1000px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1000px]">
+          <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
+            <DialogTitle>
+              {t("reports.modelProfitDialogTitle", { defaultValue: "ربحية الموديلات / Model Profitability" })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("reports.modelProfitDialogDesc", {
+                defaultValue:
+                  "الإيراد وتكلفة القماش والأجور وهامش الربح لكل موديل — الأفضل هامشاً أولاً / Revenue, fabric cost, wages, and margin per model — best margin first.",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
+            <div className="flex-1">
+              <ReportDateRangeBar
+                from={mpDraft.from}
+                to={mpDraft.to}
+                onFromChange={(v) => setMpDraft((d) => ({ ...d, from: v }))}
+                onToChange={(v) => setMpDraft((d) => ({ ...d, to: v }))}
+                onApply={() => setMpApplied(normalizeReportRange(mpDraft.from, mpDraft.to))}
+                isFetching={modelProfitQuery.isFetching}
+              />
+            </div>
+            {csvButton(!modelProfitQuery.data, () => {
+              const d = modelProfitQuery.data;
+              if (!d) return;
+              exportRowsAsCsv(
+                "model-profitability",
+                [
+                  "الكود / Code",
+                  "الموديل / Model",
+                  "عدد القطع / Jobs",
+                  "الإيراد / Revenue",
+                  "تكلفة القماش / Fabric cost",
+                  "الأجور / Wages",
+                  "هامش الربح / Margin",
+                  "الهامش % / Margin %",
+                ],
+                d.rows.map((r) => [
+                  r.code,
+                  r.name,
+                  r.jobs,
+                  filsToAmount(r.revenueFils),
+                  filsToAmount(r.fabricFils),
+                  filsToAmount(r.wagesFils),
+                  filsToAmount(r.marginFils),
+                  r.marginPercent.toFixed(1),
+                ]),
+              );
+            })}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+            {modelProfitQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+            ) : modelProfitQuery.isError ? (
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
+            ) : modelProfitQuery.data?.rows?.length ? (
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead className="border-b bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 text-start">الموديل / Model</th>
+                      <th className="px-3 py-2 text-end">عدد القطع / Jobs</th>
+                      <th className="px-3 py-2 text-end">الإيراد / Revenue</th>
+                      <th className="px-3 py-2 text-end">تكلفة القماش / Fabric</th>
+                      <th className="px-3 py-2 text-end">الأجور / Wages</th>
+                      <th className="px-3 py-2 text-end">هامش الربح / Margin</th>
+                      <th className="px-3 py-2 text-end">الهامش % / Margin %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modelProfitQuery.data.rows.map((r) => (
+                      <tr key={r.modelId} className="border-b border-border/50">
+                        <td className="px-3 py-2">
+                          <span className="font-mono text-xs text-muted-foreground">{r.code}</span>{" "}
+                          <span className="font-medium">{r.name}</span>
+                        </td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">{r.jobs}</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(r.revenueFils)}</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(r.fabricFils)}</td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(r.wagesFils)}</td>
+                        <td
+                          className={cn(
+                            "px-3 py-2 text-end font-mono font-semibold tabular-nums",
+                            r.marginFils >= 0
+                              ? "text-green-700 dark:text-green-400"
+                              : "text-red-700 dark:text-red-400",
+                          )}
+                        >
+                          {formatAED(r.marginFils)}
+                        </td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">{r.marginPercent.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t("reports.none")}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fabric wastage */}
+      <Dialog open={wastageOpen} onOpenChange={setWastageOpen}>
+        <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,960px)] max-w-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
+          <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
+            <DialogTitle>
+              {t("reports.fabricWastageDialogTitle", { defaultValue: "هدر القماش / Fabric Wastage" })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("reports.fabricWastageDialogDesc", {
+                defaultValue:
+                  "الأمتار المستخدمة وأمتار الهدر وتكلفته ونسبته لكل موديل / Used meters, waste meters, cost, and percentage per model.",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
+            <div className="flex-1">
+              <ReportDateRangeBar
+                from={fwDraft.from}
+                to={fwDraft.to}
+                onFromChange={(v) => setFwDraft((d) => ({ ...d, from: v }))}
+                onToChange={(v) => setFwDraft((d) => ({ ...d, to: v }))}
+                onApply={() => setFwApplied(normalizeReportRange(fwDraft.from, fwDraft.to))}
+                isFetching={wastageQuery.isFetching}
+              />
+            </div>
+            {csvButton(!wastageQuery.data, () => {
+              const d = wastageQuery.data;
+              if (!d) return;
+              exportRowsAsCsv(
+                "fabric-wastage",
+                [
+                  "الكود / Code",
+                  "الموديل / Model",
+                  "عدد البنود / Lines",
+                  "الأمتار المستخدمة / Used m",
+                  "أمتار الهدر / Waste m",
+                  "تكلفة الهدر / Waste cost",
+                  "نسبة الهدر % / Waste %",
+                ],
+                [
+                  ...d.rows.map((r) => [
+                    r.code,
+                    r.name,
+                    r.lines,
+                    r.usedMeters.toFixed(2),
+                    r.wasteMeters.toFixed(2),
+                    filsToAmount(r.wasteCostFils),
+                    r.wastePercent.toFixed(1),
+                  ]),
+                  [
+                    "",
+                    "الإجمالي / Total",
+                    "",
+                    d.totals.usedMeters.toFixed(2),
+                    d.totals.wasteMeters.toFixed(2),
+                    filsToAmount(d.totals.wasteCostFils),
+                    d.totals.wastePercent.toFixed(1),
+                  ],
+                ],
+              );
+            })}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+            {wastageQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+            ) : wastageQuery.isError ? (
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
+            ) : wastageQuery.data ? (
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead className="border-b bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 text-start">الموديل / Model</th>
+                      <th className="px-3 py-2 text-end">عدد البنود / Lines</th>
+                      <th className="px-3 py-2 text-end">الأمتار المستخدمة / Used m</th>
+                      <th className="px-3 py-2 text-end">أمتار الهدر / Waste m</th>
+                      <th className="px-3 py-2 text-end">تكلفة الهدر / Waste cost</th>
+                      <th className="px-3 py-2 text-end">نسبة الهدر % / Waste %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wastageQuery.data.rows.length ? (
+                      wastageQuery.data.rows.map((r) => (
+                        <tr key={r.modelId} className="border-b border-border/50">
+                          <td className="px-3 py-2">
+                            <span className="font-mono text-xs text-muted-foreground">{r.code}</span>{" "}
+                            <span className="font-medium">{r.name}</span>
+                          </td>
+                          <td className="px-3 py-2 text-end font-mono tabular-nums">{r.lines}</td>
+                          <td className="px-3 py-2 text-end font-mono tabular-nums">{r.usedMeters.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-end font-mono tabular-nums">{r.wasteMeters.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(r.wasteCostFils)}</td>
+                          <td className="px-3 py-2 text-end font-mono tabular-nums">{r.wastePercent.toFixed(1)}%</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                          {t("reports.none")}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  {wastageQuery.data.rows.length ? (
+                    <tfoot className="bg-muted/80 font-semibold">
+                      <tr>
+                        <td className="px-3 py-2">{t("reports.total")}</td>
+                        <td className="px-3 py-2" />
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {wastageQuery.data.totals.usedMeters.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {wastageQuery.data.totals.wasteMeters.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {formatAED(wastageQuery.data.totals.wasteCostFils)}
+                        </td>
+                        <td className="px-3 py-2 text-end font-mono tabular-nums">
+                          {wastageQuery.data.totals.wastePercent.toFixed(1)}%
+                        </td>
+                      </tr>
+                    </tfoot>
+                  ) : null}
+                </table>
+              </div>
             ) : null}
           </div>
         </DialogContent>

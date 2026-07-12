@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +13,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export function SettingsPage() {
   const { can } = usePermissions();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language === "en";
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -35,6 +38,7 @@ export function SettingsPage() {
         vat_rate: String(form.get("vat_rate") ?? "5"),
         vat_number: String(form.get("vat_number") ?? ""),
         currency: String(form.get("currency") ?? "AED"),
+        max_discount_percent: String(form.get("max_discount_percent") ?? "10"),
         default_cutting_wage_fils: aedToFilsStr("default_cutting_aed"),
         default_sewing_wage_fils: aedToFilsStr("default_sewing_aed"),
         default_embroidery_wage_fils: aedToFilsStr("default_embroidery_aed"),
@@ -107,6 +111,22 @@ export function SettingsPage() {
         <div className="grid gap-2">
           <Label htmlFor="currency">{t("settings.currency")}</Label>
           <Input id="currency" name="currency" defaultValue={data.currency ?? "AED"} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="max_discount_percent">
+            {isEn
+              ? "Max discount without manager approval %"
+              : "أقصى نسبة خصم بدون موافقة إدارية %"}
+          </Label>
+          <Input
+            id="max_discount_percent"
+            name="max_discount_percent"
+            type="number"
+            min={0}
+            max={100}
+            step={0.5}
+            defaultValue={data.max_discount_percent ?? "10"}
+          />
         </div>
         <div className="border-t pt-4">
           <p className="mb-3 text-sm font-medium">{t("settings.defaultWagesTitle")}</p>
@@ -183,6 +203,168 @@ export function SettingsPage() {
         ) : null}
         </fieldset>
       </form>
+      {can("settings.manage") ? <BranchesCard /> : null}
+    </div>
+  );
+}
+
+type Branch = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  isDefault: boolean;
+};
+
+/** Manage shop branches: list, add, and choose the default branch. */
+function BranchesCard() {
+  const { i18n } = useTranslation();
+  const isEn = i18n.language === "en";
+  const queryClient = useQueryClient();
+
+  const { data: branches, isLoading } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => {
+      const res = await api.get<{ success: boolean; data: Branch[] }>("/branches");
+      return res.data.data;
+    },
+  });
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+
+  const createBranch = useMutation({
+    mutationFn: async () => {
+      await api.post("/branches", {
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      setName("");
+      setPhone("");
+      setAddress("");
+      void queryClient.invalidateQueries({ queryKey: ["branches"] });
+    },
+  });
+
+  const setDefault = useMutation({
+    mutationFn: async (id: string) => {
+      await api.patch(`/branches/${id}`, { isDefault: true });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["branches"] });
+    },
+  });
+
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <p className="text-sm font-medium">{isEn ? "Branches" : "الفروع"}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {isEn
+          ? "Shop branches; users can be assigned to a branch"
+          : "فروع المحل؛ يمكن ربط المستخدمين بفرع"}
+      </p>
+
+      <div className="mt-3 space-y-2">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">…</p>
+        ) : !branches?.length ? (
+          <p className="text-sm text-muted-foreground">
+            {isEn ? "No branches yet" : "لا توجد فروع بعد"}
+          </p>
+        ) : (
+          branches.map((b) => (
+            <div
+              key={b.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{b.name}</span>
+                {b.phone ? (
+                  <span className="font-mono text-xs text-muted-foreground">{b.phone}</span>
+                ) : null}
+                {b.isDefault ? (
+                  <Badge variant="secondary">{isEn ? "Default" : "افتراضي"}</Badge>
+                ) : null}
+              </div>
+              {!b.isDefault ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={setDefault.isPending}
+                  onClick={() => setDefault.mutate(b.id)}
+                >
+                  {setDefault.isPending && setDefault.variables === b.id
+                    ? "…"
+                    : isEn
+                      ? "Set as default"
+                      : "تعيين كافتراضي"}
+                </Button>
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
+
+      <form
+        className="mt-4 flex flex-wrap items-end gap-2 border-t pt-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!name.trim() || createBranch.isPending) return;
+          createBranch.mutate();
+        }}
+      >
+        <div className="grid gap-1">
+          <Label htmlFor="branch-name" className="text-xs">
+            {isEn ? "Branch name" : "اسم الفرع"}
+          </Label>
+          <Input
+            id="branch-name"
+            className="h-9 w-[160px]"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="branch-phone" className="text-xs">
+            {isEn ? "Phone (optional)" : "الهاتف (اختياري)"}
+          </Label>
+          <Input
+            id="branch-phone"
+            className="h-9 w-[140px]"
+            dir="ltr"
+            inputMode="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="branch-address" className="text-xs">
+            {isEn ? "Address (optional)" : "العنوان (اختياري)"}
+          </Label>
+          <Input
+            id="branch-address"
+            className="h-9 w-[180px]"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+        </div>
+        <Button type="submit" size="sm" className="h-9" disabled={!name.trim() || createBranch.isPending}>
+          {createBranch.isPending ? "…" : isEn ? "Add branch" : "إضافة فرع"}
+        </Button>
+      </form>
+      {createBranch.isError ? (
+        <p className="mt-2 text-xs text-destructive">{getApiErrorMessage(createBranch.error)}</p>
+      ) : null}
+      {setDefault.isError ? (
+        <p className="mt-2 text-xs text-destructive">{getApiErrorMessage(setDefault.error)}</p>
+      ) : null}
     </div>
   );
 }

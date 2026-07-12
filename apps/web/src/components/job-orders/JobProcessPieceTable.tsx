@@ -91,6 +91,8 @@ export function JobProcessPieceTable({
   /** Per-stage selected worker (synced with server + optimistic). */
   const [workerByStage, setWorkerByStage] = useState<Record<string, string>>({});
   const [completionError, setCompletionError] = useState<string | null>(null);
+  /** Optional fabric waste (meters), only relevant when completing CUTTING. */
+  const [cuttingWasteMeters, setCuttingWasteMeters] = useState("");
 
   const { data: workers } = useQuery({
     queryKey: ["workers", "job-process-piece"],
@@ -227,19 +229,23 @@ export function JobProcessPieceTable({
       stageKey,
       wageFils,
       workerId,
+      wasteMeters,
     }: {
       stageKey: string;
       wageFils: number;
       workerId?: string;
+      wasteMeters?: number;
     }) => {
       await api.post(`/job-orders/${jobId}/work-stages/${stageKey}/complete-one-click`, {
         ...(workerId?.trim() ? { workerId: workerId.trim() } : {}),
         ...(canEditWage ? { wageFils } : {}),
+        ...(wasteMeters != null && wasteMeters > 0 ? { wasteMeters } : {}),
         completedAt: new Date().toISOString(),
       });
     },
     onSuccess: () => {
       setCompletionError(null);
+      setCuttingWasteMeters("");
       invalidate();
     },
     onError: (err) => {
@@ -273,10 +279,12 @@ export function JobProcessPieceTable({
     }
 
     if (row.status === "PENDING" || row.status === "IN_PROGRESS") {
+      const waste = row.stageKey === "CUTTING" ? parseFloat(cuttingWasteMeters) : NaN;
       completeOneClick.mutate({
         stageKey: row.stageKey,
         wageFils: row.wageFils,
         workerId: wid,
+        ...(Number.isFinite(waste) && waste > 0 ? { wasteMeters: waste } : {}),
       });
     }
   };
@@ -445,6 +453,26 @@ export function JobProcessPieceTable({
                         <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
                           {new Date(row.completedAt).toLocaleString()}
                         </span>
+                      ) : null}
+                      {isCurrent && !isDone && row.stageKey === "CUTTING" ? (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <label
+                            htmlFor={`cutting-waste-${row.id}`}
+                            className="text-[10px] font-normal text-muted-foreground"
+                          >
+                            {i18n.language === "en" ? "Fabric waste (m)" : "هدر القماش (متر)"}
+                          </label>
+                          <Input
+                            id={`cutting-waste-${row.id}`}
+                            type="number"
+                            min={0}
+                            step={0.1}
+                            className="h-7 w-20 text-xs"
+                            value={cuttingWasteMeters}
+                            onChange={(e) => setCuttingWasteMeters(e.target.value)}
+                            disabled={rowBusy}
+                          />
+                        </div>
                       ) : null}
                     </div>
                   </div>

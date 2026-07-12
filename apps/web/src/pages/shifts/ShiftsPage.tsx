@@ -5,6 +5,13 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -25,6 +32,105 @@ type CashierShift = {
   approvedBy: { id: string; name: string } | null;
   approvedAt: string | null;
 };
+
+type ZReportData = {
+  shift: CashierShift;
+  byMethod: Array<{ method: "CASH" | "CARD" | "TRANSFER"; totalFils: number; count: number }>;
+  totalCollectedFils: number;
+  invoiceCount: number;
+  invoices: Array<{ invoiceNo: number; totalFils: number; paidFils: number; createdAt: string }>;
+};
+
+const Z_METHOD_LABELS: Record<string, string> = {
+  CASH: "كاش / Cash",
+  CARD: "شبكة / Card",
+  TRANSFER: "تحويل / Transfer",
+};
+
+function zAed(f: number): string {
+  return `AED ${(f / 100).toFixed(2)}`;
+}
+
+/** Opens a print-friendly Z-report in a new window (same approach as printInvoice). */
+function printZReport(r: ZReportData): void {
+  const s = r.shift;
+  const varianceColor = (s.varianceFils ?? 0) < 0 ? "#b91c1c" : "#15803d";
+  const methodRows = r.byMethod
+    .map(
+      (m) => `<tr>
+        <td>${Z_METHOD_LABELS[m.method] ?? m.method}</td>
+        <td class="c">${m.count}</td>
+        <td class="e">${zAed(m.totalFils)}</td>
+      </tr>`,
+    )
+    .join("");
+  const invoiceRows = r.invoices
+    .map(
+      (inv) => `<tr>
+        <td>#${inv.invoiceNo}</td>
+        <td class="e">${zAed(inv.totalFils)}</td>
+        <td class="e">${zAed(inv.paidFils)}</td>
+        <td class="c">${new Date(inv.createdAt).toLocaleTimeString("ar-AE")}</td>
+      </tr>`,
+    )
+    .join("");
+  const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>تقرير Z / Z-Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #111; direction: rtl; padding: 24px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
+  h2 { font-size: 13px; margin: 16px 0 6px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #111; color: #fff; padding: 6px 8px; font-size: 11px; text-align: start; }
+  td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+  .e { text-align: end; font-variant-numeric: tabular-nums; }
+  .c { text-align: center; }
+  .variance { font-weight: 700; color: ${varianceColor}; }
+  @media print { @page { margin: 1cm; } }
+</style>
+</head>
+<body>
+  <h1>تقرير Z / Z-Report</h1>
+  <div class="meta">
+    الكاشير: ${s.user.name}<br/>
+    الفتح: ${new Date(s.openedAt).toLocaleString("ar-AE")}<br/>
+    الإغلاق: ${s.closedAt ? new Date(s.closedAt).toLocaleString("ar-AE") : "—"}
+  </div>
+  <h2>التسوية / Reconciliation</h2>
+  <table>
+    <tr><td>رصيد افتتاحي</td><td class="e">${zAed(s.openingBalanceFils)}</td></tr>
+    <tr><td>مبيعات كاش</td><td class="e">${zAed(s.cashSalesFils)}</td></tr>
+    <tr><td>المتوقع في الدرج</td><td class="e">${zAed(s.expectedCashFils)}</td></tr>
+    <tr><td>الفعلي عند الإغلاق</td><td class="e">${s.closingBalanceFils != null ? zAed(s.closingBalanceFils) : "—"}</td></tr>
+    <tr><td>الفرق</td><td class="e variance">${s.varianceFils != null ? `${s.varianceFils > 0 ? "+" : ""}${zAed(s.varianceFils)}` : "—"}</td></tr>
+  </table>
+  <h2>حسب طريقة الدفع / By payment method</h2>
+  <table>
+    <thead><tr><th>الطريقة</th><th class="c">عدد العمليات</th><th class="e">الإجمالي</th></tr></thead>
+    <tbody>${methodRows || '<tr><td colspan="3" class="c">—</td></tr>'}</tbody>
+    <tfoot><tr><td><strong>الإجمالي المحصّل</strong></td><td class="c">${r.invoiceCount}</td><td class="e"><strong>${zAed(r.totalCollectedFils)}</strong></td></tr></tfoot>
+  </table>
+  <h2>الفواتير (${r.invoiceCount}) / Invoices</h2>
+  <table>
+    <thead><tr><th>رقم</th><th class="e">الإجمالي</th><th class="e">المدفوع</th><th class="c">الوقت</th></tr></thead>
+    <tbody>${invoiceRows || '<tr><td colspan="4" class="c">—</td></tr>'}</tbody>
+  </table>
+<script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`;
+  const win = window.open("", "_blank", "width=800,height=700");
+  if (!win) {
+    alert("يرجى السماح بفتح النوافذ المنبثقة للطباعة.\nPlease allow popups to print.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+}
 
 function VarianceBadge({ fils }: { fils: number | null }) {
   if (fils == null) return <span className="text-muted-foreground">—</span>;
@@ -49,6 +155,7 @@ export function ShiftsPage() {
   const [openNotes, setOpenNotes] = useState("");
   const [closeNotes, setCloseNotes] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [zReportShiftId, setZReportShiftId] = useState<string | null>(null);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["shifts"] });
@@ -73,6 +180,18 @@ export function ShiftsPage() {
       return res.data.data;
     },
     enabled: canManage,
+  });
+
+  /** Z-report for a CLOSED/APPROVED shift */
+  const zReportQuery = useQuery({
+    queryKey: ["shifts", "z-report", zReportShiftId],
+    queryFn: async () => {
+      const res = await api.get<{ success: boolean; data: ZReportData }>(
+        `/shifts/${zReportShiftId}/z-report`,
+      );
+      return res.data.data;
+    },
+    enabled: Boolean(zReportShiftId),
   });
 
   const openShift = useMutation({
@@ -303,17 +422,29 @@ export function ShiftsPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-end">
-                          {shift.status === "CLOSED" ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={approveShift.isPending}
-                              onClick={() => approveShift.mutate(shift.id)}
-                            >
-                              {t("shifts.approve")}
-                            </Button>
-                          ) : null}
+                          <div className="flex justify-end gap-1.5">
+                            {shift.status !== "OPEN" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setZReportShiftId(shift.id)}
+                              >
+                                تقرير Z
+                              </Button>
+                            ) : null}
+                            {shift.status === "CLOSED" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={approveShift.isPending}
+                                onClick={() => approveShift.mutate(shift.id)}
+                              >
+                                {t("shifts.approve")}
+                              </Button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -330,6 +461,148 @@ export function ShiftsPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Z-report dialog */}
+      <Dialog
+        open={Boolean(zReportShiftId)}
+        onOpenChange={(o) => {
+          if (!o) setZReportShiftId(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تقرير Z / Z-Report</DialogTitle>
+          </DialogHeader>
+          {zReportQuery.isLoading ? (
+            <p className="py-4 text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : zReportQuery.isError ? (
+            <p className="py-4 text-sm text-destructive">
+              {getApiErrorMessage(zReportQuery.error)}
+            </p>
+          ) : zReportQuery.data ? (
+            (() => {
+              const r = zReportQuery.data;
+              const s = r.shift;
+              return (
+                <div className="space-y-4 text-sm">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p>
+                      <span className="text-muted-foreground">الكاشير: </span>
+                      <span className="font-semibold">{s.user.name}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      الفتح: {new Date(s.openedAt).toLocaleString("ar-AE")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      الإغلاق: {s.closedAt ? new Date(s.closedAt).toLocaleString("ar-AE") : "—"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-xs font-bold text-muted-foreground">
+                      التسوية / Reconciliation
+                    </h3>
+                    <table className="w-full rounded-lg border">
+                      <tbody>
+                        <tr className="border-b border-border/40">
+                          <td className="px-3 py-1.5">رصيد افتتاحي</td>
+                          <td className="px-3 py-1.5 text-end font-mono tabular-nums">
+                            {formatAED(s.openingBalanceFils)}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-border/40">
+                          <td className="px-3 py-1.5">مبيعات كاش</td>
+                          <td className="px-3 py-1.5 text-end font-mono tabular-nums">
+                            {formatAED(s.cashSalesFils)}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-border/40">
+                          <td className="px-3 py-1.5">المتوقع في الدرج</td>
+                          <td className="px-3 py-1.5 text-end font-mono tabular-nums">
+                            {formatAED(s.expectedCashFils)}
+                          </td>
+                        </tr>
+                        <tr className="border-b border-border/40">
+                          <td className="px-3 py-1.5">الفعلي عند الإغلاق</td>
+                          <td className="px-3 py-1.5 text-end font-mono tabular-nums">
+                            {s.closingBalanceFils != null ? formatAED(s.closingBalanceFils) : "—"}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-1.5 font-semibold">الفرق</td>
+                          <td
+                            className={`px-3 py-1.5 text-end font-mono font-bold tabular-nums ${
+                              (s.varianceFils ?? 0) < 0
+                                ? "text-red-700 dark:text-red-400"
+                                : "text-green-700 dark:text-green-400"
+                            }`}
+                          >
+                            {s.varianceFils != null
+                              ? `${s.varianceFils > 0 ? "+" : ""}${formatAED(s.varianceFils)}`
+                              : "—"}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-xs font-bold text-muted-foreground">
+                      حسب طريقة الدفع / By payment method
+                    </h3>
+                    <table className="w-full rounded-lg border">
+                      <thead className="bg-muted/60 text-xs">
+                        <tr>
+                          <th className="px-3 py-1.5 text-start">الطريقة</th>
+                          <th className="px-3 py-1.5 text-center">عدد العمليات</th>
+                          <th className="px-3 py-1.5 text-end">الإجمالي</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.byMethod.map((m) => (
+                          <tr key={m.method} className="border-b border-border/40 last:border-0">
+                            <td className="px-3 py-1.5">{Z_METHOD_LABELS[m.method] ?? m.method}</td>
+                            <td className="px-3 py-1.5 text-center tabular-nums">{m.count}</td>
+                            <td className="px-3 py-1.5 text-end font-mono tabular-nums">
+                              {formatAED(m.totalFils)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="border-t">
+                        <tr>
+                          <td className="px-3 py-1.5 font-semibold">الإجمالي المحصّل</td>
+                          <td className="px-3 py-1.5 text-center tabular-nums">{r.invoiceCount}</td>
+                          <td className="px-3 py-1.5 text-end font-mono font-bold tabular-nums">
+                            {formatAED(r.totalCollectedFils)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    عدد الفواتير في الوردية: <strong>{r.invoiceCount}</strong>
+                  </p>
+
+                  <DialogFooter className="gap-2 sm:justify-between">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setZReportShiftId(null)}
+                    >
+                      إغلاق
+                    </Button>
+                    <Button type="button" onClick={() => printZReport(r)}>
+                      طباعة
+                    </Button>
+                  </DialogFooter>
+                </div>
+              );
+            })()
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

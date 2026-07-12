@@ -11,6 +11,7 @@ import type { WorkshopWorkStageRow } from "@/components/job-orders/WorkshopTaskS
 import { TailoringPieceProgressStrip } from "@/components/invoices/TailoringPieceProgressStrip";
 import { TailoringPieceQuickViewDialog } from "@/components/invoices/TailoringPieceQuickViewDialog";
 import { InvoiceSellerPanel } from "@/components/invoices/InvoiceSellerPanel";
+import { InvoiceReturnDialog } from "@/components/invoices/InvoiceReturnDialog";
 import { InvoiceTopSearch } from "@/components/invoices/InvoiceTopSearch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -511,6 +512,23 @@ export function InvoiceDetail() {
             </Button>
           ) : null}
         </div>
+        {can("invoices.return") && !hideMoney && !isVoid ? (
+          <div className="mt-4 border-t pt-4">
+            <InvoiceReturnDialog
+              invoiceId={id}
+              lines={items.map((it) => {
+                const p = it.product as { name?: string; nameAr?: string | null } | undefined;
+                const desc = it.description as string | null | undefined;
+                return {
+                  id: String(it.id),
+                  label: desc || p?.nameAr || p?.name || "—",
+                  qty: Number(it.qty ?? 0),
+                  totalFils: Number(it.totalFils ?? 0),
+                };
+              })}
+            />
+          </div>
+        ) : null}
         <p className="mt-3 text-xs text-muted-foreground">
           {hideMoney
             ? t("invoiceDetail.tailoringNote", { defaultValue: "Tailoring details and stages for each piece are shown in the Tailoring Pieces section below." })

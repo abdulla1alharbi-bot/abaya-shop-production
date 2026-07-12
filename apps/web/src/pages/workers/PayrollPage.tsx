@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -216,9 +216,14 @@ export function PayrollPage() {
 }
 
 function PayrollLegacyTable() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language === "en";
+  const queryClient = useQueryClient();
+  const [month, setMonth] = useState(() => new Date().getMonth() + 1);
+  const [year, setYear] = useState(() => new Date().getFullYear());
+
   const { data: payrolls } = useQuery({
-    queryKey: ["payrolls", "legacy"],
+    queryKey: ["payrolls", "legacy", month, year],
     queryFn: async () => {
       const res = await api.get<{
         success: boolean;
@@ -232,13 +237,75 @@ function PayrollLegacyTable() {
             worker: { name: string };
           }>;
         };
-      }>("/payroll", { params: { limit: 50 } });
+      }>("/payroll", { params: { limit: 50, month, year } });
       return res.data.data.items;
     },
   });
 
+  const generate = useMutation({
+    mutationFn: async () => {
+      const res = await api.post<{
+        success: boolean;
+        data: { created: number; updated: number; skippedPaid: number; skippedEmpty: number };
+      }>("/payroll/generate", { month, year });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["payrolls"] });
+    },
+  });
+
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <Label className="text-xs">{isEn ? "Month" : "الشهر"}</Label>
+          <select
+            className="mt-1 flex h-9 min-w-[110px] rounded-md border border-input bg-background px-2 text-sm"
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs">{isEn ? "Year" : "السنة"}</Label>
+          <Input
+            className="mt-1 h-9 w-[110px]"
+            type="number"
+            min={2000}
+            max={2100}
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value) || new Date().getFullYear())}
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="h-9"
+          disabled={generate.isPending}
+          onClick={() => generate.mutate()}
+        >
+          {generate.isPending ? "…" : isEn ? "Generate month payroll" : "توليد رواتب الشهر"}
+        </Button>
+        {generate.data ? (
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            {isEn
+              ? `Done: ${generate.data.created} new, ${generate.data.updated} updated, ${generate.data.skippedPaid} paid untouched`
+              : `تم: ${generate.data.created} جديد، ${generate.data.updated} محدّث، ${generate.data.skippedPaid} مدفوع لم يُمس`}
+          </p>
+        ) : null}
+        {generate.isError ? (
+          <p className="text-xs text-destructive">
+            {generate.error instanceof Error ? generate.error.message : "Error"}
+          </p>
+        ) : null}
+      </div>
+      <div className="overflow-x-auto rounded-md border bg-card">
       <table className="w-full text-sm">
         <thead className="border-b bg-muted/50">
           <tr>
@@ -269,6 +336,7 @@ function PayrollLegacyTable() {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

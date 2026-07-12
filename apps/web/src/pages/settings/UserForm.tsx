@@ -59,6 +59,7 @@ function makeCreateSchema(t: TFunc) {
     role: roleEnum,
     email: z.union([z.string().email(t("settings.userForm.errEmailInvalid")), z.literal("")]).optional(),
     phone: z.string().optional(),
+    branchId: z.string().optional(),
     isActive: z.coerce.boolean(),
   });
 }
@@ -71,6 +72,7 @@ function makeEditSchema(t: TFunc) {
     role: roleEnum,
     email: z.union([z.string().email(t("settings.userForm.errEmailInvalid")), z.literal("")]).optional(),
     phone: z.string().optional(),
+    branchId: z.string().optional(),
     isActive: z.coerce.boolean(),
   });
 }
@@ -196,7 +198,8 @@ export function UserForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language === "en";
   const [extraPerms, setExtraPerms] = useState<string[]>([]);
   const [revokedPerms, setRevokedPerms] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -208,6 +211,17 @@ export function UserForm() {
       return res.data.data;
     },
     enabled: !isNew && Boolean(id),
+  });
+
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => {
+      const res = await api.get<{
+        success: boolean;
+        data: Array<{ id: string; name: string; isDefault: boolean }>;
+      }>("/branches");
+      return res.data.data;
+    },
   });
 
   const createSchema = useMemo(() => makeCreateSchema(t), [t]);
@@ -222,6 +236,7 @@ export function UserForm() {
       role: "SELLER",
       email: "",
       phone: "",
+      branchId: "",
       isActive: true,
     },
   });
@@ -241,6 +256,7 @@ export function UserForm() {
       role: "SELLER",
       email: "",
       phone: "",
+      branchId: "",
       isActive: true,
     },
   });
@@ -264,6 +280,7 @@ export function UserForm() {
       role: normalizeRole(String(existing.role ?? "SELLER")),
       email: existing.email ? String(existing.email) : "",
       phone: existing.phone ? String(existing.phone) : "",
+      branchId: existing.branchId ? String(existing.branchId) : "",
       isActive: Boolean(existing.isActive),
     });
   }, [existing, isNew, editForm]);
@@ -284,6 +301,7 @@ export function UserForm() {
         role: values.role,
         email: values.email?.trim() || undefined,
         phone: values.phone?.trim() || undefined,
+        branchId: values.branchId ?? "",
         isActive: values.isActive,
       };
       if (can("users.permissions")) {
@@ -314,6 +332,7 @@ export function UserForm() {
         role: values.role,
         email: values.email?.trim() ?? "",
         phone: values.phone?.trim() ?? "",
+        branchId: values.branchId ?? "",
         isActive: values.isActive,
       };
       if (values.password && values.password.length > 0) {
@@ -434,6 +453,25 @@ export function UserForm() {
               </div>
             )}
           />
+          <div className="grid gap-2">
+            <Label htmlFor="branchId">{isEn ? "Branch" : "الفرع"}</Label>
+            <select
+              id="branchId"
+              className={cn(
+                "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+              {...createForm.register("branchId")}
+            >
+              <option value="">{isEn ? "No branch (default)" : "بدون فرع (الافتراضي)"}</option>
+              {branches?.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                  {b.isDefault ? (isEn ? " (default)" : " (افتراضي)") : ""}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center gap-2">
             <Controller
               name="isActive"
@@ -555,6 +593,25 @@ export function UserForm() {
             </div>
           )}
         />
+        <div className="grid gap-2">
+          <Label htmlFor="edit-branchId">{isEn ? "Branch" : "الفرع"}</Label>
+          <select
+            id="edit-branchId"
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            )}
+            {...editForm.register("branchId")}
+          >
+            <option value="">{isEn ? "No branch (default)" : "بدون فرع (الافتراضي)"}</option>
+            {branches?.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+                {b.isDefault ? (isEn ? " (default)" : " (افتراضي)") : ""}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="flex items-center gap-2">
           <Controller
             name="isActive"
