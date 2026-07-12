@@ -64,7 +64,7 @@ export function isPieceOverdueForInvoice(
 ): boolean {
   if (!invoiceDeliveryDateIso) return false;
   if (job.deliveredAt || job.stage === "DELIVERED") return false;
-  const badge = getTailoringItemBadge(job, { locale: "ar" });
+  const badge = getTailoringItemBadge(job);
   if (badge.key === "ready" || badge.key === "delivered") return false;
   const due = new Date(invoiceDeliveryDateIso);
   return startOfLocalDay(due) < startOfLocalDay(new Date());
@@ -111,7 +111,7 @@ export function summarizeInvoicePieces(
       overdue += 1;
       continue;
     }
-    const b = getTailoringItemBadge(job, { locale: "ar" });
+    const b = getTailoringItemBadge(job);
     const bucket = badgeToBucket(b);
     if (bucket === "complete") complete += 1;
     else inProgress += 1;

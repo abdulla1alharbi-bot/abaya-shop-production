@@ -892,3 +892,288 @@ reportsRouter.get(
     });
   }),
 );
+
+// ─── OWNER P&L / PROFITABILITY / WASTAGE ─────────────────────────────────────
+
+/**
+ * Unified profit & loss for the owner:
+ *   revenue (accrual, ex-VAT) − fabric COGS − wages − expenses − returns + other income.
+ * Fabric COGS is time-accurate: fabric transactions (use − restore + waste) in range,
+ * costed at each roll's cost per meter. Optional `branchId` scopes invoices/payments.
+ */
+reportsRouter.get(
+  "/profit-loss",
+  requirePermission("reports.financial"),
+  asyncHandler(async (req, res) => {
+    const { from, to } = parseDateRangeOrDefault(req.query as Record<string, unknown>);
+    const branchId = queryParamString(req.query as Record<string, unknown>, "branchId");
+
+    const invoiceWhere: Prisma.InvoiceWhereInput = {
+      isVoid: false,
+      createdAt: { gte: from, lte: to },
+      ...(branchId ? { branchId } : {}),
+    };
+
+    const [invAgg, invoiceCount, paymentsAgg, fabricTx, wagesAgg, expenseRows, incomeAgg, returnsAgg] =
+      await Promise.all([
+        prisma.invoice.aggregate({
+          where: invoiceWhere,
+          _sum: { totalFils: true, vatFils: true, discountFils: true, subtotalFils: true },
+        }),
+        prisma.invoice.count({ where: invoiceWhere }),
+        prisma.payment.aggregate({
+          where: {
+            createdAt: { gte: from, lte: to },
+            invoice: { isVoid: false, ...(branchId ? { branchId } : {}) },
+          },
+          _sum: { amountFils: true },
+        }),
+        prisma.fabricTransaction.findMany({
+          where: { createdAt: { gte: from, lte: to } },
+          select: { type: true, meters: true, roll: { select: { costPerMeter: true } } },
+        }),
+        prisma.productionEntry.aggregate({
+          where: { date: { gte: from, lte: to } },
+          _sum: { totalFils: true },
+        }),
+        prisma.expense.findMany({
+          where: { date: { gte: from, lte: to } },
+          select: { amountFils: true, category: { select: { name: true } } },
+        }),
+        prisma.income.aggregate({
+          where: { date: { gte: from, lte: to } },
+          _sum: { amountFils: true },
+        }),
+        prisma.invoiceReturn.aggregate({
+          where: {
+            createdAt: { gte: from, lte: to },
+            ...(branchId ? { invoice: { branchId } } : {}),
+          },
+          _sum: { totalFils: true },
+        }),
+      ]);
+
+    // Fabric COGS: consumption minus restores, plus recorded cutting waste.
+    let fabricCogsFils = 0;
+    let wasteCostFils = 0;
+    for (const tx of fabricTx) {
+      const cost = Math.round(tx.meters * (tx.roll.costPerMeter ?? 0));
+      if (tx.type === "JOB_USE") fabricCogsFils += cost;
+      else if (tx.type === "JOB_RESTORE") fabricCogsFils -= cost;
+      else if (tx.type === "WASTE") {
+        fabricCogsFils += cost;
+        wasteCostFils += cost;
+      }
+    }
+
+    const expensesByCategory = new Map<string, number>();
+    let expensesTotalFils = 0;
+    for (const e of expenseRows) {
+      expensesTotalFils += e.amountFils;
+      const key = e.category?.name ?? "أخرى";
+      expensesByCategory.set(key, (expensesByCategory.get(key) ?? 0) + e.amountFils);
+    }
+
+    const revenueFils = invAgg._sum.totalFils ?? 0;
+    const vatFils = invAgg._sum.vatFils ?? 0;
+    const revenueExVatFils = revenueFils - vatFils;
+    const wagesFils = wagesAgg._sum.totalFils ?? 0;
+    const otherIncomeFils = incomeAgg._sum.amountFils ?? 0;
+    const returnsFils = returnsAgg._sum.totalFils ?? 0;
+    const netProfitFils =
+      revenueExVatFils - returnsFils - fabricCogsFils - wagesFils - expensesTotalFils + otherIncomeFils;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        branchId: branchId ?? null,
+        invoiceCount,
+        revenueFils,
+        vatFils,
+        revenueExVatFils,
+        returnsFils,
+        fabricCogsFils,
+        wasteCostFils,
+        wagesFils,
+        expensesTotalFils,
+        expensesByCategory: [...expensesByCategory.entries()]
+          .map(([name, totalFils]) => ({ name, totalFils }))
+          .sort((a, b) => b.totalFils - a.totalFils),
+        otherIncomeFils,
+        collectedFils: paymentsAgg._sum.amountFils ?? 0,
+        netProfitFils,
+      },
+    });
+  }),
+);
+
+/**
+ * Profitability per abaya model: revenue share, fabric cost (incl. waste), wages,
+ * margin and margin % — for tailoring jobs created in range.
+ */
+reportsRouter.get(
+  "/model-profitability",
+  requirePermission("reports.financial"),
+  asyncHandler(async (req, res) => {
+    const { from, to } = parseDateRangeOrDefault(req.query as Record<string, unknown>);
+
+    const jobs = await prisma.jobOrder.findMany({
+      where: {
+        createdAt: { gte: from, lte: to },
+        abayaModelId: { not: null },
+        OR: [{ invoiceId: null }, { invoice: { isVoid: false } }],
+      },
+      select: {
+        totalFils: true,
+        abayaModelId: true,
+        abayaModel: { select: { code: true, name: true } },
+        materials: {
+          select: {
+            materialCostFils: true,
+            wasteMeters: true,
+            roll: { select: { costPerMeter: true } },
+          },
+        },
+        workStages: { where: { status: "DONE" }, select: { wageFils: true } },
+      },
+    });
+
+    type ModelRow = {
+      modelId: string;
+      code: string;
+      name: string;
+      jobs: number;
+      revenueFils: number;
+      fabricFils: number;
+      wagesFils: number;
+    };
+    const byModel = new Map<string, ModelRow>();
+    for (const j of jobs) {
+      const id = j.abayaModelId!;
+      const cur = byModel.get(id) ?? {
+        modelId: id,
+        code: j.abayaModel?.code ?? "?",
+        name: j.abayaModel?.name ?? "?",
+        jobs: 0,
+        revenueFils: 0,
+        fabricFils: 0,
+        wagesFils: 0,
+      };
+      cur.jobs += 1;
+      cur.revenueFils += j.totalFils;
+      for (const m of j.materials) {
+        cur.fabricFils += m.materialCostFils + Math.round(m.wasteMeters * (m.roll?.costPerMeter ?? 0));
+      }
+      for (const s of j.workStages) cur.wagesFils += s.wageFils;
+      byModel.set(id, cur);
+    }
+
+    const rows = [...byModel.values()]
+      .map((r) => {
+        const marginFils = r.revenueFils - r.fabricFils - r.wagesFils;
+        return {
+          ...r,
+          marginFils,
+          marginPercent: r.revenueFils > 0 ? Math.round((marginFils / r.revenueFils) * 1000) / 10 : 0,
+        };
+      })
+      .sort((a, b) => b.marginFils - a.marginFils);
+
+    res.status(200).json({
+      success: true,
+      data: { from: from.toISOString(), to: to.toISOString(), rows },
+    });
+  }),
+);
+
+/**
+ * Fabric wastage per model: consumed meters vs recorded cutting waste + waste cost.
+ */
+reportsRouter.get(
+  "/fabric-wastage",
+  requirePermission("reports.financial"),
+  asyncHandler(async (req, res) => {
+    const { from, to } = parseDateRangeOrDefault(req.query as Record<string, unknown>);
+
+    const materials = await prisma.jobOrderMaterial.findMany({
+      where: {
+        fabricDeducted: true,
+        jobOrder: { createdAt: { gte: from, lte: to } },
+      },
+      select: {
+        meters: true,
+        wasteMeters: true,
+        roll: { select: { costPerMeter: true } },
+        jobOrder: {
+          select: {
+            abayaModelId: true,
+            abayaModel: { select: { code: true, name: true } },
+          },
+        },
+      },
+    });
+
+    type WasteRow = {
+      modelId: string;
+      code: string;
+      name: string;
+      lines: number;
+      usedMeters: number;
+      wasteMeters: number;
+      wasteCostFils: number;
+    };
+    const byModel = new Map<string, WasteRow>();
+    let totalUsed = 0;
+    let totalWaste = 0;
+    let totalWasteCost = 0;
+    for (const m of materials) {
+      const key = m.jobOrder.abayaModelId ?? "NONE";
+      const cur = byModel.get(key) ?? {
+        modelId: key,
+        code: m.jobOrder.abayaModel?.code ?? "—",
+        name: m.jobOrder.abayaModel?.name ?? "بدون موديل",
+        lines: 0,
+        usedMeters: 0,
+        wasteMeters: 0,
+        wasteCostFils: 0,
+      };
+      const wasteCost = Math.round(m.wasteMeters * (m.roll?.costPerMeter ?? 0));
+      cur.lines += 1;
+      cur.usedMeters += m.meters;
+      cur.wasteMeters += m.wasteMeters;
+      cur.wasteCostFils += wasteCost;
+      totalUsed += m.meters;
+      totalWaste += m.wasteMeters;
+      totalWasteCost += wasteCost;
+      byModel.set(key, cur);
+    }
+
+    const rows = [...byModel.values()]
+      .map((r) => ({
+        ...r,
+        wastePercent:
+          r.usedMeters + r.wasteMeters > 0
+            ? Math.round((r.wasteMeters / (r.usedMeters + r.wasteMeters)) * 1000) / 10
+            : 0,
+      }))
+      .sort((a, b) => b.wasteMeters - a.wasteMeters);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        rows,
+        totals: {
+          usedMeters: totalUsed,
+          wasteMeters: totalWaste,
+          wasteCostFils: totalWasteCost,
+          wastePercent:
+            totalUsed + totalWaste > 0 ? Math.round((totalWaste / (totalUsed + totalWaste)) * 1000) / 10 : 0,
+        },
+      },
+    });
+  }),
+);

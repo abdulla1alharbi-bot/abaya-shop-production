@@ -24,6 +24,7 @@ import {
 import { syncLinkedProductForAbayaModelId } from "../../utils/abayaModelProductSync.js";
 import {
   deductFabricOnCuttingComplete,
+  recordCuttingWaste,
   isCuttingWorkStageDone,
   patchJobOrderMaterialFabric,
   reserveFabricForMaterial,
@@ -461,10 +462,13 @@ const assignStageBody = z.object({
 const completeStageBody = z.object({
   completedAt: z.string().datetime().optional(),
   notes: z.string().optional(),
+  /** Cutting only: fabric wasted in meters (deducted from the roll on top of planned meters). */
+  wasteMeters: z.number().min(0).max(1000).optional(),
 });
 
 /** Single request: assign default worker + complete when PENDING, or complete when IN_PROGRESS (invoice job process). */
 const completeOneClickBody = z.object({
+  wasteMeters: z.number().min(0).max(1000).optional(),
   workerId: z.string().optional(),
   wageFils: z.number().int().min(0).optional(),
   /** Parsed with `new Date()` in handler — avoids strict Zod datetime rejecting some clients. */
@@ -653,6 +657,14 @@ jobOrdersRouter.post(
         jobNo: existing.jobNo,
         stageKey,
       });
+
+      if (stageKey === "CUTTING" && (body.wasteMeters ?? 0) > 0) {
+        await recordCuttingWaste(tx, {
+          jobOrderId: existing.id,
+          jobNo: existing.jobNo,
+          wasteMeters: body.wasteMeters!,
+        });
+      }
 
       if (
         nextStage === "READY" &&
@@ -879,6 +891,14 @@ jobOrdersRouter.post(
         stageKey,
       });
 
+      if (stageKey === "CUTTING" && (body.wasteMeters ?? 0) > 0) {
+        await recordCuttingWaste(tx, {
+          jobOrderId: existing.id,
+          jobNo: existing.jobNo,
+          wasteMeters: body.wasteMeters!,
+        });
+      }
+
       if (
         nextStage === "READY" &&
         existing.productionBatchId &&
@@ -1054,6 +1074,18 @@ jobOrdersRouter.post(
           entityId: job.id,
           oldValue: JSON.stringify({ stage: stageKey, status: "DONE" }),
           newValue: JSON.stringify({ stage: stageKey, status: "IN_PROGRESS", jobNo: job.jobNo }),
+        },
+      });
+
+      // Rework accountability: the worker who completed the reopened stage.
+      await tx.reworkLog.create({
+        data: {
+          jobOrderId: job.id,
+          stageKey,
+          workerId: row.workerId,
+          source: "REOPEN",
+          reason: `إعادة فتح مرحلة ${stageKey} للتصحيح`,
+          createdById: userId,
         },
       });
       return tx.jobOrder.findUnique({
@@ -1361,6 +1393,17 @@ jobOrdersRouter.post(
           data: { status: "PENDING", completedAt: null },
         });
       }
+      // Rework accountability: the worker who completed the failed stage.
+      await tx.reworkLog.create({
+        data: {
+          jobOrderId: job.id,
+          stageKey: targetStage,
+          workerId: workStage?.workerId ?? null,
+          source: "QA_FAIL",
+          reason: failNote,
+          createdById: userId,
+        },
+      });
       await tx.jobOrder.update({ where: { id: job.id }, data: { stage: targetStage } });
       await tx.jobStageLog.create({
         data: { jobOrderId: job.id, stage: targetStage, changedById: userId, notes: `QA فشل — ${failNote}` },

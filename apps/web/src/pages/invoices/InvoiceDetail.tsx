@@ -35,8 +35,8 @@ import {
   getInvoiceOperationalBadge,
   getTailoringItemBadge,
   invoiceBadgeStyle,
-  relatedInvoiceStatusEn,
 } from "@/lib/invoiceUiStatus";
+import { relatedInvoiceRowKey } from "@/lib/invoiceOperationalLabels";
 import { useIsWorker } from "@/hooks/useIsWorker";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
@@ -108,7 +108,11 @@ function stageWorkersList(workStages: WorkshopWorkStageRow[]) {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-function operationalPieceStatus(job: JobOrderRow, unclaimedDays: number): {
+function operationalPieceStatus(
+  job: JobOrderRow,
+  unclaimedDays: number,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): {
   key: "pending" | "ready_for_delivery" | "delivered" | "unclaimed" | "converted_to_ready";
   label: string;
   cls: string;
@@ -116,21 +120,21 @@ function operationalPieceStatus(job: JobOrderRow, unclaimedDays: number): {
   if (job.stage === "CONVERTED_TO_READY") {
     return {
       key: "converted_to_ready",
-      label: "converted_to_ready · محول إلى جاهز",
+      label: t("invoiceDetail.opStatusConverted"),
       cls: "border-cyan-300 bg-cyan-100 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100",
     };
   }
   if (job.deliveredAt || job.stage === "DELIVERED") {
     return {
       key: "delivered",
-      label: "delivered · تم التسليم",
+      label: t("invoiceDetail.opStatusDelivered"),
       cls: "border-violet-300 bg-violet-100 text-violet-900 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100",
     };
   }
   if (job.stage === "READY") {
     return {
       key: "ready_for_delivery",
-      label: "ready_for_delivery · جاهز للتسليم",
+      label: t("invoiceDetail.opStatusReady"),
       cls: "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
     };
   }
@@ -139,13 +143,13 @@ function operationalPieceStatus(job: JobOrderRow, unclaimedDays: number): {
   if (ageDays >= unclaimedDays) {
     return {
       key: "unclaimed",
-      label: `unclaimed · غير مستلمة (${ageDays} يوم)`,
+      label: t("invoiceDetail.opStatusUnclaimed", { days: ageDays }),
       cls: "border-red-300 bg-red-100 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100",
     };
   }
   return {
     key: "pending",
-    label: "pending · قيد الانتظار",
+    label: t("invoiceDetail.opStatusPending"),
     cls: "border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
   };
 }
@@ -259,7 +263,7 @@ export function InvoiceDetail() {
     return (
       <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
         <InvoiceTopSearch />
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
   }
@@ -268,9 +272,9 @@ export function InvoiceDetail() {
     return (
       <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
         <InvoiceTopSearch />
-        <p className="text-destructive">Could not load invoice.</p>
+        <p className="text-destructive">{t("invoiceDetail.couldNotLoad")}</p>
         <Link to="/invoices" className="text-sm underline">
-          Back to list
+          {t("common.backToList")}
         </Link>
       </div>
     );
@@ -360,18 +364,17 @@ export function InvoiceDetail() {
             </h1>
             <div className="space-y-2 text-base">
               <p>
-                <span className="text-muted-foreground">رقم الفاتورة: </span>
+                <span className="text-muted-foreground">{t("invoiceDetail.invoiceNoLabel")} </span>
                 <span className="font-mono text-2xl font-bold tabular-nums">#{invoiceNo}</span>
               </p>
               <p>
-                <span className="text-muted-foreground">اسم العميل: </span>
+                <span className="text-muted-foreground">{t("invoiceDetail.customerNameLabel")} </span>
                 <span className="font-semibold">{customer?.name ?? t("invoiceDetail.noCustomer")}</span>
               </p>
               <p>
-                <span className="text-muted-foreground">عدد القطع: </span>
+                <span className="text-muted-foreground">{t("invoiceDetail.pieceCountLabel")} </span>
                 <span className="font-mono font-semibold tabular-nums">
-                  {jobOrders.length}{" "}
-                  {jobOrders.length === 1 ? "قطعة" : jobOrders.length === 0 ? "قطع" : "قطع"}
+                  {jobOrders.length} {t("invoiceDetail.piecesUnit")}
                 </span>
               </p>
               {customer ? (
@@ -381,15 +384,15 @@ export function InvoiceDetail() {
               ) : null}
               {customer && !hideMoney ? (
                 <Link to={`/customers/${customer.id}`} className="text-sm text-primary underline">
-                  ملف العميل
+                  {t("invoiceDetail.customerProfileLink")}
                 </Link>
               ) : null}
             </div>
           </div>
           <div className="w-full shrink-0 space-y-2 text-start sm:max-w-xs sm:text-end">
-            <p className="text-sm text-muted-foreground">تاريخ الفاتورة</p>
+            <p className="text-sm text-muted-foreground">{t("invoiceDetail.invoiceDateLabel")}</p>
             <p className="text-base font-medium">{new Date(data.createdAt as string).toLocaleString()}</p>
-            <p className="pt-2 text-sm text-muted-foreground">موعد التسليم</p>
+            <p className="pt-2 text-sm text-muted-foreground">{t("invoiceDetail.deliveryDateLabel")}</p>
             <p className="text-base font-medium">
               {deliveryDate ? new Date(deliveryDate).toLocaleString() : "—"}
             </p>
@@ -399,15 +402,15 @@ export function InvoiceDetail() {
         {!hideMoney ? (
           <div className="grid gap-4 border-t pt-6 sm:grid-cols-3">
             <div>
-              <p className="text-sm text-muted-foreground">Total amount</p>
+              <p className="text-sm text-muted-foreground">{t("invoiceDetail.totalLabel")}</p>
               <p className="text-2xl font-bold tabular-nums">{formatAED(data.totalFils as number)}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Paid</p>
+              <p className="text-sm text-muted-foreground">{t("invoiceDetail.paidLabel")}</p>
               <p className="text-2xl font-bold tabular-nums">{formatAED(data.paidFils as number)}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Remaining</p>
+              <p className="text-sm text-muted-foreground">{t("invoiceDetail.balanceLabel")}</p>
               <p className="text-2xl font-bold tabular-nums text-amber-900 dark:text-amber-100">
                 {formatAED(balanceFils)}
               </p>
@@ -416,8 +419,8 @@ export function InvoiceDetail() {
         ) : null}
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t pt-6">
-          <span className="text-sm font-medium text-muted-foreground">Status</span>
-          <span className={invoiceBadgeStyle(invBadge.key)}>{invBadge.label}</span>
+          <span className="text-sm font-medium text-muted-foreground">{t("invoiceDetail.statusLabel")}</span>
+          <span className={invoiceBadgeStyle(invBadge.key)}>{t(invBadge.labelKey)}</span>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -429,7 +432,7 @@ export function InvoiceDetail() {
               onClick={() => setSellerOpen(true)}
             >
               <Banknote className="me-2 h-5 w-5" />
-              الدفع والتسليم
+              {t("invoiceDetail.paymentAndDelivery")}
             </Button>
           ) : null}
           {canPrint && data ? (
@@ -441,7 +444,7 @@ export function InvoiceDetail() {
               onClick={() => printInvoice(data, settings)}
             >
               <Printer className="me-2 h-5 w-5" />
-              طباعة الفاتورة
+              {t("invoiceDetail.printInvoice")}
             </Button>
           ) : null}
           {/* WhatsApp: order-ready notification */}
@@ -466,7 +469,7 @@ export function InvoiceDetail() {
                 rel="noopener noreferrer"
               >
                 <MessageCircle className="me-2 h-5 w-5" />
-                إشعار الجاهزية (واتساب)
+                {t("invoiceDetail.whatsappReadyNotify")}
               </a>
             </Button>
           ) : null}
@@ -488,12 +491,12 @@ export function InvoiceDetail() {
                 rel="noopener noreferrer"
               >
                 <MessageCircle className="me-2 h-5 w-5" />
-                تذكير بالدفع (واتساب)
+                {t("invoiceDetail.whatsappPaymentReminder")}
               </a>
             </Button>
           ) : null}
           <Button type="button" variant="outline" size="lg" className="h-14 rounded-xl" asChild>
-            <Link to="/invoices">كل الفواتير</Link>
+            <Link to="/invoices">{t("invoiceDetail.allInvoicesBtn")}</Link>
           </Button>
           {!isVoid && can("invoices.edit") ? (
             <Button
@@ -504,7 +507,7 @@ export function InvoiceDetail() {
               onClick={() => setVoidOpen(true)}
             >
               <Trash2 className="me-2 h-4 w-4" />
-              إلغاء الفاتورة
+              {t("invoiceDetail.voidBtn")}
             </Button>
           ) : null}
         </div>
@@ -517,21 +520,21 @@ export function InvoiceDetail() {
 
       {customer && relatedInvoices.length > 0 ? (
         <section>
-          <h2 className="mb-3 text-xl font-bold">{hideMoney ? "Related jobs (invoices)" : "Customer invoices"}</h2>
+          <h2 className="mb-3 text-xl font-bold">{hideMoney ? t("invoiceDetail.relatedJobsTitle") : t("invoiceDetail.customerInvoicesTitle")}</h2>
           <div className="max-h-48 overflow-auto rounded-xl border bg-card">
             <table className="w-full min-w-[600px] text-sm">
               <thead className="sticky top-0 bg-muted/80 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 text-start">No</th>
-                  <th className="px-4 py-3 text-start">Date</th>
+                  <th className="px-4 py-3 text-start">{t("invoiceDetail.relatedColNo")}</th>
+                  <th className="px-4 py-3 text-start">{t("invoiceDetail.colDate")}</th>
                   {!hideMoney ? (
                     <>
-                      <th className="px-4 py-3 text-end">Total</th>
-                      <th className="px-4 py-3 text-end">Paid</th>
-                      <th className="px-4 py-3 text-end">Remaining</th>
+                      <th className="px-4 py-3 text-end">{t("invoiceDetail.totalLabel")}</th>
+                      <th className="px-4 py-3 text-end">{t("invoiceDetail.paidLabel")}</th>
+                      <th className="px-4 py-3 text-end">{t("invoiceDetail.balanceLabel")}</th>
                     </>
                   ) : null}
-                  <th className="px-4 py-3 text-start">Status</th>
+                  <th className="px-4 py-3 text-start">{t("invoiceDetail.statusLabel")}</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -549,10 +552,10 @@ export function InvoiceDetail() {
                         <td className="px-4 py-3 text-end font-mono">{formatAED(inv.balanceFils)}</td>
                       </>
                     ) : null}
-                    <td className="px-4 py-3">{relatedInvoiceStatusEn(inv)}</td>
+                    <td className="px-4 py-3">{t(relatedInvoiceRowKey(inv))}</td>
                     <td className="px-4 py-3 text-end">
                       <Link to={`/invoices/${inv.id}`} className="font-medium text-primary underline">
-                        Open
+                        {t("invoiceDetail.openLink")}
                       </Link>
                     </td>
                   </tr>
@@ -565,22 +568,22 @@ export function InvoiceDetail() {
 
       <section id="invoice-workshop" className="space-y-4" dir="rtl">
         <div className="space-y-1 text-start">
-          <h2 className="text-xl font-bold md:text-2xl">قطع التفصيل</h2>
+          <h2 className="text-xl font-bold md:text-2xl">{t("invoiceDetail.tailoringPiecesTitle")}</h2>
           <p className="text-sm text-muted-foreground">
-            كل سطر تفصيل له أمر عمل منفصل — تتبع المراحل والعاملين لكل قطعة أدناه.
+            {t("invoiceDetail.tailoringPiecesDesc")}
           </p>
         </div>
 
         {pieceSummary && jobOrders.length > 0 ? (
           <div className="flex flex-wrap gap-3 rounded-xl border border-border/80 bg-muted/30 p-4 text-sm">
             <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-300/80 bg-emerald-50 px-3 py-1.5 font-medium text-emerald-950 dark:border-emerald-800/60 dark:bg-emerald-950/35 dark:text-emerald-100">
-              <span className="text-muted-foreground">مكتمل:</span> {pieceSummary.complete}
+              <span className="text-muted-foreground">{t("invoiceDetail.summaryComplete")}</span> {pieceSummary.complete}
             </span>
             <span className="inline-flex items-center gap-2 rounded-lg border border-amber-300/80 bg-amber-50 px-3 py-1.5 font-medium text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/35 dark:text-amber-100">
-              <span className="text-muted-foreground">قيد التنفيذ:</span> {pieceSummary.inProgress}
+              <span className="text-muted-foreground">{t("invoiceDetail.summaryInProgress")}</span> {pieceSummary.inProgress}
             </span>
             <span className="inline-flex items-center gap-2 rounded-lg border border-red-300/80 bg-red-50 px-3 py-1.5 font-medium text-red-950 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100">
-              <span className="text-muted-foreground">متأخر:</span> {pieceSummary.overdue}
+              <span className="text-muted-foreground">{t("invoiceDetail.summaryOverdue")}</span> {pieceSummary.overdue}
             </span>
           </div>
         ) : null}
@@ -590,7 +593,7 @@ export function InvoiceDetail() {
             const p = item.product as { name: string; sku: string };
             const desc = item.description as string | null | undefined;
             const title = desc || p.name;
-            const itemBadge = job ? getTailoringItemBadge(job, { locale: "ar" }) : null;
+            const itemBadge = job ? getTailoringItemBadge(job) : null;
             const { fabric, color } = job ? fabricParts(job) : { fabric: "—", color: "—" };
             const pieceOverdue = job ? isPieceOverdueForInvoice(job, deliveryDate) : false;
             const lastTouch = job ? lastUpdateFromWorkStages(job.workStages ?? []) : null;
@@ -599,7 +602,7 @@ export function InvoiceDetail() {
             const ageDays = createdAt
               ? Math.floor((Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000))
               : 0;
-            const opStatus = job ? operationalPieceStatus(job, UNCLAIMED_DAYS) : null;
+            const opStatus = job ? operationalPieceStatus(job, UNCLAIMED_DAYS, t) : null;
             const shouldSuggestUnclaimed =
               Boolean(job) &&
               ageDays >= UNCLAIMED_DAYS &&
@@ -625,19 +628,19 @@ export function InvoiceDetail() {
                     {job ? (
                       <div className="space-y-1">
                         <h3 className="text-lg font-bold leading-snug md:text-xl">
-                          قطعة رقم {pieceIndex} — أمر العمل #{job.jobNo}
+                          {t("invoiceDetail.pieceHeading", { index: pieceIndex, jobNo: job.jobNo })}
                         </h3>
                         <p className="text-sm font-medium text-muted-foreground">{title}</p>
                       </div>
                     ) : (
                       <div className="space-y-1">
                         <h3 className="text-lg font-bold md:text-xl">{title}</h3>
-                        <p className="text-xs text-muted-foreground">بند جاهز — بدون أمر تفصيل</p>
+                        <p className="text-xs text-muted-foreground">{t("invoiceDetail.readyItemNoTailoring")}</p>
                       </div>
                     )}
                     <div className="flex flex-wrap items-center gap-2">
                       {itemBadge ? (
-                        <span className={invoiceBadgeStyle(itemBadge.key)}>{itemBadge.label}</span>
+                        <span className={invoiceBadgeStyle(itemBadge.key)}>{t(itemBadge.labelKey)}</span>
                       ) : null}
                       {opStatus ? (
                         <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold", opStatus.cls)}>
@@ -651,26 +654,26 @@ export function InvoiceDetail() {
                     {job ? (
                       <dl className="grid gap-3 text-sm sm:grid-cols-2">
                         <div>
-                          <dt className="text-xs text-muted-foreground">الموديل</dt>
+                          <dt className="text-xs text-muted-foreground">{t("invoiceDetail.fieldModel")}</dt>
                           <dd className="font-semibold">{job.productStyle || "—"}</dd>
                         </div>
                         <div>
-                          <dt className="text-xs text-muted-foreground">القماش</dt>
+                          <dt className="text-xs text-muted-foreground">{t("invoiceDetail.fieldFabric")}</dt>
                           <dd className="font-medium">{fabric}</dd>
                         </div>
                         <div>
-                          <dt className="text-xs text-muted-foreground">اللون</dt>
+                          <dt className="text-xs text-muted-foreground">{t("invoiceDetail.fieldColor")}</dt>
                           <dd className="font-medium">{color}</dd>
                         </div>
                         <div className="sm:col-span-2">
-                          <dt className="text-xs text-muted-foreground">تاريخ آخر تحديث</dt>
+                          <dt className="text-xs text-muted-foreground">{t("invoiceDetail.fieldLastUpdate")}</dt>
                           <dd>{lastTouch ?? "—"}</dd>
                         </div>
                       </dl>
                     ) : null}
                     {job && stageRows.length > 0 ? (
                       <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                        <p className="mb-2 text-xs font-semibold text-muted-foreground">العامل لكل مرحلة</p>
+                        <p className="mb-2 text-xs font-semibold text-muted-foreground">{t("invoiceDetail.workerPerStage")}</p>
                         <ul className="grid gap-2 sm:grid-cols-2">
                           {stageRows.map((r) => (
                             <li key={r.id} className="flex flex-col text-sm">
@@ -706,30 +709,30 @@ export function InvoiceDetail() {
                                 : "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border-red-300";
                           return (
                             <div className={`rounded-lg border-2 p-3 text-start ${marginColor}`}>
-                              <p className="mb-2 text-xs font-semibold">💰 التكلفة وهامش الربح</p>
+                              <p className="mb-2 text-xs font-semibold">💰 {t("invoiceDetail.costMarginTitle")}</p>
                               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                                 <div>
-                                  <div className="text-muted-foreground">تكلفة القماش</div>
+                                  <div className="text-muted-foreground">{t("invoiceDetail.fabricCost")}</div>
                                   <div className="font-mono font-bold">{formatAED(fabricCostFils)}</div>
                                 </div>
                                 <div>
-                                  <div className="text-muted-foreground">أجور العمال</div>
+                                  <div className="text-muted-foreground">{t("invoiceDetail.laborCost")}</div>
                                   <div className="font-mono font-bold">{formatAED(laborCostFils)}</div>
                                 </div>
                                 <div>
-                                  <div className="text-muted-foreground">سعر البيع</div>
+                                  <div className="text-muted-foreground">{t("invoiceDetail.salePrice")}</div>
                                   <div className="font-mono font-bold">{formatAED(salePriceFils)}</div>
                                 </div>
                                 <div>
-                                  <div className="text-muted-foreground">صافي الربح</div>
+                                  <div className="text-muted-foreground">{t("invoiceDetail.netProfit")}</div>
                                   <div className="font-mono font-bold">
                                     {formatAED(grossMarginFils)}{" "}
-                                    <span className="text-[10px]">({marginPercent.toFixed(1)}٪)</span>
+                                    <span className="text-[10px]">({marginPercent.toFixed(1)}%)</span>
                                   </div>
                                 </div>
                               </div>
                               <p className="mt-2 text-[10px] text-muted-foreground">
-                                إجمالي التكلفة: {formatAED(totalCostFils)} | أجور العمال محسوبة من المراحل المكتملة فقط
+                                {t("invoiceDetail.costMarginNote", { total: formatAED(totalCostFils) })}
                               </p>
                             </div>
                           );
@@ -739,30 +742,30 @@ export function InvoiceDetail() {
                     {job && job.stage === "INSPECTION" && canInspect ? (
                       <div className="rounded-lg border-2 border-purple-400 bg-purple-50 p-4 text-start dark:border-purple-700 dark:bg-purple-950/30">
                         <p className="mb-3 font-semibold text-purple-900 dark:text-purple-200">
-                          🔍 فحص الجودة — القطعة في انتظار موافقة المشرف
+                          🔍 {t("invoiceDetail.qaTitle")}
                         </p>
                         {qaFailJobId === job.id ? (
                           <div className="space-y-3">
                             <div>
-                              <label className="mb-1 block text-xs font-medium">سبب الرفض</label>
+                              <label className="mb-1 block text-xs font-medium">{t("invoiceDetail.qaFailReasonLabel")}</label>
                               <input
                                 className="w-full rounded-md border px-3 py-1.5 text-sm"
-                                placeholder="مثال: خطأ في المقاس / غرزة غير منتظمة"
+                                placeholder={t("invoiceDetail.qaFailReasonPlaceholder")}
                                 value={qaFailReason}
                                 onChange={(e) => setQaFailReason(e.target.value)}
                               />
                             </div>
                             <div>
-                              <label className="mb-1 block text-xs font-medium">أعد إلى مرحلة</label>
+                              <label className="mb-1 block text-xs font-medium">{t("invoiceDetail.qaReopenStageLabel")}</label>
                               <select
                                 className="rounded-md border px-3 py-1.5 text-sm"
                                 value={qaReopenStage}
                                 onChange={(e) => setQaReopenStage(e.target.value)}
                               >
-                                <option value="CUTTING">قص</option>
-                                <option value="SEWING">خياطة</option>
-                                <option value="EMBROIDERY">تطريز</option>
-                                <option value="FINISHING">الشغل اليدوي</option>
+                                <option value="CUTTING">{t("invoiceDetail.stageCutting")}</option>
+                                <option value="SEWING">{t("invoiceDetail.stageSewing")}</option>
+                                <option value="EMBROIDERY">{t("invoiceDetail.stageEmbroidery")}</option>
+                                <option value="FINISHING">{t("invoiceDetail.stageFinishing")}</option>
                               </select>
                             </div>
                             <div className="flex gap-2">
@@ -780,7 +783,7 @@ export function InvoiceDetail() {
                                   })
                                 }
                               >
-                                {qaInspect.isPending ? "..." : "تأكيد الرفض"}
+                                {qaInspect.isPending ? "..." : t("invoiceDetail.qaConfirmFail")}
                               </Button>
                               <Button
                                 type="button"
@@ -788,7 +791,7 @@ export function InvoiceDetail() {
                                 size="sm"
                                 onClick={() => setQaFailJobId(null)}
                               >
-                                إلغاء
+                                {t("invoiceDetail.cancelBtn")}
                               </Button>
                             </div>
                           </div>
@@ -800,11 +803,11 @@ export function InvoiceDetail() {
                               className="bg-green-600 hover:bg-green-700 text-white"
                               disabled={qaInspect.isPending}
                               onClick={() => {
-                                if (window.confirm("تأكيد اجتياز فحص الجودة — القطعة ستصبح جاهزة للتسليم؟"))
+                                if (window.confirm(t("invoiceDetail.qaPassConfirm")))
                                   qaInspect.mutate({ jobId: job.id, result: "PASS" });
                               }}
                             >
-                              ✓ اجتياز — جاهز
+                              {t("invoiceDetail.qaPassBtn")}
                             </Button>
                             <Button
                               type="button"
@@ -816,7 +819,7 @@ export function InvoiceDetail() {
                                 setQaFailJobId(job.id);
                               }}
                             >
-                              ✗ رفض — إعادة للورشة
+                              {t("invoiceDetail.qaFailBtn")}
                             </Button>
                           </div>
                         )}
@@ -835,7 +838,7 @@ export function InvoiceDetail() {
                           size="sm"
                           onClick={() => setQuickViewJobId(job.id)}
                         >
-                          عرض
+                          {t("invoiceDetail.viewBtn")}
                         </Button>
                         <Button
                           type="button"
@@ -843,7 +846,7 @@ export function InvoiceDetail() {
                           size="sm"
                           onClick={() => scrollToAnchor(`job-progress-${job.id}`)}
                         >
-                          مسار العمل
+                          {t("invoiceDetail.workflowBtn")}
                         </Button>
                         <Button
                           type="button"
@@ -851,7 +854,7 @@ export function InvoiceDetail() {
                           size="sm"
                           onClick={() => scrollToAnchor(`job-process-${job.id}`)}
                         >
-                          تعديل
+                          {t("invoiceDetail.editBtn")}
                         </Button>
                         {canConvertToReady &&
                         job.stage !== "DELIVERED" &&
@@ -864,38 +867,38 @@ export function InvoiceDetail() {
                             disabled={convertToReady.isPending}
                             onClick={() => {
                               const msg = shouldSuggestUnclaimed
-                                ? `هذه القطعة مر عليها ${ageDays} يوم — تحويل إلى جاهز؟`
-                                : "تحويل هذه القطعة إلى منتج جاهز بالمخزون؟";
+                                ? t("invoiceDetail.convertUnclaimedConfirm", { days: ageDays })
+                                : t("invoiceDetail.convertConfirm");
                               if (!window.confirm(msg)) return;
                               convertToReady.mutate(job.id);
                             }}
                           >
-                            {convertToReady.isPending ? "..." : "تحويل إلى جاهز"}
+                            {convertToReady.isPending ? "..." : t("invoiceDetail.convertToReadyBtn")}
                           </Button>
                         ) : null}
                         {convertToReady.isError ? (
                           <p className="mt-1 text-xs text-destructive">
-                            {getApiErrorMessage(convertToReady.error, "تعذّر التحويل.")}
+                            {getApiErrorMessage(convertToReady.error, t("invoiceDetail.convertFailed"))}
                           </p>
                         ) : null}
                       </div>
                     ) : null}
                     {shouldSuggestUnclaimed ? (
                       <p className="text-xs text-amber-800 dark:text-amber-200">
-                        هذه القطعة مر عليها {ageDays} يوم — يُنصح بتحويلها إلى جاهز.
+                        {t("invoiceDetail.unclaimedSuggestion", { days: ageDays })}
                       </p>
                     ) : null}
                     {job?.isConvertedToReady || job?.stage === "CONVERTED_TO_READY" ? (
                       <div className="rounded-lg border border-cyan-300/80 bg-cyan-50/90 p-3 text-xs text-cyan-950 dark:border-cyan-800/60 dark:bg-cyan-950/30 dark:text-cyan-100">
-                        <p className="font-semibold">تم تحويلها إلى جاهز</p>
+                        <p className="font-semibold">{t("invoiceDetail.convertedToReadyTitle")}</p>
                         <p className="mt-1">
-                          رقم المنتج الجاهز:{" "}
+                          {t("invoiceDetail.readyProductNoLabel")}{" "}
                           <span className="font-mono">
                             {job.convertedReadyProduct?.sku ?? job.convertedReadyProduct?.id ?? "—"}
                           </span>
                         </p>
                         <p>
-                          تاريخ التحويل:{" "}
+                          {t("invoiceDetail.convertedDateLabel")}{" "}
                           {job.convertedAt ? new Date(job.convertedAt).toLocaleString() : "—"}
                         </p>
                       </div>
@@ -904,7 +907,7 @@ export function InvoiceDetail() {
                   {!hideMoney ? (
                     <div className="flex w-full shrink-0 flex-col items-stretch gap-2 md:max-w-[200px] md:items-end">
                       <div className="text-start md:text-end">
-                        <p className="text-xs font-medium text-muted-foreground">إجمالي السطر</p>
+                        <p className="text-xs font-medium text-muted-foreground">{t("invoiceDetail.lineTotalLabel")}</p>
                         <p className="text-2xl font-bold tabular-nums">
                           {formatAED(item.totalFils as number)}
                         </p>
@@ -919,7 +922,7 @@ export function InvoiceDetail() {
                     data-piece-root={job.id}
                   >
                     <div className="text-start" id={`job-progress-${job.id}`}>
-                      <h4 className="mb-2 text-sm font-bold text-foreground">مسار العمل والتقدم</h4>
+                      <h4 className="mb-2 text-sm font-bold text-foreground">{t("invoiceDetail.workflowProgressHeading")}</h4>
                       <TailoringPieceProgressStrip
                         workStages={job.workStages ?? []}
                         jobStage={job.stage}
@@ -928,7 +931,7 @@ export function InvoiceDetail() {
                       />
                     </div>
                     <div className="text-start" id={`job-process-${job.id}`}>
-                      <h4 className="mb-3 text-sm font-semibold text-muted-foreground">جدول المراحل — تعديل</h4>
+                      <h4 className="mb-3 text-sm font-semibold text-muted-foreground">{t("invoiceDetail.stageTableHeading")}</h4>
                       <JobProcessPieceTable
                         jobId={job.id}
                         jobNo={job.jobNo}
@@ -962,12 +965,12 @@ export function InvoiceDetail() {
 
       {orphanJobOrders.length > 0 ? (
         <section className="rounded-2xl border border-dashed border-amber-500/50 bg-amber-50/30 p-4 dark:bg-amber-950/20" dir="rtl">
-          <h3 className="mb-2 text-start font-bold">أوامر عمل بلا بند (قديمة)</h3>
+          <h3 className="mb-2 text-start font-bold">{t("invoiceDetail.orphanJobsTitle")}</h3>
           {orphanJobOrders.map((j) => {
             const pOverdue = isPieceOverdueForInvoice(j, deliveryDate);
             return (
               <div key={j.id} className="mb-8 last:mb-0" id={`job-${j.id}`}>
-                <p className="mb-2 text-sm text-muted-foreground">طلب #{j.jobNo}</p>
+                <p className="mb-2 text-sm text-muted-foreground">{t("invoiceDetail.orderNo", { jobNo: j.jobNo })}</p>
                 <div className="mb-3" id={`job-progress-${j.id}`}>
                   <TailoringPieceProgressStrip
                     workStages={j.workStages ?? []}
@@ -1026,24 +1029,24 @@ export function InvoiceDetail() {
       <Dialog open={voidOpen} onOpenChange={(o) => { if (!voidInvoice.isPending) setVoidOpen(o); }}>
         <DialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
-            <DialogTitle className="text-red-700 dark:text-red-400">إلغاء الفاتورة #{invoiceNo}</DialogTitle>
+            <DialogTitle className="text-red-700 dark:text-red-400">{t("invoiceDetail.voidDialogTitle", { invoiceNo })}</DialogTitle>
             <DialogDescription>
-              سيتم استرجاع قماش الطلبات وعكس رصيد العميل تلقائياً.
+              {t("invoiceDetail.voidDialogDesc2")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             {balanceFils > 0 || (data.paidFils as number) > 0 ? (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                ℹ سيتم استرجاع:
-                {balanceFils > 0 ? ` رصيد الذمة ${formatAED(balanceFils)}` : ""}
+                ℹ {t("invoiceDetail.voidRefundIntro")}
+                {balanceFils > 0 ? ` ${t("invoiceDetail.voidRefundBalance", { amount: formatAED(balanceFils) })}` : ""}
                 {balanceFils > 0 && (data.paidFils as number) > 0 ? " +" : ""}
-                {(data.paidFils as number) > 0 ? ` ائتمان للدفعات ${formatAED(data.paidFils as number)}` : ""}
+                {(data.paidFils as number) > 0 ? ` ${t("invoiceDetail.voidRefundCredit", { amount: formatAED(data.paidFils as number) })}` : ""}
               </div>
             ) : null}
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">سبب الإلغاء</label>
+              <label className="text-sm font-medium">{t("invoiceDetail.voidReasonLabel")}</label>
               <select
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={voidCategory}
@@ -1056,11 +1059,11 @@ export function InvoiceDetail() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">تفاصيل إضافية <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium">{t("invoiceDetail.voidExtraDetailsLabel")} <span className="text-red-500">*</span></label>
               <textarea
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 rows={3}
-                placeholder="اكتب تفاصيل سبب الإلغاء..."
+                placeholder={t("invoiceDetail.voidExtraDetailsPlaceholder")}
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
               />
@@ -1069,7 +1072,7 @@ export function InvoiceDetail() {
 
           <DialogFooter className="gap-2 sm:justify-between">
             <Button type="button" variant="outline" onClick={() => setVoidOpen(false)} disabled={voidInvoice.isPending}>
-              تراجع
+              {t("invoiceDetail.voidUndoBtn")}
             </Button>
             <Button
               type="button"
@@ -1077,7 +1080,7 @@ export function InvoiceDetail() {
               disabled={!voidReason.trim() || voidInvoice.isPending}
               onClick={() => voidInvoice.mutate()}
             >
-              {voidInvoice.isPending ? "جاري الإلغاء…" : "تأكيد الإلغاء"}
+              {voidInvoice.isPending ? t("invoiceDetail.voiding") : t("invoiceDetail.voidConfirmBtn")}
             </Button>
           </DialogFooter>
           {voidInvoice.isError ? (
@@ -1089,7 +1092,7 @@ export function InvoiceDetail() {
       <Sheet open={sellerOpen && !hideMoney} onOpenChange={setSellerOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto p-4 sm:max-w-lg lg:p-6">
           <SheetHeader className="mb-4 text-start">
-            <SheetTitle className="text-xl">Seller — invoice #{invoiceNo}</SheetTitle>
+            <SheetTitle className="text-xl">{t("invoiceDetail.sellerSheetTitle", { invoiceNo })}</SheetTitle>
           </SheetHeader>
           <InvoiceSellerPanel
             key={`${id}-${String(deliveryDate)}-${String(data.paidFils)}-${String(deliveredAt)}`}

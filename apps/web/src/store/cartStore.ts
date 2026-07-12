@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "@/i18n";
 import type {
   PosCartLine,
   RetailCartLine,
@@ -191,20 +192,20 @@ export const useCartStore = create<CartState>((set, get) => ({
     const fabricRequired = opts?.fabricRequired ?? true;
     const m = parseFloat(tailoringDraft.meters) || 2;
     if (!posCustomerId) {
-      return { ok: false, error: "اختر العميل من السلة أولاً." };
+      return { ok: false, error: i18n.t("pos.intake.errChooseCustomer") };
     }
     if (fabricRequired && !tailoringDraft.rollId) {
-      return { ok: false, error: "اختر القماش (اللفة)." };
+      return { ok: false, error: i18n.t("pos.intake.errChooseFabric") };
     }
     if (!Number.isFinite(m) || m <= 0) {
-      return { ok: false, error: "بيانات القماش غير صالحة." };
+      return { ok: false, error: i18n.t("pos.intake.errInvalidFabric") };
     }
     if (!Number.isFinite(parseFloat(tailoringDraft.saleAed)) || parseFloat(tailoringDraft.saleAed) <= 0) {
-      return { ok: false, error: "أدخل السعر بالدرهم." };
+      return { ok: false, error: i18n.t("pos.intake.errEnterPrice") };
     }
     const due = new Date(tailoringDraft.dueDate);
     if (!tailoringDraft.dueDate?.trim() || Number.isNaN(due.getTime())) {
-      return { ok: false, error: "حدد موعد التسليم." };
+      return { ok: false, error: i18n.t("pos.intake.errSetDueDate") };
     }
 
     const metersNorm = String(parseFloat(tailoringDraft.meters) || 2);

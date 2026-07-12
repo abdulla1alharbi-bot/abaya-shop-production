@@ -40,15 +40,13 @@ export function UsersPage() {
     <div className="space-y-4">
       <PageHeader
         title={t("nav.items.users")}
-        description={t("pages.settings.usersDescription", {
-          defaultValue: "حسابات الدخول حسب الدور؛ تعديل الصلاحية لكل إذن يدويّاً أثناء الحاجة فقط من شاشة المستخدم.",
-        })}
+        description={t("settings.usersDescription")}
         actions={
           can("users.create") ? (
             <Button asChild size="sm">
               <Link to="/settings/users/new">
                 <Plus className="me-1 h-4 w-4" />
-                {t("pages.settings.newUser", { defaultValue: "مستخدم جديد" })}
+                {t("settings.newUser")}
               </Link>
             </Button>
           ) : null
@@ -59,13 +57,13 @@ export function UsersPage() {
         <table className="w-full min-w-[800px] text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
-              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colUsername", { defaultValue: "اسم المستخدم" })}</th>
-              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colFullName", { defaultValue: "الاسم الكامل" })}</th>
-              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colRole", { defaultValue: "الدور" })}</th>
-              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colStatus", { defaultValue: "الحالة" })}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("settings.colUsername")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("settings.colFullName")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("settings.colRole")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("settings.colStatus")}</th>
               <th className="px-4 py-3 text-start font-medium">{t("pages.customers.colMobile")}</th>
-              <th className="px-4 py-3 text-start font-medium">{t("pages.settings.colEmail", { defaultValue: "البريد (اختياري)" })}</th>
-              <th className="px-4 py-3 text-end font-medium">{t("pages.settings.colActions", { defaultValue: "إجراءات" })}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("settings.colEmail")}</th>
+              <th className="px-4 py-3 text-end font-medium">{t("settings.colActions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -78,7 +76,7 @@ export function UsersPage() {
             ) : !items?.length ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  {t("pages.settings.noUsers", { defaultValue: "لا يوجد مستخدمون بعد." })}
+                  {t("settings.noUsers")}
                 </td>
               </tr>
             ) : (
@@ -93,9 +91,9 @@ export function UsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     {u.isActive ? (
-                      <Badge variant="secondary">{t("pages.settings.statusActive", { defaultValue: "نشط" })}</Badge>
+                      <Badge variant="secondary">{t("settings.statusActive")}</Badge>
                     ) : (
-                      <Badge variant="outline">{t("pages.settings.statusInactive", { defaultValue: "موقوف" })}</Badge>
+                      <Badge variant="outline">{t("settings.statusInactive")}</Badge>
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground" dir="ltr">

@@ -6,6 +6,30 @@ import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { AppError } from "../../middleware/error.middleware.js";
+import { notify } from "../../utils/notify.js";
+
+const PAYMENT_METHODS = ["CASH", "CARD", "TRANSFER"] as const;
+
+/** Per-method payment totals for one cashier between two instants. */
+async function paymentBreakdownForShift(params: {
+  userId: string;
+  from: Date;
+  to: Date;
+}): Promise<{ method: string; totalFils: number; count: number }[]> {
+  const grouped = await prisma.payment.groupBy({
+    by: ["method"],
+    _sum: { amountFils: true },
+    _count: { _all: true },
+    where: {
+      createdAt: { gte: params.from, lte: params.to },
+      invoice: { salesPersonId: params.userId, isVoid: false },
+    },
+  });
+  return PAYMENT_METHODS.map((m) => {
+    const g = grouped.find((x) => x.method === m);
+    return { method: m, totalFils: g?._sum.amountFils ?? 0, count: g?._count._all ?? 0 };
+  });
+}
 
 export const shiftsRouter = Router();
 shiftsRouter.use(authMiddleware);
@@ -126,7 +150,63 @@ shiftsRouter.post(
       },
     });
 
+    // Owner is alerted whenever the drawer doesn't reconcile.
+    if (varianceFils !== 0) {
+      const dir = varianceFils > 0 ? "زيادة" : "عجز";
+      await notify(prisma, {
+        targetRole: "OWNER",
+        type: "SHIFT_VARIANCE",
+        title: `${dir} في وردية الكاشير`,
+        message: `${req.user?.name ?? "كاشير"}: ${dir} ${(Math.abs(varianceFils) / 100).toFixed(2)} في إقفال الوردية`,
+        link: "/shifts",
+      });
+    }
+
     res.status(200).json({ success: true, data: updated });
+  }),
+);
+
+/** Z-report for a closed shift: per-method payment breakdown + reconciliation. */
+shiftsRouter.get(
+  "/:id/z-report",
+  requirePermission("pos.use", "reports.financial"),
+  asyncHandler(async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
+
+    const shift = await prisma.cashierShift.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: { select: { id: true, name: true, username: true } },
+        approvedBy: { select: { id: true, name: true } },
+      },
+    });
+    if (!shift) throw new AppError(404, "Shift not found", "NOT_FOUND");
+    // Cashiers may read their own shift; financial viewers may read any.
+    const canViewAll = req.user?.permissions?.includes("reports.financial");
+    if (shift.userId !== userId && !canViewAll) {
+      throw new AppError(403, "ليست وردية خاصتك", "FORBIDDEN");
+    }
+
+    const to = shift.closedAt ?? new Date();
+    const byMethod = await paymentBreakdownForShift({ userId: shift.userId, from: shift.openedAt, to });
+
+    const invoices = await prisma.invoice.findMany({
+      where: { salesPersonId: shift.userId, isVoid: false, createdAt: { gte: shift.openedAt, lte: to } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, invoiceNo: true, totalFils: true, paidFils: true, createdAt: true },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        shift,
+        byMethod,
+        totalCollectedFils: byMethod.reduce((s, m) => s + m.totalFils, 0),
+        invoiceCount: invoices.length,
+        invoices,
+      },
+    });
   }),
 );
 

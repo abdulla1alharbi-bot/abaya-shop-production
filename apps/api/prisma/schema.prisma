@@ -30,6 +30,9 @@ model User {
   revokedPermissions String?
   phone         String?
   isActive      Boolean   @default(true)
+  /// Home branch — stamps invoices created by this user (null = default branch)
+  branchId      String?
+  branch        Branch?   @relation(fields: [branchId], references: [id])
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   refreshTokens RefreshToken[]
@@ -42,6 +45,7 @@ model User {
   customerNotes CustomerNote[]
   notifications Notification[]
   voidedInvoices Invoice[] @relation("InvoiceVoidedBy")
+  invoiceReturns InvoiceReturn[] @relation("InvoiceReturnCreatedBy")
 }
 
 model RefreshToken {
@@ -92,6 +96,7 @@ model Branch {
   createdAt DateTime  @default(now())
   invoices  Invoice[]
   rolls     FabricRoll[]
+  users     User[]
 }
 
 // ─── CUSTOMERS ────────────────────────────────────────────────
@@ -348,6 +353,8 @@ model Invoice {
   voidedById      String?
   voidedBy        User?         @relation("InvoiceVoidedBy", fields: [voidedById], references: [id])
   notes           String?
+  /// Mandatory justification when any discount was applied (seller accountability)
+  discountReason  String?
   /// When the seller marked the whole invoice as delivered to the customer
   deliveredAt     DateTime?
   items           InvoiceItem[]
@@ -355,6 +362,7 @@ model Invoice {
   jobOrders       JobOrder[]
   conversionLogs  ConversionLog[]
   sampleSales     SampleSaleLog[]
+  returns         InvoiceReturn[]
   createdAt       DateTime      @default(now())
 
   @@index([customerId])
@@ -374,8 +382,43 @@ model InvoiceItem {
   discountFils Int     @default(0)
   totalFils   Int
   jobOrder    JobOrder?
+  returnItems InvoiceReturnItem[]
 
   @@index([invoiceId])
+}
+
+/// A customer return / exchange against an issued invoice (partial or full).
+/// Money goes back either as a cash/transfer refund or as customer account credit.
+model InvoiceReturn {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
+  reason       String
+  /// CASH | TRANSFER | CARD | CREDIT (credit = reduce customer balance / store credit)
+  refundMethod String   @default("CREDIT")
+  totalFils    Int
+  createdById  String
+  createdBy    User     @relation("InvoiceReturnCreatedBy", fields: [createdById], references: [id])
+  items        InvoiceReturnItem[]
+  createdAt    DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([createdAt])
+}
+
+model InvoiceReturnItem {
+  id            String        @id @default(cuid())
+  returnId      String
+  return        InvoiceReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  invoiceItemId String
+  invoiceItem   InvoiceItem   @relation(fields: [invoiceItemId], references: [id])
+  qty           Float
+  amountFils    Int
+  /// Ready-made stock was incremented back for this line
+  restocked     Boolean       @default(false)
+
+  @@index([returnId])
+  @@index([invoiceItemId])
 }
 
 model Payment {
@@ -442,6 +485,7 @@ model JobOrder {
   productionEntries ProductionEntry[]
   conversionLogs ConversionLog[]
   sampleSales    SampleSaleLog[]
+  reworkLogs    ReworkLog[]
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -542,6 +586,8 @@ model JobOrderMaterial {
   rollId     String
   roll       FabricRoll @relation(fields: [rollId], references: [id])
   meters     Float
+  /// Cutting waste in meters (recorded at cutting completion; deducted from the roll in addition to `meters`)
+  wasteMeters Float @default(0)
   /// Computed cost of fabric consumed (meters × roll.costPerMeter) in fils — snapshot at creation/edit
   materialCostFils Int @default(0)
   /// True after Cutting stage completion applied JOB_USE to this line (prevents double deduction).
@@ -599,6 +645,29 @@ model Worker {
   payrolls        Payroll[]
   payouts         WorkerPayout[]
   balanceAdjustments WorkerBalanceAdjustment[]
+  reworkLogs      ReworkLog[]
+}
+
+/// A piece sent back to an earlier stage (QA fail or supervisor reopen).
+/// Basis for per-worker defect/rework rates.
+model ReworkLog {
+  id          String   @id @default(cuid())
+  jobOrderId  String
+  jobOrder    JobOrder @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+  /// Stage the piece was sent back to (CUTTING | SEWING | EMBROIDERY | FINISHING)
+  stageKey    String
+  /// Worker who had completed the failed stage (accountable for the rework)
+  workerId    String?
+  worker      Worker?  @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  reason      String?
+  /// QA_FAIL (inspection rejected) | REOPEN (supervisor correction)
+  source      String   @default("QA_FAIL")
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([workerId])
+  @@index([jobOrderId])
+  @@index([createdAt])
 }
 
 model WorkerPayout {

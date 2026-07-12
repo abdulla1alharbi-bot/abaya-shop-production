@@ -242,17 +242,17 @@ function PayrollLegacyTable() {
       <table className="w-full text-sm">
         <thead className="border-b bg-muted/50">
           <tr>
-            <th className="px-4 py-2 text-start font-medium">عامل</th>
-            <th className="px-4 py-2 text-start font-medium">الفترة</th>
-            <th className="px-4 py-2 text-end font-medium">الصافي</th>
-            <th className="px-4 py-2 text-start font-medium">الحالة</th>
+            <th className="px-4 py-2 text-start font-medium">{t("payroll.legacyColWorker")}</th>
+            <th className="px-4 py-2 text-start font-medium">{t("payroll.legacyColPeriod")}</th>
+            <th className="px-4 py-2 text-end font-medium">{t("payroll.legacyColNet")}</th>
+            <th className="px-4 py-2 text-start font-medium">{t("payroll.legacyColStatus")}</th>
           </tr>
         </thead>
         <tbody>
           {!payrolls?.length ? (
             <tr>
               <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                لا سجلات رواتب شهرية بعد.
+                {t("payroll.legacyNoRecords")}
               </td>
             </tr>
           ) : (
@@ -263,7 +263,7 @@ function PayrollLegacyTable() {
                   {p.month}/{p.year}
                 </td>
                 <td className="px-4 py-2 text-end">{formatAED(p.netFils)}</td>
-                <td className="px-4 py-2">{p.isPaid ? "مدفوع" : "مفتوح"}</td>
+                <td className="px-4 py-2">{p.isPaid ? t("payroll.legacyPaid") : t("payroll.legacyOpen")}</td>
               </tr>
             ))
           )}

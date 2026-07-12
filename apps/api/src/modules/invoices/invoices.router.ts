@@ -30,6 +30,39 @@ import {
   redactInvoiceListPayloadForWorker,
 } from "../../utils/workerFinancialRedaction.js";
 
+/**
+ * Discount policy: any discount needs a written reason; a discount above
+ * `max_discount_percent` (setting, default 10%) additionally needs the
+ * `invoices.discountOverride` permission. Enforced server-side on all checkouts.
+ */
+async function enforceDiscountPolicy(params: {
+  subtotalFils: number;
+  totalDiscountFils: number;
+  discountReason: string | undefined;
+  userPermissions: string[] | undefined;
+}): Promise<void> {
+  if (params.totalDiscountFils <= 0) return;
+  if (!params.discountReason || params.discountReason.trim().length < 2) {
+    throw new AppError(400, "سبب الخصم مطلوب عند تطبيق أي خصم", "DISCOUNT_REASON_REQUIRED");
+  }
+  const s = await prisma.setting.findUnique({ where: { key: "max_discount_percent" } });
+  const maxPct = Number.isFinite(parseFloat(s?.value ?? "")) ? parseFloat(s!.value) : 10;
+  const pct = params.subtotalFils > 0 ? (params.totalDiscountFils / params.subtotalFils) * 100 : 100;
+  if (pct > maxPct && !(params.userPermissions ?? []).includes("invoices.discountOverride")) {
+    throw new AppError(
+      403,
+      `الخصم (${pct.toFixed(1)}%) يتجاوز الحد المسموح (${maxPct}%) — يتطلب موافقة إدارية`,
+      "DISCOUNT_LIMIT_EXCEEDED",
+    );
+  }
+}
+
+/** Branch that new invoices are stamped with: the user's home branch, else the default. */
+async function branchForUser(userId: string): Promise<string> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { branchId: true } });
+  return u?.branchId ?? (await getDefaultBranchId(prisma));
+}
+
 const invoiceDetailJobOrdersInclude = {
   orderBy: { jobNo: "asc" as const },
   include: {
@@ -128,6 +161,10 @@ invoicesRouter.get(
       : undefined;
 
     const filterParts: Prisma.InvoiceWhereInput[] = [];
+    const branchIdFilter = queryParamString(q, "branchId");
+    if (branchIdFilter) {
+      filterParts.push({ branchId: branchIdFilter });
+    }
     if (balanceDue) {
       filterParts.push({ isVoid: false, balanceFils: { gt: 0 } });
     }
@@ -441,6 +478,7 @@ const createBody = z.object({
     .optional()
     .default([]),
   invoiceDiscountFils: z.number().int().min(0).optional().default(0),
+  discountReason: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -453,8 +491,16 @@ invoicesRouter.post(
     const salesPersonId = req.user?.id;
     if (!salesPersonId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
 
-    const branchId = body.branchId ?? (await getDefaultBranchId(prisma));
+    const branchId = body.branchId ?? (await branchForUser(salesPersonId));
     const vatPercent = await getVatRatePercent(prisma);
+
+    const totalLineDiscounts = body.items.reduce((a, i) => a + (i.discountFils ?? 0), 0);
+    await enforceDiscountPolicy({
+      subtotalFils: body.items.reduce((a, i) => a + Math.round(i.qty * i.unitFils), 0),
+      totalDiscountFils: totalLineDiscounts + (body.invoiceDiscountFils ?? 0),
+      discountReason: body.discountReason,
+      userPermissions: req.user?.permissions,
+    });
 
     const invoice = await prisma.$transaction(async (tx) => {
       const productIds = [...new Set(body.items.map((i) => i.productId))];
@@ -512,6 +558,7 @@ invoicesRouter.post(
           totalFils,
           paidFils,
           balanceFils,
+          discountReason: body.discountReason?.trim(),
           notes: body.notes?.trim(),
           items: {
             create: lineData.map((l) => ({
@@ -615,6 +662,7 @@ const tailoringCheckoutBody = z.object({
     )
     .default([]),
   invoiceDiscountFils: z.number().int().min(0).optional().default(0),
+  discountReason: z.string().optional(),
   notes: z.string().optional(),
   creditOverride: z.boolean().optional().default(false),
 });
@@ -634,6 +682,7 @@ const posCheckoutBody = z
       )
       .default([]),
     invoiceDiscountFils: z.number().int().min(0).optional().default(0),
+    discountReason: z.string().optional(),
     notes: z.string().optional(),
     creditOverride: z.boolean().optional().default(false),
   })
@@ -665,8 +714,15 @@ invoicesRouter.post(
     const salesPersonId = req.user?.id;
     if (!salesPersonId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
 
-    const branchId = await getDefaultBranchId(prisma);
+    const branchId = await branchForUser(salesPersonId);
     const vatPercent = await getVatRatePercent(prisma);
+
+    await enforceDiscountPolicy({
+      subtotalFils: body.items.reduce((a, it) => a + it.totalFils, 0),
+      totalDiscountFils: body.invoiceDiscountFils ?? 0,
+      discountReason: body.discountReason,
+      userPermissions: req.user?.permissions,
+    });
 
     const data = await prisma.$transaction(async (tx) => {
       const serviceProduct = await tx.product.findUnique({ where: { sku: "SYS-TAILORING-LINE" } });
@@ -740,6 +796,7 @@ invoicesRouter.post(
           totalFils,
           paidFils,
           balanceFils,
+          discountReason: body.discountReason?.trim(),
           notes: body.notes?.trim(),
           items: {
             create: body.items.map((it) => {
@@ -922,10 +979,20 @@ invoicesRouter.post(
     const salesPersonId = req.user?.id;
     if (!salesPersonId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
 
-    const branchId = await getDefaultBranchId(prisma);
+    const branchId = await branchForUser(salesPersonId);
     const vatPercent = await getVatRatePercent(prisma);
     const retail = body.retailItems;
     const tailoring = body.tailoringItems;
+
+    const retailSubtotal = retail.reduce((a, i) => a + Math.round(i.qty * i.unitFils), 0);
+    const tailoringSubtotal = tailoring.reduce((a, i) => a + i.totalFils, 0);
+    const retailLineDiscounts = retail.reduce((a, i) => a + (i.discountFils ?? 0), 0);
+    await enforceDiscountPolicy({
+      subtotalFils: retailSubtotal + tailoringSubtotal,
+      totalDiscountFils: retailLineDiscounts + (body.invoiceDiscountFils ?? 0),
+      discountReason: body.discountReason,
+      userPermissions: req.user?.permissions,
+    });
 
     const data = await prisma.$transaction(async (tx) => {
       let subtotalFils = 0;
@@ -1060,6 +1127,7 @@ invoicesRouter.post(
           totalFils,
           paidFils,
           balanceFils,
+          discountReason: body.discountReason?.trim(),
           notes: body.notes?.trim(),
           items: {
             create: lineCreates.map((l) => ({
@@ -1510,5 +1578,181 @@ invoicesRouter.get(
       success: true,
       data: isWorkerRequest(req) ? redactInvoiceDetailForWorker(data as unknown as Record<string, unknown>) : data,
     });
+  }),
+);
+
+// ─── RETURNS / EXCHANGE ──────────────────────────────────────────────────────
+
+const returnBody = z.object({
+  reason: z.string().min(2),
+  /** CASH | TRANSFER | CARD → money out of drawer; CREDIT → customer account credit */
+  refundMethod: z.enum(["CASH", "TRANSFER", "CARD", "CREDIT"]).default("CREDIT"),
+  items: z
+    .array(
+      z.object({
+        invoiceItemId: z.string().min(1),
+        qty: z.number().positive(),
+      }),
+    )
+    .min(1),
+});
+
+invoicesRouter.get(
+  "/:id/returns",
+  requirePermission("invoices.view"),
+  asyncHandler(async (req, res) => {
+    const rows = await prisma.invoiceReturn.findMany({
+      where: { invoiceId: req.params.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        items: { include: { invoiceItem: { select: { id: true, description: true, qty: true } } } },
+        createdBy: { select: { id: true, name: true } },
+      },
+    });
+    res.status(200).json({ success: true, data: rows });
+  }),
+);
+
+/**
+ * Register a customer return (or the return half of an exchange — the new piece
+ * is sold on a fresh invoice). Per line: qty capped at (purchased − already
+ * returned). Refund = line share incl. its VAT share. Money flow:
+ *   1) cancels the invoice's unpaid balance first (customer owes less),
+ *   2) any remainder is either store credit (CREDIT) or a drawer refund
+ *      recorded as a negative payment so shift/Z-report totals stay honest.
+ * Ready-made lines go back to stock; tailoring/service lines never restock.
+ */
+invoicesRouter.post(
+  "/:id/returns",
+  requirePermission("invoices.return"),
+  validateBody(returnBody),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof returnBody>;
+    const userId = req.user?.id;
+    if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
+    const invoiceId = req.params.id;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const inv = await tx.invoice.findUnique({
+        where: { id: invoiceId },
+        include: {
+          items: { include: { product: { select: { id: true, isService: true } }, returnItems: true } },
+        },
+      });
+      if (!inv) throw new AppError(404, "Invoice not found", "NOT_FOUND");
+      if (inv.isVoid) throw new AppError(400, "لا يمكن الإرجاع على فاتورة ملغاة", "INVOICE_VOID");
+
+      // VAT share per net dirham of the invoice (discount already applied at invoice level).
+      const taxableFils = Math.max(1, inv.subtotalFils - inv.discountFils);
+      const vatFactor = inv.vatFils / taxableFils;
+
+      let totalReturnFils = 0;
+      const lineCreates: Array<{ invoiceItemId: string; qty: number; amountFils: number; restocked: boolean }> = [];
+
+      for (const rl of body.items) {
+        const item = inv.items.find((i) => i.id === rl.invoiceItemId);
+        if (!item) throw new AppError(400, "بند غير موجود في هذه الفاتورة", "VALIDATION_ERROR");
+        const alreadyReturned = item.returnItems.reduce((a, r) => a + r.qty, 0);
+        const remaining = item.qty - alreadyReturned;
+        if (rl.qty > remaining + 1e-9) {
+          throw new AppError(
+            400,
+            `الكمية المرتجعة (${rl.qty}) أكبر من المتبقي القابل للإرجاع (${remaining})`,
+            "RETURN_QTY_EXCEEDED",
+          );
+        }
+        // Line share of the invoice-level discount is proportional to line total.
+        const invoiceDiscountShare =
+          inv.subtotalFils > 0 ? (item.totalFils / inv.subtotalFils) * inv.discountFils : 0;
+        const netLineFils = item.totalFils - invoiceDiscountShare;
+        const share = item.qty > 0 ? rl.qty / item.qty : 0;
+        const amountFils = Math.round(netLineFils * share * (1 + vatFactor));
+        totalReturnFils += amountFils;
+
+        const restock = !item.product.isService;
+        if (restock) {
+          await tx.product.update({
+            where: { id: item.product.id },
+            data: { stockQty: { increment: Math.round(rl.qty) } },
+          });
+        }
+        lineCreates.push({ invoiceItemId: item.id, qty: rl.qty, amountFils, restocked: restock });
+      }
+
+      const ret = await tx.invoiceReturn.create({
+        data: {
+          invoiceId: inv.id,
+          reason: body.reason.trim(),
+          refundMethod: body.refundMethod,
+          totalFils: totalReturnFils,
+          createdById: userId,
+          items: { create: lineCreates },
+        },
+        include: { items: true },
+      });
+
+      // 1) cancel unpaid balance first
+      const appliedToBalance = Math.min(totalReturnFils, inv.balanceFils);
+      if (appliedToBalance > 0) {
+        await tx.invoice.update({
+          where: { id: inv.id },
+          data: { balanceFils: { decrement: appliedToBalance } },
+        });
+        if (inv.customerId) {
+          await tx.customer.update({
+            where: { id: inv.customerId },
+            data: { balanceFils: { decrement: appliedToBalance } },
+          });
+        }
+      }
+
+      // 2) remainder: store credit or drawer refund
+      const remainder = totalReturnFils - appliedToBalance;
+      if (remainder > 0) {
+        if (body.refundMethod === "CREDIT") {
+          if (!inv.customerId) {
+            throw new AppError(400, "فاتورة بدون عميل — اختر استرداد نقدي بدلاً من الرصيد", "VALIDATION_ERROR");
+          }
+          await tx.customer.update({
+            where: { id: inv.customerId },
+            data: { balanceFils: { decrement: remainder } },
+          });
+        } else {
+          await tx.payment.create({
+            data: {
+              invoiceId: inv.id,
+              method: body.refundMethod,
+              amountFils: -remainder,
+              reference: `RETURN:${ret.id}`,
+            },
+          });
+          await tx.invoice.update({
+            where: { id: inv.id },
+            data: { paidFils: { decrement: remainder } },
+          });
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "INVOICE_RETURN",
+          entity: "Invoice",
+          entityId: inv.id,
+          newValue: JSON.stringify({
+            returnId: ret.id,
+            invoiceNo: inv.invoiceNo,
+            totalReturnFils,
+            refundMethod: body.refundMethod,
+            reason: body.reason,
+            lines: lineCreates.length,
+          }),
+        },
+      });
+
+      return ret;
+    });
+
+    res.status(201).json({ success: true, data: result });
   }),
 );

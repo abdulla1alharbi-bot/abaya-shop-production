@@ -38,6 +38,7 @@ export async function listUsers() {
       phone: true,
       role: true,
       isActive: true,
+      branchId: true,
       createdAt: true,
       extraPermissions: true,
       revokedPermissions: true,
@@ -62,6 +63,7 @@ export async function getUserById(id: string) {
       phone: true,
       role: true,
       isActive: true,
+      branchId: true,
       createdAt: true,
       extraPermissions: true,
       revokedPermissions: true,
@@ -97,6 +99,9 @@ export async function createUser(body: CreateUserBody, canEditPermissionOverride
     phone: body.phone,
     isActive: body.isActive ?? true,
   };
+  if (body.branchId !== undefined) {
+    createData.branch = { connect: { id: body.branchId } };
+  }
   if (body.extraPermissions !== undefined) {
     createData.extraPermissions = permissionJsonField(body.extraPermissions) ?? null;
   }
@@ -114,6 +119,7 @@ export async function createUser(body: CreateUserBody, canEditPermissionOverride
         phone: true,
         role: true,
         isActive: true,
+        branchId: true,
         createdAt: true,
         extraPermissions: true,
         revokedPermissions: true,
@@ -177,6 +183,9 @@ export async function updateUser(
   if (body.password !== undefined && body.password !== "") {
     data.password = await bcrypt.hash(body.password, 12);
   }
+  if (body.branchId !== undefined) {
+    data.branch = body.branchId === null ? { disconnect: true } : { connect: { id: body.branchId } };
+  }
   if (body.extraPermissions !== undefined) {
     data.extraPermissions = permissionJsonField(body.extraPermissions) ?? null;
   }
@@ -206,6 +215,7 @@ export async function updateUser(
         phone: true,
         role: true,
         isActive: true,
+        branchId: true,
         createdAt: true,
         extraPermissions: true,
         revokedPermissions: true,

@@ -714,23 +714,23 @@ export function ReportsPage() {
             {invoicesReportQuery.data?.summary ? (
               <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 sm:grid-cols-2 lg:grid-cols-4">
                 <p className="text-sm">
-                  <span className="text-muted-foreground">عدد الفواتير: </span>
+                  <span className="text-muted-foreground">{t("reports.invoiceCount")} </span>
                   <span className="font-semibold tabular-nums">{invoicesReportQuery.data.summary.invoiceCount}</span>
                 </p>
                 <p className="text-sm">
-                  <span className="text-muted-foreground">الإجمالي: </span>
+                  <span className="text-muted-foreground">{t("reports.total")} </span>
                   <span className="font-semibold tabular-nums">
                     {formatAED(invoicesReportQuery.data.summary.totalSalesFils)}
                   </span>
                 </p>
                 <p className="text-sm">
-                  <span className="text-muted-foreground">المدفوع: </span>
+                  <span className="text-muted-foreground">{t("reports.paid")} </span>
                   <span className="font-semibold tabular-nums">
                     {formatAED(invoicesReportQuery.data.summary.totalPaidFils)}
                   </span>
                 </p>
                 <p className="text-sm">
-                  <span className="text-muted-foreground">المتبقي: </span>
+                  <span className="text-muted-foreground">{t("reports.remaining")} </span>
                   <span className="font-semibold tabular-nums text-amber-900 dark:text-amber-100">
                     {formatAED(invoicesReportQuery.data.summary.totalRemainingFils)}
                   </span>
@@ -746,10 +746,9 @@ export function ReportsPage() {
       <Dialog open={balancesOpen} onOpenChange={setBalancesOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,960px)] max-w-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>الذمم المستحقة</DialogTitle>
+            <DialogTitle>{t("reports.balancesDialogTitle")}</DialogTitle>
             <DialogDescription>
-              أرصدة العملاء وفواتير بها متبقي أو جزئي السداد. عند تطبيق التاريخ، تُقيّد قائمة الفواتير بتاريخ إنشاء
-              الفاتورة؛ قائمة العملاء تعرض من له رصيد مستحق حالياً.
+              {t("reports.balancesDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -799,10 +798,10 @@ export function ReportsPage() {
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {(
                       [
-                        { key: "current", label: "0 – 30 يوم", color: "border-green-400 bg-green-50 dark:bg-green-950/30" },
-                        { key: "31to60", label: "31 – 60 يوم", color: "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30" },
-                        { key: "61to90", label: "61 – 90 يوم", color: "border-orange-400 bg-orange-50 dark:bg-orange-950/30" },
-                        { key: "over90", label: "+90 يوم", color: "border-red-500 bg-red-50 dark:bg-red-950/30" },
+                        { key: "current", label: t("reports.aging0to30"), color: "border-green-400 bg-green-50 dark:bg-green-950/30" },
+                        { key: "31to60", label: t("reports.aging31to60"), color: "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30" },
+                        { key: "61to90", label: t("reports.aging61to90"), color: "border-orange-400 bg-orange-50 dark:bg-orange-950/30" },
+                        { key: "over90", label: t("reports.agingOver90"), color: "border-red-500 bg-red-50 dark:bg-red-950/30" },
                       ] as const
                     ).map(({ key, label, color }) => (
                       <div key={key} className={`rounded-lg border-2 p-3 text-center ${color}`}>
@@ -818,17 +817,17 @@ export function ReportsPage() {
                 {/* Aging invoices table */}
                 <div className="rounded-lg border p-3">
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
-                    فواتير غير مسددة ({receivablesQuery.data?.unpaidInvoices?.length ?? 0})
+                    {t("reports.unpaidInvoicesTitle", { count: receivablesQuery.data?.unpaidInvoices?.length ?? 0 })}
                   </h3>
                   <div className="overflow-auto rounded-md border text-xs">
                     <table className="w-full min-w-[480px]">
                       <thead className="sticky top-0 bg-muted/80">
                         <tr>
-                          <th className="px-2 py-1.5 text-start font-medium">فاتورة / عميل</th>
-                          <th className="px-2 py-1.5 text-center font-medium">أيام</th>
-                          <th className="px-2 py-1.5 text-end font-medium">الإجمالي</th>
-                          <th className="px-2 py-1.5 text-end font-medium">المدفوع</th>
-                          <th className="px-2 py-1.5 text-end font-medium">المتبقي</th>
+                          <th className="px-2 py-1.5 text-start font-medium">{t("reports.colInvoiceCustomer")}</th>
+                          <th className="px-2 py-1.5 text-center font-medium">{t("reports.colDays")}</th>
+                          <th className="px-2 py-1.5 text-end font-medium">{t("reports.colTotal")}</th>
+                          <th className="px-2 py-1.5 text-end font-medium">{t("reports.colPaid")}</th>
+                          <th className="px-2 py-1.5 text-end font-medium">{t("reports.colRemaining")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -862,7 +861,7 @@ export function ReportsPage() {
                         ) : (
                           <tr>
                             <td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">
-                              لا يوجد.
+                              {t("reports.none")}
                             </td>
                           </tr>
                         )}
@@ -870,7 +869,7 @@ export function ReportsPage() {
                       {(receivablesQuery.data?.unpaidInvoices?.length ?? 0) > 0 && (
                         <tfoot className="bg-muted/80 font-semibold">
                           <tr>
-                            <td colSpan={4} className="px-2 py-1.5 text-end text-xs">الإجمالي</td>
+                            <td colSpan={4} className="px-2 py-1.5 text-end text-xs">{t("reports.total")}</td>
                             <td className="px-2 py-1.5 text-end font-mono tabular-nums">
                               {formatAED(
                                 receivablesQuery.data?.unpaidInvoices?.reduce((s, i) => s + i.balanceFils, 0) ?? 0,
@@ -885,7 +884,7 @@ export function ReportsPage() {
 
                 {/* Customers with balance */}
                 <div className="rounded-lg border p-3">
-                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground">عملاء بذمة</h3>
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground">{t("reports.customersWithBalanceTitle")}</h3>
                   <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
                     {receivablesQuery.data?.customersWithBalance?.length ? (
                       receivablesQuery.data.customersWithBalance.map((c) => (
@@ -900,7 +899,7 @@ export function ReportsPage() {
                         </li>
                       ))
                     ) : (
-                      <li className="text-muted-foreground">لا يوجد.</li>
+                      <li className="text-muted-foreground">{t("reports.none")}</li>
                     )}
                   </ul>
                 </div>
@@ -914,8 +913,8 @@ export function ReportsPage() {
       <Dialog open={tailoringOpen} onOpenChange={setTailoringOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1000px)] max-w-[1000px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1000px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>طلبات التفصيل</DialogTitle>
-            <DialogDescription>طلبات التفصيل المُنشأة في الفترة المحددة.</DialogDescription>
+            <DialogTitle>{t("reports.tailoringDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("reports.tailoringDialogDesc")}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
             <div className="flex-1">
@@ -956,18 +955,18 @@ export function ReportsPage() {
             ) : (
               <>
                 <p className="mb-3 text-sm text-muted-foreground">
-                  العدد: <span className="font-medium text-foreground">{tailoringQuery.data?.count ?? 0}</span>
+                  {t("reports.count")} <span className="font-medium text-foreground">{tailoringQuery.data?.count ?? 0}</span>
                 </p>
                 <div className="overflow-x-auto rounded-md border">
                   <table className="w-full min-w-[800px] text-sm">
                     <thead className="border-b bg-muted/50">
                       <tr>
-                        <th className="px-3 py-2 text-start">طلب</th>
-                        <th className="px-3 py-2 text-start">العميل</th>
-                        <th className="px-3 py-2 text-start">النوع</th>
-                        <th className="px-3 py-2 text-start">المرحلة</th>
-                        <th className="px-3 py-2 text-start">فاتورة</th>
-                        <th className="px-3 py-2 text-start">الإنشاء</th>
+                        <th className="px-3 py-2 text-start">{t("reports.colOrder")}</th>
+                        <th className="px-3 py-2 text-start">{t("reports.colCustomer")}</th>
+                        <th className="px-3 py-2 text-start">{t("reports.colType")}</th>
+                        <th className="px-3 py-2 text-start">{t("reports.colStage")}</th>
+                        <th className="px-3 py-2 text-start">{t("reports.colInvoice")}</th>
+                        <th className="px-3 py-2 text-start">{t("reports.colCreated")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -989,7 +988,7 @@ export function ReportsPage() {
                       ) : (
                         <tr>
                           <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                            لا طلبات في هذه الفترة.
+                            {t("reports.noOrdersInPeriod")}
                           </td>
                         </tr>
                       )}
@@ -1006,10 +1005,9 @@ export function ReportsPage() {
       <Dialog open={mostRequestedOpen} onOpenChange={setMostRequestedOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1000px)] max-w-[1000px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1000px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>الأكثر طلباً</DialogTitle>
+            <DialogTitle>{t("reports.mostRequestedDialogTitle")}</DialogTitle>
             <DialogDescription>
-              جميع أصناف الكتالوج مرتبة حسب عدد سطور البيع في الفواتير غير الملغاة خلال الفترة — بما فيها الأصناف
-              بلا مبيعات في الفترة (تظهر في الأسفل). يشمل التفصيل (خدمة) والبيع الجاهز.
+              {t("reports.mostRequestedDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -1051,13 +1049,13 @@ export function ReportsPage() {
                 <table className="w-full min-w-[880px] text-sm">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="px-3 py-2 text-start">الصنف / الموديل</th>
-                      <th className="px-3 py-2 text-start">التصنيف</th>
-                      <th className="px-3 py-2 text-start">النوع</th>
-                      <th className="px-3 py-2 text-end">مرات الطلب (سطور)</th>
-                      <th className="px-3 py-2 text-end">فواتير</th>
-                      <th className="px-3 py-2 text-end">إجمالي الكمية</th>
-                      <th className="px-3 py-2 text-end">إجمالي المبيعات</th>
+                      <th className="px-3 py-2 text-start">{t("reports.colItemModel")}</th>
+                      <th className="px-3 py-2 text-start">{t("reports.colCategory")}</th>
+                      <th className="px-3 py-2 text-start">{t("reports.colType")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colRequestCount")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colInvoices")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colTotalQty")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colTotalSales")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1080,7 +1078,7 @@ export function ReportsPage() {
                         </td>
                         <td className="px-3 py-2 text-xs">{row.categoryName}</td>
                         <td className="px-3 py-2 text-xs">
-                          {row.kind === "tailoring" ? "تفصيل" : "جاهز"}
+                          {row.kind === "tailoring" ? t("reports.kindTailoring") : t("reports.kindReady")}
                         </td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">{row.lineCount}</td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">{row.invoiceCount}</td>
@@ -1096,7 +1094,7 @@ export function ReportsPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">لا توجد منتجات في الكتالوج.</p>
+              <p className="text-sm text-muted-foreground">{t("reports.noCatalogProducts")}</p>
             )}
           </div>
         </DialogContent>
@@ -1106,10 +1104,9 @@ export function ReportsPage() {
       <Dialog open={cashFlowOpen} onOpenChange={setCashFlowOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1000px)] max-w-[1000px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1000px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>النشاط المالي</DialogTitle>
+            <DialogTitle>{t("reports.cashFlowDialogTitle")}</DialogTitle>
             <DialogDescription>
-              الإجماليات أولاً؛ في جدول التفاصيل يظهر دخل وأجور كسطرين إجماليين افتراضياً (مع إمكانية تفصيل الدفعات
-              والمراحل من داخل «عرض التفاصيل»).
+              {t("reports.cashFlowDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -1160,35 +1157,35 @@ export function ReportsPage() {
                     "sticky top-0 z-10 -mx-1 rounded-xl border-2 border-primary/25 bg-gradient-to-b from-muted/50 to-card px-3 py-4 shadow-md sm:px-5 sm:py-5",
                     "dark:border-primary/35 dark:from-muted/30",
                   )}
-                  aria-label="ملخص الفترة"
+                  aria-label={t("reports.periodSummaryAria")}
                 >
                   <h3 className="mb-1 text-center text-sm font-bold text-foreground sm:text-base">
-                    ملخص الفترة — إجماليات
+                    {t("reports.periodSummaryTotals")}
                   </h3>
                   <p className="mb-4 text-center text-[11px] text-muted-foreground sm:text-xs">
-                    مراجعة سريعة عند الإغلاق: اضبط الفترة أعلاه — التفاصيل التفصيلية اختيارية من الزر أسفل الملخص.
+                    {t("reports.periodSummaryNote")}
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="flex flex-col justify-center rounded-lg border border-emerald-300/60 bg-emerald-50/90 px-4 py-3 dark:border-emerald-800/50 dark:bg-emerald-950/40">
-                      <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-100">إجمالي الدخل (التحصيلات)</p>
+                      <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-100">{t("reports.totalIncomeCollections")}</p>
                       <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-tight text-emerald-950 dark:text-emerald-50 sm:text-3xl">
                         {formatAED(financialActivityQuery.data.summary.totalIncomeFils)}
                       </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">مجموع مدفوعات الفواتير في الفترة</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{t("reports.totalIncomeCollectionsNote")}</p>
                     </div>
                     <div className="flex flex-col justify-center rounded-lg border border-amber-300/60 bg-amber-50/90 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-950/35">
-                      <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">إجمالي أجور العمال</p>
+                      <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">{t("reports.totalWorkerWages")}</p>
                       <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-tight text-amber-950 dark:text-amber-50 sm:text-3xl">
                         {formatAED(financialActivityQuery.data.summary.totalWagesFils)}
                       </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">مراحل الورشة المكتملة في الفترة</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{t("reports.totalWorkerWagesNote")}</p>
                     </div>
                     <div className="flex flex-col justify-center rounded-lg border border-rose-200/80 bg-rose-50/80 px-4 py-3 dark:border-rose-900/50 dark:bg-rose-950/30">
-                      <p className="text-xs font-semibold text-rose-900 dark:text-rose-100">إجمالي المصروفات</p>
+                      <p className="text-xs font-semibold text-rose-900 dark:text-rose-100">{t("reports.totalExpenses")}</p>
                       <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-tight text-rose-950 dark:text-rose-50 sm:text-3xl">
                         {formatAED(financialActivityQuery.data.summary.totalExpensesFils)}
                       </p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">مصروفات مسجّلة بتاريخ ضمن الفترة</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{t("reports.totalExpensesNote")}</p>
                     </div>
                     <div
                       className={cn(
@@ -1198,7 +1195,7 @@ export function ReportsPage() {
                           : "border-destructive/50 bg-destructive/15 dark:bg-destructive/20",
                       )}
                     >
-                      <p className="text-xs font-bold text-foreground">النتيجة الصافية</p>
+                      <p className="text-xs font-bold text-foreground">{t("reports.netResult")}</p>
                       <p
                         className={cn(
                           "mt-2 font-mono text-2xl font-bold tabular-nums tracking-tight sm:text-3xl",
@@ -1210,7 +1207,7 @@ export function ReportsPage() {
                         {formatAED(financialActivityQuery.data.summary.netProfitFils)}
                       </p>
                       <p className="mt-1 text-[10px] font-medium text-muted-foreground">
-                        الدخل − أجور العمال − المصروفات
+                        {t("reports.netResultFormula")}
                       </p>
                     </div>
                   </div>
@@ -1228,12 +1225,12 @@ export function ReportsPage() {
                     {cashFlowShowDetails ? (
                       <>
                         <ChevronUp className="h-4 w-4" />
-                        إخفاء التفاصيل
+                        {t("reports.hideDetails")}
                       </>
                     ) : (
                       <>
                         <ChevronDown className="h-4 w-4" />
-                        عرض التفاصيل ({financialActivityQuery.data.entries.length} سطر)
+                        {t("reports.showDetails", { count: financialActivityQuery.data.entries.length })}
                       </>
                     )}
                   </Button>
@@ -1244,7 +1241,7 @@ export function ReportsPage() {
                     <div className="space-y-2 rounded-md border border-border/60 bg-background/80 px-3 py-2">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <Label htmlFor="cash-income-detail" className="cursor-pointer text-xs font-normal leading-snug">
-                          عرض تحصيلات تفصيلية (كل دفعة / فاتورة)
+                          {t("reports.detailedIncomeToggle")}
                         </Label>
                         <input
                           id="cash-income-detail"
@@ -1257,7 +1254,7 @@ export function ReportsPage() {
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-2">
                         <Label htmlFor="cash-wages-detail" className="cursor-pointer text-xs font-normal leading-snug">
-                          عرض أجور تفصيلية (كل مرحلة وطلب)
+                          {t("reports.detailedWagesToggle")}
                         </Label>
                         <input
                           id="cash-wages-detail"
@@ -1272,15 +1269,15 @@ export function ReportsPage() {
                     {financialActivityQuery.data.note ? (
                       <p className="text-xs leading-relaxed text-muted-foreground">{financialActivityQuery.data.note}</p>
                     ) : null}
-                    <h3 className="text-sm font-semibold">تفاصيل الحركة (سطر بسطر)</h3>
+                    <h3 className="text-sm font-semibold">{t("reports.movementDetails")}</h3>
                     <div className="overflow-x-auto rounded-md border bg-card">
                       <table className="w-full min-w-[720px] text-sm">
                         <thead className="border-b bg-muted/50">
                           <tr>
-                            <th className="px-3 py-2 text-start">النوع</th>
-                            <th className="px-3 py-2 text-start">البيان</th>
-                            <th className="px-3 py-2 text-end">المبلغ</th>
-                            <th className="px-3 py-2 text-start">التاريخ</th>
+                            <th className="px-3 py-2 text-start">{t("reports.colType")}</th>
+                            <th className="px-3 py-2 text-start">{t("reports.colStatement")}</th>
+                            <th className="px-3 py-2 text-end">{t("reports.colAmount")}</th>
+                            <th className="px-3 py-2 text-start">{t("reports.colDate")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1310,7 +1307,7 @@ export function ReportsPage() {
                           ) : (
                             <tr>
                               <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                                لا حركة مالية في هذه الفترة.
+                                {t("reports.noFinancialMovement")}
                               </td>
                             </tr>
                           )}

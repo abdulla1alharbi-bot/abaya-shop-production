@@ -85,7 +85,7 @@ export function SampleModelPerformancePage() {
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
         >
-          <option value="">كل الموديلات</option>
+          <option value="">{t("production.allModels")}</option>
           {models?.map((m) => (
             <option key={m.id} value={m.id}>
               {m.code} — {m.name}
@@ -99,13 +99,13 @@ export function SampleModelPerformancePage() {
             setModelId("");
           }}
         >
-          مسح الفلاتر
+          {t("production.clearFilters")}
         </Button>
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
         <div className="rounded-xl border bg-card p-3">
-          <h2 className="mb-2 text-sm font-semibold">أفضل نماذج العرض (حسب طلبات التفصيل)</h2>
+          <h2 className="mb-2 text-sm font-semibold">{t("production.topSamplesByOrders")}</h2>
           <ul className="space-y-1 text-sm">
             {data?.topModels.byOrders.length ? (
               data.topModels.byOrders.map((r) => (
@@ -115,12 +115,12 @@ export function SampleModelPerformancePage() {
                 </li>
               ))
             ) : (
-              <li className="text-muted-foreground">لا توجد بيانات.</li>
+              <li className="text-muted-foreground">{t("production.noData")}</li>
             )}
           </ul>
         </div>
         <div className="rounded-xl border bg-card p-3">
-          <h2 className="mb-2 text-sm font-semibold">نماذج العرض بدون طلبات</h2>
+          <h2 className="mb-2 text-sm font-semibold">{t("production.samplesWithoutOrders")}</h2>
           <ul className="space-y-1 text-sm">
             {data?.noOrderSamples.length ? (
               data.noOrderSamples.map((r) => (
@@ -130,7 +130,7 @@ export function SampleModelPerformancePage() {
                 </li>
               ))
             ) : (
-              <li className="text-muted-foreground">لا توجد بيانات.</li>
+              <li className="text-muted-foreground">{t("production.noData")}</li>
             )}
           </ul>
         </div>
@@ -140,22 +140,22 @@ export function SampleModelPerformancePage() {
         <table className="w-full min-w-[980px] text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-3 py-2 text-start font-medium">الموديل</th>
-              <th className="px-3 py-2 text-start font-medium">تاريخ إنشاء النموذج</th>
-              <th className="px-3 py-2 text-start font-medium">عدد طلبات التفصيل</th>
-              <th className="px-3 py-2 text-start font-medium">إجمالي إيراد التفصيل</th>
-              <th className="px-3 py-2 text-start font-medium">تكلفة إنتاج النموذج</th>
-              <th className="px-3 py-2 text-start font-medium">العائد التقديري</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colModel")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colSampleCreatedAt")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colTailoringOrdersCount")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colTotalTailoringRevenue")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colSampleProductionCost")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colEstimatedReturn")}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">جاري التحميل…</td>
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{t("common.loading")}</td>
               </tr>
             ) : !data?.rows.length ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">لا توجد نتائج.</td>
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{t("production.noResults")}</td>
               </tr>
             ) : (
               data.rows.map((r) => (

@@ -2,6 +2,7 @@
  * Generates a printable UAE VAT tax invoice in a new browser window.
  * Opens the browser's native print dialog.
  */
+import { taxInvoiceQrDataUrl } from "./taxInvoiceQr.js";
 
 function fils(f: number): string {
   return (f / 100).toFixed(2);
@@ -66,11 +67,27 @@ function formatDate(d: string): string {
   }
 }
 
-export function printInvoice(data: Record<string, unknown>, shopSettings?: Record<string, string>): void {
+export async function printInvoice(data: Record<string, unknown>, shopSettings?: Record<string, string>): Promise<void> {
   const inv = data as unknown as InvoiceData;
   const shopName = shopSettings?.shop_name || "Abaya Shop";
   const vatRate = shopSettings?.vat_rate || "5";
   const vatNo = shopSettings?.vat_number || "";
+
+  // E-invoice QR (TLV): rendered when the shop has a VAT registration number.
+  let qrDataUrl = "";
+  if (vatNo) {
+    try {
+      qrDataUrl = await taxInvoiceQrDataUrl({
+        sellerName: shopName,
+        vatNumber: vatNo,
+        isoTimestamp: new Date(inv.createdAt).toISOString(),
+        totalWithVat: fils(inv.totalFils),
+        vatAmount: fils(inv.vatFils),
+      });
+    } catch {
+      qrDataUrl = ""; // never block printing on QR generation
+    }
+  }
 
   const itemRows = inv.items
     .map(
@@ -235,6 +252,11 @@ export function printInvoice(data: Record<string, unknown>, shopSettings?: Recor
     </div>
   </div>
 
+  ${
+    qrDataUrl
+      ? `<div style="text-align:center;margin-top:8px;"><img src="${qrDataUrl}" alt="E-Invoice QR" style="width:120px;height:120px;" /><div style="font-size:10px;color:#888;">رمز الفاتورة الإلكترونية / E-Invoice QR</div></div>`
+      : ""
+  }
   <div class="footer">
     هذه فاتورة ضريبية صادرة وفق متطلبات الهيئة الاتحادية للضرائب — الإمارات العربية المتحدة<br/>
     This is a tax invoice issued in accordance with UAE Federal Tax Authority requirements.<br/>

@@ -138,7 +138,7 @@ export function ProductionPage() {
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
         >
-          <option value="">اختر الموديل</option>
+          <option value="">{t("production.selectModel")}</option>
           {models?.map((m) => (
             <option key={m.id} value={m.id}>
               {m.code} — {m.name}
@@ -151,16 +151,16 @@ export function ProductionPage() {
           value={fabricId}
           onChange={(e) => setFabricId(e.target.value)}
         >
-          <option value="">بدون تحديد قماش</option>
+          <option value="">{t("production.noFabricSelected")}</option>
           {fabrics?.map((f) => (
             <option key={f.id} value={f.id}>
               {f.rollCode} — {f.name} ({f.color})
             </option>
           ))}
         </select>
-        <Input placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <Input placeholder={t("production.notes")} value={notes} onChange={(e) => setNotes(e.target.value)} />
         <Button disabled={!modelId || createBatch.isPending} onClick={() => createBatch.mutate()}>
-          {createBatch.isPending ? "..." : "إنشاء إنتاج"}
+          {createBatch.isPending ? "..." : t("production.createBatch")}
         </Button>
       </section>
 
@@ -171,7 +171,7 @@ export function ProductionPage() {
           value={filterModelId}
           onChange={(e) => setFilterModelId(e.target.value)}
         >
-          <option value="">كل الموديلات</option>
+          <option value="">{t("production.allModels")}</option>
           {models?.map((m) => (
             <option key={m.id} value={m.id}>
               {m.code} — {m.name}
@@ -185,7 +185,7 @@ export function ProductionPage() {
             setFilterModelId("");
           }}
         >
-          مسح الفلاتر
+          {t("production.clearFilters")}
         </Button>
       </section>
 
@@ -193,25 +193,25 @@ export function ProductionPage() {
         <table className="w-full min-w-[760px] text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-3 py-2 text-start font-medium">رقم الإنتاج</th>
-              <th className="px-3 py-2 text-start font-medium">الموديل</th>
-              <th className="px-3 py-2 text-start font-medium">الكمية</th>
-              <th className="px-3 py-2 text-start font-medium">المنجز</th>
-              <th className="px-3 py-2 text-start font-medium">الحالة</th>
-              <th className="px-3 py-2 text-start font-medium">تاريخ الإنشاء</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colBatchNo")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colModel")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colQuantity")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colCompleted")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colStatus")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colCreatedAt")}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  جاري التحميل…
+                  {t("common.loading")}
                 </td>
               </tr>
             ) : !data?.length ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  لا توجد سجلات إنتاج.
+                  {t("production.noBatches")}
                 </td>
               </tr>
             ) : (
@@ -228,11 +228,11 @@ export function ProductionPage() {
                   <td className="px-3 py-2">
                     {r.status === "COMPLETED" ? (
                       <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
-                        مكتمل
+                        {t("production.statusCompleted")}
                       </span>
                     ) : (
                       <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-                        قيد التنفيذ
+                        {t("production.statusInProgress")}
                       </span>
                     )}
                   </td>
@@ -246,22 +246,22 @@ export function ProductionPage() {
 
       {canViewMonthlyReport ? (
         <section className="space-y-3 rounded-xl border bg-card p-3">
-          <h2 className="text-base font-semibold">إنتاج شهري</h2>
+          <h2 className="text-base font-semibold">{t("production.monthlyProduction")}</h2>
           <div className="grid gap-2 text-sm md:grid-cols-4">
             <div>
-              <p className="text-muted-foreground">دفعات الإنتاج</p>
+              <p className="text-muted-foreground">{t("production.productionBatches")}</p>
               <p className="font-semibold">{monthlyReport?.summary.totalBatches ?? 0}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">الكمية المنتجة</p>
+              <p className="text-muted-foreground">{t("production.producedQuantity")}</p>
               <p className="font-semibold">{monthlyReport?.summary.totalProducedQty ?? 0}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">إجمالي الأجور</p>
+              <p className="text-muted-foreground">{t("production.totalWages")}</p>
               <p className="font-semibold">{formatAED(monthlyReport?.summary.totalWagesFils ?? 0)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">إجمالي التكلفة</p>
+              <p className="text-muted-foreground">{t("production.totalCost")}</p>
               <p className="font-semibold">{formatAED(monthlyReport?.summary.totalCostFils ?? 0)}</p>
             </div>
           </div>

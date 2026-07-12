@@ -218,6 +218,51 @@ export async function deductFabricOnCuttingComplete(
 }
 
 /**
+ * Record cutting waste for a job: deducts `wasteMeters` from the first material
+ * line's roll (over and above the planned meters) and accumulates it on the line
+ * as `wasteMeters`. Logged as a `WASTE` fabric transaction so wastage reports and
+ * COGS stay accurate. No-op when the job has no materials or waste is ~0.
+ */
+export async function recordCuttingWaste(
+  tx: PrismaTx,
+  params: { jobOrderId: string; jobNo: number; wasteMeters: number },
+): Promise<void> {
+  if (params.wasteMeters <= 1e-9) return;
+  const material = await tx.jobOrderMaterial.findFirst({
+    where: { jobOrderId: params.jobOrderId },
+    orderBy: { meters: "desc" },
+  });
+  if (!material) return;
+
+  const roll = await tx.fabricRoll.findUnique({ where: { id: material.rollId } });
+  if (!roll) return;
+  // Waste can't exceed what's physically left on the roll.
+  const meters = Math.min(params.wasteMeters, Math.max(0, roll.availableMeters));
+  if (meters <= 1e-9) return;
+
+  await tx.fabricRoll.update({
+    where: { id: roll.id },
+    data: {
+      usedMeters: { increment: meters },
+      availableMeters: { decrement: meters },
+    },
+  });
+  await tx.fabricTransaction.create({
+    data: {
+      rollId: roll.id,
+      type: "WASTE",
+      meters,
+      reason: `[CUTTING_WASTE] هدر قص (Job #${params.jobNo})`,
+      jobOrderId: params.jobOrderId,
+    },
+  });
+  await tx.jobOrderMaterial.update({
+    where: { id: material.id },
+    data: { wasteMeters: { increment: meters } },
+  });
+}
+
+/**
  * Restore every deducted line (`fabricDeducted: true`) and release reservations for
  * uncut lines (`fabricDeducted: false`). Used on job cancel / invoice void.
  * (Idempotent: second run finds nothing to process.)

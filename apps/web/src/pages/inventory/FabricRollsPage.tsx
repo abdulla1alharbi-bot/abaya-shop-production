@@ -108,7 +108,7 @@ export function FabricRollsPage() {
   function handleSubmit() {
     const val = parseFloat(meters);
     if (!val || val <= 0) {
-      setError("أدخل كمية موجبة صحيحة.");
+      setError(t("fabrics.errorPositiveQty"));
       return;
     }
     restock.mutate({ id: restockRoll!.id, meters: val, reason: reason.trim() });
@@ -117,11 +117,11 @@ export function FabricRollsPage() {
   function handleAdjustSubmit() {
     const val = parseFloat(meters);
     if (!val || val <= 0) {
-      setError("أدخل كمية موجبة صحيحة.");
+      setError(t("fabrics.errorPositiveQty"));
       return;
     }
     if (val > adjustRoll!.availableMeters) {
-      setError(`لا يمكن خصم أكثر من المتاح (${adjustRoll!.availableMeters.toFixed(2)} م).`);
+      setError(t("fabrics.errorMaxDeduct", { max: adjustRoll!.availableMeters.toFixed(2) }));
       return;
     }
     adjust.mutate({ id: adjustRoll!.id, meters: val, reason: reason.trim() });
@@ -129,7 +129,7 @@ export function FabricRollsPage() {
 
   const filtered = data?.filter((r) => (r.category ?? "FABRIC") === tab) ?? [];
 
-  const tabLabel = tab === "FABRIC" ? "القماش" : "الدانتيل";
+  const tabLabel = tab === "FABRIC" ? t("fabrics.tabFabric") : t("fabrics.tabLace");
 
   return (
     <div>
@@ -150,18 +150,18 @@ export function FabricRollsPage() {
 
       {/* Tabs */}
       <div className="mb-4 flex gap-1 rounded-lg border bg-muted/40 p-1 w-fit">
-        {(["FABRIC", "LACE"] as Tab[]).map((t) => (
+        {(["FABRIC", "LACE"] as Tab[]).map((tk) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tk}
+            onClick={() => setTab(tk)}
             className={cn(
               "rounded-md px-5 py-1.5 text-sm font-medium transition-colors",
-              tab === t
+              tab === tk
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {t === "FABRIC" ? "القماش" : "الدانتيل"}
+            {tk === "FABRIC" ? t("fabrics.tabFabric") : t("fabrics.tabLace")}
           </button>
         ))}
       </div>
@@ -170,13 +170,13 @@ export function FabricRollsPage() {
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-4 py-3 text-start font-medium">الرمز</th>
-              <th className="px-4 py-3 text-start font-medium">الاسم</th>
-              <th className="px-4 py-3 text-start font-medium">النوع / اللون</th>
-              <th className="px-4 py-3 text-end font-medium">متاح (م)</th>
-              <th className="px-4 py-3 text-end font-medium">تكلفة/م</th>
-              <th className="px-4 py-3 text-start font-medium">تنبيه</th>
-              <th className="px-4 py-3 text-start font-medium">الحالة</th>
+              <th className="px-4 py-3 text-start font-medium">{t("fabrics.colCode")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("fabrics.colName")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("fabrics.colTypeColor")}</th>
+              <th className="px-4 py-3 text-end font-medium">{t("fabrics.colAvailable")}</th>
+              <th className="px-4 py-3 text-end font-medium">{t("fabrics.colCostPerMeter")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("fabrics.colAlert")}</th>
+              <th className="px-4 py-3 text-start font-medium">{t("fabrics.colStatus")}</th>
               <th className="px-4 py-3 w-36" />
             </tr>
           </thead>
@@ -184,13 +184,13 @@ export function FabricRollsPage() {
             {isLoading ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                  جاري التحميل…
+                  {t("common.loading")}
                 </td>
               </tr>
             ) : !filtered.length ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                  لا {tabLabel} بعد. أضف أول لفة.
+                  {t("fabrics.emptyRolls", { label: tabLabel })}
                 </td>
               </tr>
             ) : (
@@ -207,12 +207,12 @@ export function FabricRollsPage() {
                     <td className="px-4 py-2.5 text-end">{formatAED(r.costPerMeter)}</td>
                     <td className="px-4 py-2.5">
                       {low ? (
-                        <Badge variant="destructive">منخفض</Badge>
+                        <Badge variant="destructive">{t("fabrics.low")}</Badge>
                       ) : (
-                        <span className="text-muted-foreground">طبيعي</span>
+                        <span className="text-muted-foreground">{t("fabrics.normal")}</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5">{r.isActive ? "نشط" : "موقوف"}</td>
+                    <td className="px-4 py-2.5">{r.isActive ? t("fabrics.statusActive") : t("fabrics.statusInactive")}</td>
                     <td className="px-4 py-2.5 text-end">
                       <div className="flex items-center justify-end gap-3">
                         {can("fabrics.edit") && (
@@ -222,7 +222,7 @@ export function FabricRollsPage() {
                             className="h-auto p-0 text-green-600 hover:text-green-700"
                             onClick={() => openRestock(r)}
                           >
-                            إضافة
+                            {t("fabrics.actionRestock")}
                           </Button>
                         )}
                         {can("fabrics.edit") && (
@@ -232,12 +232,12 @@ export function FabricRollsPage() {
                             className="h-auto p-0 text-red-500 hover:text-red-600"
                             onClick={() => openAdjust(r)}
                           >
-                            خصم
+                            {t("fabrics.actionDeduct")}
                           </Button>
                         )}
                         {can("fabrics.edit") ? (
                           <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                            <Link to={`/fabrics/${r.id}/edit`}>تعديل</Link>
+                            <Link to={`/fabrics/${r.id}/edit`}>{t("common.edit")}</Link>
                           </Button>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
@@ -256,7 +256,7 @@ export function FabricRollsPage() {
       <Dialog open={!!adjustRoll} onOpenChange={(open) => { if (!open) { setAdjustRoll(null); setMeters(""); setReason(""); setError(""); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>خصم من المخزون</DialogTitle>
+            <DialogTitle>{t("fabrics.deductTitle")}</DialogTitle>
           </DialogHeader>
           {adjustRoll && (
             <div className="space-y-4">
@@ -264,12 +264,12 @@ export function FabricRollsPage() {
                 <p className="font-medium">{adjustRoll.name}</p>
                 <p className="text-muted-foreground">
                   {adjustRoll.type} · {adjustRoll.color} —{" "}
-                  متاح حالياً:{" "}
-                  <span className="tabular-nums font-medium">{adjustRoll.availableMeters.toFixed(2)} م</span>
+                  {t("fabrics.currentlyAvailable")}:{" "}
+                  <span className="tabular-nums font-medium">{adjustRoll.availableMeters.toFixed(2)} {t("fabrics.metersShort")}</span>
                 </p>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">كمية الخصم (م) *</label>
+                <label className="text-sm font-medium">{t("fabrics.deductQtyLabel")}</label>
                 <input
                   type="number"
                   min="0.01"
@@ -277,26 +277,26 @@ export function FabricRollsPage() {
                   max={adjustRoll.availableMeters}
                   value={meters}
                   onChange={(e) => { setMeters(e.target.value); setError(""); }}
-                  placeholder={`أقصى: ${adjustRoll.availableMeters.toFixed(2)} م`}
+                  placeholder={t("fabrics.maxPlaceholder", { max: adjustRoll.availableMeters.toFixed(2) })}
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   autoFocus
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">سبب الخصم (اختياري)</label>
+                <label className="text-sm font-medium">{t("fabrics.deductReasonLabel")}</label>
                 <input
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="مثال: إدخال خاطئ، تلف، إلخ"
+                  placeholder={t("fabrics.deductReasonPlaceholder")}
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               {meters && parseFloat(meters) > 0 && parseFloat(meters) <= adjustRoll.availableMeters && (
                 <p className="text-sm text-muted-foreground">
-                  المتاح بعد الخصم:{" "}
+                  {t("fabrics.availableAfterDeduct")}:{" "}
                   <span className="font-semibold text-red-500 tabular-nums">
-                    {(adjustRoll.availableMeters - parseFloat(meters)).toFixed(2)} م
+                    {(adjustRoll.availableMeters - parseFloat(meters)).toFixed(2)} {t("fabrics.metersShort")}
                   </span>
                 </p>
               )}
@@ -305,10 +305,10 @@ export function FabricRollsPage() {
           )}
           <DialogFooter className="gap-2">
             <DialogClose asChild>
-              <Button variant="outline" size="sm">إلغاء</Button>
+              <Button variant="outline" size="sm">{t("common.cancel")}</Button>
             </DialogClose>
             <Button size="sm" variant="destructive" onClick={handleAdjustSubmit} disabled={adjust.isPending}>
-              {adjust.isPending ? "جاري الحفظ…" : "خصم من المخزون"}
+              {adjust.isPending ? t("common.saving") : t("fabrics.deductTitle")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -318,7 +318,7 @@ export function FabricRollsPage() {
       <Dialog open={!!restockRoll} onOpenChange={(open) => !open && setRestockRoll(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>إضافة وارد للمخزون</DialogTitle>
+            <DialogTitle>{t("fabrics.restockTitle")}</DialogTitle>
           </DialogHeader>
           {restockRoll && (
             <div className="space-y-4">
@@ -326,38 +326,38 @@ export function FabricRollsPage() {
                 <p className="font-medium">{restockRoll.name}</p>
                 <p className="text-muted-foreground">
                   {restockRoll.type} · {restockRoll.color} —{" "}
-                  متاح حالياً:{" "}
-                  <span className="tabular-nums font-medium">{restockRoll.availableMeters.toFixed(2)} م</span>
+                  {t("fabrics.currentlyAvailable")}:{" "}
+                  <span className="tabular-nums font-medium">{restockRoll.availableMeters.toFixed(2)} {t("fabrics.metersShort")}</span>
                 </p>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">كمية الوارد (م) *</label>
+                <label className="text-sm font-medium">{t("fabrics.restockQtyLabel")}</label>
                 <input
                   type="number"
                   min="0.01"
                   step="0.01"
                   value={meters}
                   onChange={(e) => { setMeters(e.target.value); setError(""); }}
-                  placeholder="مثال: 35"
+                  placeholder={t("fabrics.restockQtyPlaceholder")}
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   autoFocus
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">ملاحظة (اختياري)</label>
+                <label className="text-sm font-medium">{t("fabrics.restockNoteLabel")}</label>
                 <input
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="مثال: وارد من المورّد"
+                  placeholder={t("fabrics.restockNotePlaceholder")}
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               {meters && parseFloat(meters) > 0 && (
                 <p className="text-sm text-muted-foreground">
-                  المتاح بعد الإضافة:{" "}
+                  {t("fabrics.availableAfterRestock")}:{" "}
                   <span className="font-semibold text-green-600 tabular-nums">
-                    {(restockRoll.availableMeters + parseFloat(meters)).toFixed(2)} م
+                    {(restockRoll.availableMeters + parseFloat(meters)).toFixed(2)} {t("fabrics.metersShort")}
                   </span>
                 </p>
               )}
@@ -366,10 +366,10 @@ export function FabricRollsPage() {
           )}
           <DialogFooter className="gap-2">
             <DialogClose asChild>
-              <Button variant="outline" size="sm">إلغاء</Button>
+              <Button variant="outline" size="sm">{t("common.cancel")}</Button>
             </DialogClose>
             <Button size="sm" onClick={handleSubmit} disabled={restock.isPending}>
-              {restock.isPending ? "جاري الحفظ…" : "إضافة للمخزون"}
+              {restock.isPending ? t("common.saving") : t("fabrics.restockConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

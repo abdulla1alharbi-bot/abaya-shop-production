@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+
 /** Matches GET /abaya-catalog response */
 export type AbayaCatalogModel = {
   id: string;
@@ -83,14 +85,14 @@ export function validateTailoringAbayaSelection(
   customStyleText: string,
   catalog: { types: AbayaCatalogType[] } | undefined,
 ): string | null {
-  if (!abayaTypeId?.trim()) return "اختر نوع العباية.";
+  if (!abayaTypeId?.trim()) return i18n.t("pos.intake.errChooseAbayaType");
   const t = resolveAbayaType(abayaTypeId, catalog);
-  if (!t) return "نوع العباية غير صالح.";
+  if (!t) return i18n.t("pos.intake.errInvalidAbayaType");
   if (needsModelPicker(t)) {
-    if (!abayaModelId?.trim()) return "اختر الموديل أو التصميم.";
+    if (!abayaModelId?.trim()) return i18n.t("pos.intake.errChooseModel");
   }
   if (needsCustomText(t)) {
-    if (!customStyleText?.trim()) return "اكتب وصف التفصيل المخصص.";
+    if (!customStyleText?.trim()) return i18n.t("pos.intake.errWriteCustomStyle");
   }
   return null;
 }

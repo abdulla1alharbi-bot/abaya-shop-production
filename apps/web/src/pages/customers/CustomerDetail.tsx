@@ -126,10 +126,10 @@ export function CustomerDetail() {
     <div className="space-y-8">
       <PageHeader
         title={String(data.name)}
-        description={`${String(data.mobile)} · كود ${String(data.code)}`}
+        description={t("customers.detail.headerSubtitle", { mobile: String(data.mobile), code: String(data.code) })}
         actions={
           <Link to="/customers" className="text-sm text-brand-700 underline">
-            رجوع
+            {t("common.back")}
           </Link>
         }
       />
@@ -137,25 +137,25 @@ export function CustomerDetail() {
       {/* Phase 3 F7: Customer KPI strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" dir="rtl">
         <div className="rounded-lg border-2 p-3 text-center">
-          <p className="text-xs text-muted-foreground">القيمة الإجمالية (LTV)</p>
+          <p className="text-xs text-muted-foreground">{t("customers.detail.kpiLtv")}</p>
           <p className="mt-1 text-base font-bold">{formatAED(lifetimeValueFils)}</p>
         </div>
         <div className="rounded-lg border-2 p-3 text-center">
-          <p className="text-xs text-muted-foreground">عدد الطلبات</p>
+          <p className="text-xs text-muted-foreground">{t("customers.detail.kpiOrderCount")}</p>
           <p className="mt-1 text-base font-bold">{orderCount}</p>
         </div>
         <div className="rounded-lg border-2 p-3 text-center">
-          <p className="text-xs text-muted-foreground">متوسط الطلب</p>
+          <p className="text-xs text-muted-foreground">{t("customers.detail.kpiAov")}</p>
           <p className="mt-1 text-base font-bold">{formatAED(aov)}</p>
         </div>
         <div className="rounded-lg border-2 p-3 text-center">
-          <p className="text-xs text-muted-foreground">آخر زيارة</p>
+          <p className="text-xs text-muted-foreground">{t("customers.detail.kpiLastVisit")}</p>
           <p className="mt-1 text-sm font-bold">
             {lastVisitAt ? new Date(lastVisitAt).toLocaleDateString("ar-AE") : "—"}
           </p>
         </div>
         <div className={`rounded-lg border-2 p-3 text-center ${tierInfo.cls}`}>
-          <p className="text-xs">المستوى</p>
+          <p className="text-xs">{t("customers.detail.kpiTier")}</p>
           <p className="mt-1 text-base font-bold">{tierInfo.label}</p>
         </div>
       </div>
@@ -163,20 +163,20 @@ export function CustomerDetail() {
       <div className="rounded-lg border bg-muted/20 p-3 text-sm" dir="rtl">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <p>
-            <span className="text-muted-foreground">رصيد مستحق: </span>
+            <span className="text-muted-foreground">{t("customers.detail.balanceDue")}</span>
             <span className={`font-semibold ${balanceFils > 0 ? "text-amber-700 dark:text-amber-300" : ""}`}>
               {formatAED(balanceFils)}
             </span>
           </p>
           <p>
-            <span className="text-muted-foreground">حد الائتمان: </span>
+            <span className="text-muted-foreground">{t("customers.detail.creditLimit")}</span>
             <span className="font-semibold">
-              {creditLimitFils > 0 ? formatAED(creditLimitFils) : "— غير محدد"}
+              {creditLimitFils > 0 ? formatAED(creditLimitFils) : t("customers.detail.notSet")}
             </span>
           </p>
           {data.address ? (
             <p>
-              <span className="text-muted-foreground">العنوان: </span>
+              <span className="text-muted-foreground">{t("customers.detail.address")}</span>
               {String(data.address)}
             </p>
           ) : null}
@@ -184,10 +184,10 @@ export function CustomerDetail() {
       </div>
 
       <div>
-        <h2 className="mb-2 font-medium">قياسات محفوظة</h2>
+        <h2 className="mb-2 font-medium">{t("customers.detail.savedMeasurements")}</h2>
         <div className="mb-4 space-y-2">
           {measurements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">لا قياسات بعد.</p>
+            <p className="text-sm text-muted-foreground">{t("customers.detail.noMeasurements")}</p>
           ) : (
             measurements.map((m) => (
               <div key={String(m.id)} className="rounded-md border bg-muted/30 p-3 text-xs">
@@ -218,10 +218,10 @@ export function CustomerDetail() {
             saveMeasurement.mutate(new FormData(e.currentTarget));
           }}
         >
-          <p className="text-sm font-medium">إضافة قياس جديد</p>
+          <p className="text-sm font-medium">{t("customers.detail.addMeasurement")}</p>
           <div>
-            <Label htmlFor="mlabel">اسم المجموعة (اختياري)</Label>
-            <Input id="mlabel" name="mlabel" placeholder="مثال: مقاس رسمي / صيف 2025" className="mt-1" />
+            <Label htmlFor="mlabel">{t("customers.detail.groupNameLabel")}</Label>
+            <Input id="mlabel" name="mlabel" placeholder={t("customers.detail.groupNamePlaceholder")} className="mt-1" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <Input name="shoulder" placeholder={t("measurements.shoulder")} type="number" step={0.1} />
@@ -232,18 +232,18 @@ export function CustomerDetail() {
             <Input name="sleeve" placeholder={t("measurements.sleeve")} type="number" step={0.1} />
           </div>
           <div>
-            <Label htmlFor="mnotes">ملاحظات القياس</Label>
+            <Label htmlFor="mnotes">{t("customers.detail.measurementNotes")}</Label>
             <Input id="mnotes" name="mnotes" />
           </div>
           <Button type="submit" size="sm" disabled={saveMeasurement.isPending}>
-            حفظ القياس
+            {t("customers.detail.saveMeasurement")}
           </Button>
         </form>
       </div>
 
       {/* Phase 3 F7: Communication log */}
       <div dir="rtl">
-        <h2 className="mb-2 font-medium">ملاحظات وسجل التواصل ({notes.length})</h2>
+        <h2 className="mb-2 font-medium">{t("customers.detail.notesTitle", { count: notes.length })}</h2>
         <form
           className="mb-3 flex gap-2 rounded-md border p-3"
           onSubmit={(e) => {
@@ -255,16 +255,16 @@ export function CustomerDetail() {
           <Input
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
-            placeholder="مثال: تم الاتصال — يستلم الطلب الخميس / طلب تخفيض السعر"
+            placeholder={t("customers.detail.notePlaceholder")}
             className="flex-1"
           />
           <Button type="submit" size="sm" disabled={!newNote.trim() || addNote.isPending}>
-            {addNote.isPending ? "..." : "إضافة"}
+            {addNote.isPending ? "..." : t("common.add")}
           </Button>
         </form>
         <div className="space-y-2">
           {notes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">لا ملاحظات مسجلة.</p>
+            <p className="text-sm text-muted-foreground">{t("customers.detail.noNotes")}</p>
           ) : (
             notes.map((n) => (
               <div key={n.id} className="flex items-start gap-3 rounded-md border bg-muted/20 p-3 text-sm">
@@ -281,10 +281,10 @@ export function CustomerDetail() {
                   className="h-7 text-xs text-destructive"
                   disabled={deleteNote.isPending}
                   onClick={() => {
-                    if (window.confirm("حذف هذه الملاحظة؟")) deleteNote.mutate(n.id);
+                    if (window.confirm(t("customers.detail.confirmDeleteNote"))) deleteNote.mutate(n.id);
                   }}
                 >
-                  حذف
+                  {t("common.delete")}
                 </Button>
               </div>
             ))
@@ -293,22 +293,22 @@ export function CustomerDetail() {
       </div>
 
       <div>
-        <h2 className="mb-2 font-medium">الفواتير</h2>
+        <h2 className="mb-2 font-medium">{t("customers.detail.invoicesTitle")}</h2>
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-2 text-left">فاتورة</th>
-                <th className="px-4 py-2 text-right">الإجمالي</th>
-                <th className="px-4 py-2 text-right">متبقي</th>
-                <th className="px-4 py-2 text-left">التاريخ</th>
+                <th className="px-4 py-2 text-left">{t("customers.detail.colInvoice")}</th>
+                <th className="px-4 py-2 text-right">{t("customers.detail.colTotal")}</th>
+                <th className="px-4 py-2 text-right">{t("customers.detail.colBalance")}</th>
+                <th className="px-4 py-2 text-left">{t("customers.detail.colDate")}</th>
               </tr>
             </thead>
             <tbody>
               {invoices.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-4 text-muted-foreground">
-                    لا فواتير.
+                    {t("customers.detail.noInvoices")}
                   </td>
                 </tr>
               ) : (
@@ -336,15 +336,15 @@ export function CustomerDetail() {
       </div>
 
       <div>
-        <h2 className="mb-2 font-medium">طلبات تفصيل سابقة</h2>
+        <h2 className="mb-2 font-medium">{t("customers.detail.jobsTitle")}</h2>
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-2 text-left">طلب</th>
-                <th className="px-4 py-2 text-left">المرحلة</th>
-                <th className="px-4 py-2 text-right">البيع</th>
-                <th className="px-4 py-2 text-right">متبقي</th>
+                <th className="px-4 py-2 text-left">{t("customers.detail.colJob")}</th>
+                <th className="px-4 py-2 text-left">{t("customers.detail.colStage")}</th>
+                <th className="px-4 py-2 text-right">{t("customers.detail.colSale")}</th>
+                <th className="px-4 py-2 text-right">{t("customers.detail.colBalance")}</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -352,7 +352,7 @@ export function CustomerDetail() {
               {jobs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-4 text-muted-foreground">
-                    لا طلبات تفصيل.
+                    {t("customers.detail.noJobs")}
                   </td>
                 </tr>
               ) : (
@@ -371,7 +371,7 @@ export function CustomerDetail() {
                             : `/job-orders/${String(j.id)}`
                         }
                       >
-                        الفاتورة
+                        {t("customers.detail.invoiceLink")}
                       </Link>
                     </td>
                   </tr>

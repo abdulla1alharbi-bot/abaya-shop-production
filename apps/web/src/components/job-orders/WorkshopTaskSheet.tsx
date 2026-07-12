@@ -419,14 +419,14 @@ export function WorkshopTaskSheet({
                     </span>
                   ) : (
                     <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-400">
-                      <span className="sr-only">غير مكتمل</span>
+                      <span className="sr-only">{t("workshop.notCompleted")}</span>
                     </span>
                   )}
                 </td>
                 <td className={`${pad} align-top font-medium`}>
                   {label}
                   <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                    {locale === "en" ? "Default wage:" : "افتراضي أجر:"} {defaultWageHint}
+                    {t("workshop.defaultWage")} {defaultWageHint}
                   </div>
                 </td>
                 <td className={`${pad} align-top`}>
@@ -438,7 +438,7 @@ export function WorkshopTaskSheet({
                 {isActiveRow && row.status === "PENDING" ? (
                   <>
                     <td className={`${pad} align-top`}>
-                      <Label className="sr-only">أجر العامل</Label>
+                      <Label className="sr-only">{t("workshop.colWorkerWage")}</Label>
                       {canEditWage ? (
                         <Input
                           type="number"
@@ -453,13 +453,13 @@ export function WorkshopTaskSheet({
                       )}
                     </td>
                     <td className={`${pad} align-top`}>
-                      <Label className="sr-only">العامل</Label>
+                      <Label className="sr-only">{t("workshop.colWorker")}</Label>
                       <select
                         className="flex h-9 min-w-[140px] max-w-[200px] rounded-md border bg-background px-2 text-sm"
                         value={draftWorker}
                         onChange={(e) => setDraftWorker(e.target.value)}
                       >
-                        <option value="">— اختر —</option>
+                        <option value="">{t("workshop.chooseOption")}</option>
                         {workers?.map((w) => (
                           <option key={w.id} value={w.id}>
                             {w.name}
@@ -469,9 +469,7 @@ export function WorkshopTaskSheet({
                       {prevStageWorkerId ? (
                         draftWorker === prevStageWorkerId ? (
                           <p className="mt-1 text-[11px] text-muted-foreground">
-                            {locale === "en"
-                              ? `Same worker as previous stage (${prevStageWorkerName})`
-                              : `نفس عامل المرحلة السابقة (${prevStageWorkerName})`}
+                            {t("workshop.samePreviousWorker", { name: prevStageWorkerName })}
                           </p>
                         ) : (
                           <button
@@ -479,21 +477,19 @@ export function WorkshopTaskSheet({
                             className="mt-1 text-[11px] text-brand-600 underline-offset-2 hover:underline dark:text-brand-300"
                             onClick={() => setDraftWorker(prevStageWorkerId)}
                           >
-                            {locale === "en"
-                              ? `Use previous worker (${prevStageWorkerName})`
-                              : `نفس عامل المرحلة السابقة (${prevStageWorkerName})`}
+                            {t("workshop.usePreviousWorker", { name: prevStageWorkerName })}
                           </button>
                         )
                       ) : null}
                     </td>
-                    <td className={`${pad} align-top text-xs text-muted-foreground`}>بعد التعيين</td>
+                    <td className={`${pad} align-top text-xs text-muted-foreground`}>{t("workshop.afterAssign")}</td>
                     <td className={`${pad} align-top`}>
-                      <Label className="sr-only">ملاحظات</Label>
+                      <Label className="sr-only">{t("workshop.colNotes")}</Label>
                       <Input
                         className="h-9 min-w-[140px]"
                         value={draftNotes}
                         onChange={(e) => setDraftNotes(e.target.value)}
-                        placeholder="اختياري"
+                        placeholder={t("workshop.optional")}
                       />
                     </td>
                     <td className={`${pad} align-top`}>
@@ -507,7 +503,7 @@ export function WorkshopTaskSheet({
                             disabled={patchStage.isPending}
                             onClick={() => patchStage.mutate(row.stageKey)}
                           >
-                            {patchStage.isPending ? "…" : locale === "en" ? "Save wage" : "حفظ الأجر"}
+                            {patchStage.isPending ? "…" : t("workshop.saveWage")}
                           </Button>
                         ) : null}
                         <Button
@@ -517,7 +513,7 @@ export function WorkshopTaskSheet({
                           disabled={!draftWorker || assignStage.isPending}
                           onClick={() => assignStage.mutate(row.stageKey)}
                         >
-                          {assignStage.isPending ? "…" : locale === "en" ? "Assign & start" : "تعيين وبدء"}
+                          {assignStage.isPending ? "…" : t("workshop.assignAndStart")}
                         </Button>
                       </div>
                     </td>
@@ -527,7 +523,7 @@ export function WorkshopTaskSheet({
                 {isActiveRow && row.status === "IN_PROGRESS" ? (
                   <>
                     <td className={`${pad} align-top`}>
-                      <Label className="sr-only">أجر العامل</Label>
+                      <Label className="sr-only">{t("workshop.colWorkerWage")}</Label>
                       {canEditWage ? (
                         <Input
                           type="number"
@@ -543,7 +539,7 @@ export function WorkshopTaskSheet({
                     </td>
                     <td className={`${pad} align-top text-sm`}>{row.worker?.name ?? "—"}</td>
                     <td className={`${pad} align-top`}>
-                      <Label className="sr-only">تاريخ الإنجاز</Label>
+                      <Label className="sr-only">{t("workshop.colDoneAt")}</Label>
                       <Input
                         type="datetime-local"
                         className="h-9 max-w-[200px]"
@@ -556,7 +552,7 @@ export function WorkshopTaskSheet({
                         className="h-9 min-w-[140px]"
                         value={draftNotes}
                         onChange={(e) => setDraftNotes(e.target.value)}
-                        placeholder="اختياري"
+                        placeholder={t("workshop.optional")}
                       />
                     </td>
                     <td className={`${pad} align-top`}>
@@ -570,7 +566,7 @@ export function WorkshopTaskSheet({
                             disabled={patchStage.isPending}
                             onClick={() => patchStage.mutate(row.stageKey)}
                           >
-                            {patchStage.isPending ? "…" : locale === "en" ? "Update" : "تحديث"}
+                            {patchStage.isPending ? "…" : t("workshop.update")}
                           </Button>
                         ) : null}
                         <Button
@@ -584,7 +580,7 @@ export function WorkshopTaskSheet({
                           disabled={completeStage.isPending || !canComplete}
                           onClick={() => completeStage.mutate(row.stageKey)}
                         >
-                          {completeStage.isPending ? "…" : locale === "en" ? "Done" : "تم التنفيذ"}
+                          {completeStage.isPending ? "…" : t("workshop.markDone")}
                         </Button>
                       </div>
                     </td>
@@ -616,7 +612,7 @@ export function WorkshopTaskSheet({
                               disabled={adminPatchDone.isPending}
                               onClick={() => openAdminEdit(row)}
                             >
-                              {locale === "en" ? "Correct" : "تصحيح"}
+                              {t("workshop.correct")}
                             </Button>
                           ) : null}
                           {canReopen ? (
@@ -628,24 +624,20 @@ export function WorkshopTaskSheet({
                               disabled={reopenStage.isPending}
                               onClick={() => {
                                 if (
-                                  confirm(
-                                    locale === "en"
-                                      ? "Reopen this stage? The payroll line for this stage will be removed."
-                                      : "إعادة فتح المرحلة؟ سيتم عكس أجر العامل من السجل.",
-                                  )
+                                  confirm(t("workshop.reopenConfirm"))
                                 ) {
                                   reopenStage.mutate(row.stageKey);
                                 }
                               }}
                             >
-                              {locale === "en" ? "Reopen" : "إعادة فتح"}
+                              {t("workshop.reopen")}
                             </Button>
                           ) : null}
                         </div>
                       ) : !isActiveRow && row.status === "PENDING" ? (
                         <span className="text-xs text-muted-foreground">
                           {isPipelineKey && jobStage !== row.stageKey
-                            ? "يُفعّل عند وصول الطلب لهذه المرحلة"
+                            ? t("workshop.activatesWhenReached")
                             : "—"}
                         </span>
                       ) : (
@@ -671,7 +663,7 @@ export function WorkshopTaskSheet({
       {canMarkReady && (PIPELINE_STAGE_KEYS as readonly string[]).includes(jobStage) ? (
         <div className="border-t px-3 py-2 flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground">
-            {locale === "en" ? "Bypass remaining stages and mark as ready." : "تجاوز المراحل المتبقية وتحويل الطلب مباشرةً إلى جاهز."}
+            {t("workshop.bypassHint")}
           </span>
           <div className="flex flex-col items-end gap-1">
             <Button
@@ -682,17 +674,13 @@ export function WorkshopTaskSheet({
               disabled={markReady.isPending}
               onClick={() => {
                 if (
-                  confirm(
-                    locale === "en"
-                      ? "Mark this job as READY now? Remaining stages will not be recorded."
-                      : "تحويل الطلب إلى جاهز الآن؟ لن تُسجَّل المراحل المتبقية.",
-                  )
+                  confirm(t("workshop.markReadyConfirm"))
                 ) {
                   markReady.mutate();
                 }
               }}
             >
-              {markReady.isPending ? "…" : locale === "en" ? "Mark as Ready" : "تحويل إلى جاهز"}
+              {markReady.isPending ? "…" : t("workshop.markAsReady")}
             </Button>
             {markReady.isError && (
               <p className="text-xs text-destructive">{apiErrorMessage(markReady.error)}</p>
@@ -704,17 +692,13 @@ export function WorkshopTaskSheet({
       <Dialog open={adminEditRow !== null} onOpenChange={(o) => !o && setAdminEditRow(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{locale === "en" ? "Correct completed stage" : "تصحيح مرحلة مكتملة"}</DialogTitle>
+            <DialogTitle>{t("workshop.correctStageTitle")}</DialogTitle>
           </DialogHeader>
           {adminEditRow ? (
             <div className="grid gap-3 text-sm">
-              <p className="text-xs text-muted-foreground">
-                {locale === "en"
-                  ? "Adjust worker, wage, completion time, or notes. Payroll line is updated to match."
-                  : "تعديل العامل أو الأجر أو وقت الإنجاز أو الملاحظات. يُحدَّث سجل الأجر ليتطابق."}
-              </p>
+              <p className="text-xs text-muted-foreground">{t("workshop.correctStageHint")}</p>
               <div>
-                <Label className="text-xs">{locale === "en" ? "Worker" : "العامل"}</Label>
+                <Label className="text-xs">{t("workshop.colWorker")}</Label>
                 <select
                   className="mt-1 flex h-9 w-full rounded-md border bg-background px-2 text-sm"
                   value={adminDraftWorker}
@@ -729,7 +713,7 @@ export function WorkshopTaskSheet({
                 </select>
               </div>
               <div>
-                <Label className="text-xs">{locale === "en" ? "Wage (AED)" : "الأجر (درهم)"}</Label>
+                <Label className="text-xs">{t("workshop.wageAedLabel")}</Label>
                 {canEditWage ? (
                   <Input
                     type="number"
@@ -744,7 +728,7 @@ export function WorkshopTaskSheet({
                 )}
               </div>
               <div>
-                <Label className="text-xs">{locale === "en" ? "Done at" : "تاريخ الإنجاز"}</Label>
+                <Label className="text-xs">{t("workshop.colDoneAt")}</Label>
                 <Input
                   type="datetime-local"
                   className="mt-1 h-9"
@@ -753,26 +737,26 @@ export function WorkshopTaskSheet({
                 />
               </div>
               <div>
-                <Label className="text-xs">{locale === "en" ? "Notes" : "ملاحظات"}</Label>
+                <Label className="text-xs">{t("workshop.colNotes")}</Label>
                 <Input
                   className="mt-1 h-9"
                   value={adminDraftNotes}
                   onChange={(e) => setAdminDraftNotes(e.target.value)}
-                  placeholder={locale === "en" ? "Optional" : "اختياري"}
+                  placeholder={t("workshop.optional")}
                 />
               </div>
             </div>
           ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setAdminEditRow(null)}>
-              {locale === "en" ? "Cancel" : "إلغاء"}
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
               disabled={adminPatchDone.isPending || !adminEditRow}
               onClick={() => adminPatchDone.mutate()}
             >
-              {adminPatchDone.isPending ? "…" : locale === "en" ? "Save" : "حفظ"}
+              {adminPatchDone.isPending ? "…" : t("common.save")}
             </Button>
           </DialogFooter>
           {adminPatchDone.error ? (

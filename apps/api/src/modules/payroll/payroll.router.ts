@@ -62,6 +62,105 @@ const payrollBody = z.object({
   notes: z.string().optional(),
 });
 
+const generateBody = z.object({
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2000).max(2100),
+});
+
+/**
+ * Generate (or refresh) payroll rows for ALL active workers for a month:
+ *   productionFils = sum of ProductionEntry in the month
+ *   bonusFils      = positive balance adjustments in the month
+ *   deductionFils  = negative balance adjustments in the month (abs)
+ * Existing UNPAID rows for that month are recalculated; PAID rows are left alone.
+ */
+payrollRouter.post(
+  "/generate",
+  requirePermission("workers.wages"),
+  validateBody(generateBody),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof generateBody>;
+    const from = new Date(body.year, body.month - 1, 1, 0, 0, 0, 0);
+    const to = new Date(body.year, body.month, 0, 23, 59, 59, 999);
+
+    const [workers, prodByWorker, adjustments] = await Promise.all([
+      prisma.worker.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
+      prisma.productionEntry.groupBy({
+        by: ["workerId"],
+        _sum: { totalFils: true },
+        where: { date: { gte: from, lte: to } },
+      }),
+      prisma.workerBalanceAdjustment.findMany({
+        where: { createdAt: { gte: from, lte: to } },
+        select: { workerId: true, amountFils: true },
+      }),
+    ]);
+
+    const prodMap = new Map(prodByWorker.map((p) => [p.workerId, p._sum.totalFils ?? 0]));
+    const bonusMap = new Map<string, number>();
+    const dedMap = new Map<string, number>();
+    for (const a of adjustments) {
+      if (a.amountFils >= 0) bonusMap.set(a.workerId, (bonusMap.get(a.workerId) ?? 0) + a.amountFils);
+      else dedMap.set(a.workerId, (dedMap.get(a.workerId) ?? 0) - a.amountFils);
+    }
+
+    let created = 0;
+    let updated = 0;
+    let skippedPaid = 0;
+    let skippedEmpty = 0;
+
+    for (const w of workers) {
+      const productionFils = prodMap.get(w.id) ?? 0;
+      const bonusFils = bonusMap.get(w.id) ?? 0;
+      const deductionFils = dedMap.get(w.id) ?? 0;
+      if (productionFils === 0 && bonusFils === 0 && deductionFils === 0) {
+        skippedEmpty += 1;
+        continue;
+      }
+      const netFils = productionFils + bonusFils - deductionFils;
+
+      const existing = await prisma.payroll.findFirst({
+        where: { workerId: w.id, month: body.month, year: body.year },
+      });
+      if (existing?.isPaid) {
+        skippedPaid += 1;
+        continue;
+      }
+      if (existing) {
+        await prisma.payroll.update({
+          where: { id: existing.id },
+          data: {
+            productionFils,
+            bonusFils,
+            deductionFils,
+            netFils: netFils - existing.advanceFils,
+          },
+        });
+        updated += 1;
+      } else {
+        await prisma.payroll.create({
+          data: {
+            workerId: w.id,
+            month: body.month,
+            year: body.year,
+            productionFils,
+            bonusFils,
+            deductionFils,
+            netFils,
+            notes: "توليد تلقائي من سجلات الإنتاج",
+          },
+        });
+        created += 1;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { created, updated, skippedPaid, skippedEmpty, month: body.month, year: body.year },
+    });
+  }),
+);
+
 payrollRouter.post(
   "/",
   requirePermission("workers.wages"),

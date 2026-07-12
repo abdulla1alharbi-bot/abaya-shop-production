@@ -1,4 +1,5 @@
 import { AxiosError } from "axios";
+import i18n from "@/i18n";
 import { formatAED } from "./money";
 
 /** Reads `{ error: { message } }` from API error responses. */
@@ -8,7 +9,7 @@ export function getApiErrorMessage(err: unknown, fallback = "Something went wron
     if (d.error?.code === "CREDIT_LIMIT_EXCEEDED") {
       const bal = d.error.currentBalance != null ? formatAED(d.error.currentBalance) : "—";
       const lim = d.error.creditLimit != null ? formatAED(d.error.creditLimit) : "—";
-      return `تجاوز حد الائتمان — الرصيد الحالي: ${bal}، الحد المسموح: ${lim}. يلزم موافقة المدير لإتمام العملية.`;
+      return i18n.t("errors.creditLimitExceeded", { balance: bal, limit: lim });
     }
     if (typeof d.error?.message === "string" && d.error.message.length > 0) return d.error.message;
   }

@@ -22,6 +22,10 @@ export const ALL_PERMISSIONS = [
   "invoices.deliver",
   "invoices.print",
   "invoices.creditOverride",
+  /** Create a customer return / exchange against an invoice. */
+  "invoices.return",
+  /** Give a discount above the configured max_discount_percent. */
+  "invoices.discountOverride",
 
   "customers.view",
   "customers.create",
@@ -113,6 +117,8 @@ export const ROLE_DEFAULTS: Record<AppRole, readonly string[]> = {
     "invoices.deliver",
     "invoices.print",
     "invoices.creditOverride",
+    "invoices.return",
+    "invoices.discountOverride",
     "customers.view",
     "customers.create",
     "customers.edit",
@@ -158,6 +164,8 @@ export const ROLE_DEFAULTS: Record<AppRole, readonly string[]> = {
     "invoices.deliver",
     "invoices.print",
     "invoices.creditOverride",
+    "invoices.return",
+    "invoices.discountOverride",
     "customers.view",
     "customers.create",
     "customers.edit",
@@ -309,6 +317,8 @@ export const PERMISSION_GROUPS_AR: Record<string, string> = {
   "invoices.deliver": "الفواتير — تسليم",
   "invoices.print": "الفواتير — طباعة",
   "invoices.creditOverride": "الفواتير — تجاوز حد الائتمان (إداري)",
+  "invoices.return": "الفواتير — إرجاع / استبدال",
+  "invoices.discountOverride": "الفواتير — خصم فوق الحد المسموح (إداري)",
 
   "customers.view": "العملاء — عرض",
   "customers.create": "العملاء — إضافة",

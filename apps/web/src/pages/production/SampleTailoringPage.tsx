@@ -130,7 +130,7 @@ export function SampleTailoringPage() {
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
         >
-          <option value="">اختر الموديل</option>
+          <option value="">{t("production.selectModel")}</option>
           {models?.map((m) => (
             <option key={m.id} value={m.id}>
               {m.code} — {m.name}
@@ -142,17 +142,17 @@ export function SampleTailoringPage() {
           value={fabricId}
           onChange={(e) => setFabricId(e.target.value)}
         >
-          <option value="">بدون تحديد قماش</option>
+          <option value="">{t("production.noFabricSelected")}</option>
           {fabrics?.map((f) => (
             <option key={f.id} value={f.id}>
               {f.rollCode} — {f.name} ({f.color})
             </option>
           ))}
         </select>
-        <Input placeholder="اللون" value={color} onChange={(e) => setColor(e.target.value)} />
-        <Input placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <Input placeholder={t("production.color")} value={color} onChange={(e) => setColor(e.target.value)} />
+        <Input placeholder={t("production.notes")} value={notes} onChange={(e) => setNotes(e.target.value)} />
         <Button disabled={!modelId || createSample.isPending} onClick={() => createSample.mutate()}>
-          {createSample.isPending ? "..." : "إنشاء قطعة عرض"}
+          {createSample.isPending ? "..." : t("production.createSample")}
         </Button>
       </section>
 
@@ -163,7 +163,7 @@ export function SampleTailoringPage() {
           value={filterModelId}
           onChange={(e) => setFilterModelId(e.target.value)}
         >
-          <option value="">كل الموديلات</option>
+          <option value="">{t("production.allModels")}</option>
           {models?.map((m) => (
             <option key={m.id} value={m.id}>
               {m.code} — {m.name}
@@ -174,14 +174,14 @@ export function SampleTailoringPage() {
           setMonth("");
           setFilterModelId("");
         }}>
-          مسح الفلاتر
+          {t("production.clearFilters")}
         </Button>
       </section>
 
       <div className="rounded-xl border bg-card p-3 text-sm">
-        <span className="text-muted-foreground">عدد قطع العرض:</span> <span className="font-semibold">{sampleReport?.piecesCount ?? 0}</span>
+        <span className="text-muted-foreground">{t("production.samplesCount")}</span> <span className="font-semibold">{sampleReport?.piecesCount ?? 0}</span>
         <span className="mx-2 text-muted-foreground">|</span>
-        <span className="text-muted-foreground">أجور العمال:</span>{" "}
+        <span className="text-muted-foreground">{t("production.workerWages")}</span>{" "}
         <span className="font-semibold">{formatAED(sampleReport?.totalWagesFils ?? 0)}</span>
       </div>
 
@@ -189,21 +189,21 @@ export function SampleTailoringPage() {
         <table className="w-full min-w-[760px] text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-3 py-2 text-start font-medium">الموديل</th>
-              <th className="px-3 py-2 text-start font-medium">اللون</th>
-              <th className="px-3 py-2 text-start font-medium">الحالة</th>
-              <th className="px-3 py-2 text-start font-medium">تاريخ الإنشاء</th>
-              <th className="px-3 py-2 text-start font-medium">إجراء</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colModel")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colColor")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colStatus")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colCreatedAt")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("production.colAction")}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">جاري التحميل…</td>
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{t("common.loading")}</td>
               </tr>
             ) : !data?.length ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">لا توجد قطع عرض.</td>
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{t("production.noSamples")}</td>
               </tr>
             ) : (
               data.map((r) => (
@@ -213,11 +213,11 @@ export function SampleTailoringPage() {
                   <td className="px-3 py-2">
                     {r.status === "COMPLETED" ? (
                       <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
-                        مكتمل
+                        {t("production.statusCompleted")}
                       </span>
                     ) : (
                       <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-                        قيد التنفيذ
+                        {t("production.statusInProgress")}
                       </span>
                     )}
                   </td>
@@ -238,12 +238,12 @@ export function SampleTailoringPage() {
                           dueDate: dueDateTimeLocalFromNowCalendarDays(r.model.defaultDeliveryDays || 7),
                           sourceDisplaySampleJobId: r.primaryJobId,
                           sourceDisplayModelId: r.model.id,
-                          itemNotes: `من نموذج عرض #${r.batchNo}`,
+                          itemNotes: t("production.fromSampleNote", { batchNo: r.batchNo }),
                         });
                         navigate("/pos?mode=tailoring");
                       }}
                     >
-                      إنشاء طلب تفصيل من هذا النموذج
+                      {t("production.createTailoringFromSample")}
                     </Button>
                   </td>
                 </tr>

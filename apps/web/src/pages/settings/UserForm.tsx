@@ -49,28 +49,34 @@ function usernameField() {
     });
 }
 
-const createSchema = z.object({
-  username: usernameField(),
-  name: z.string().min(1, "الاسم الكامل مطلوب"),
-  password: z.string().min(8, "كلمة المرور 8 أحرف على الأقل"),
-  role: roleEnum,
-  email: z.union([z.string().email("البريد غير صالح"), z.literal("")]).optional(),
-  phone: z.string().optional(),
-  isActive: z.coerce.boolean(),
-});
+type TFunc = (key: string) => string;
 
-const editSchema = z.object({
-  username: usernameField(),
-  name: z.string().min(1, "الاسم الكامل مطلوب"),
-  password: z.union([z.string(), z.literal("")]).optional(),
-  role: roleEnum,
-  email: z.union([z.string().email("البريد غير صالح"), z.literal("")]).optional(),
-  phone: z.string().optional(),
-  isActive: z.coerce.boolean(),
-});
+function makeCreateSchema(t: TFunc) {
+  return z.object({
+    username: usernameField(),
+    name: z.string().min(1, t("settings.userForm.errNameRequired")),
+    password: z.string().min(8, t("settings.userForm.errPasswordMin")),
+    role: roleEnum,
+    email: z.union([z.string().email(t("settings.userForm.errEmailInvalid")), z.literal("")]).optional(),
+    phone: z.string().optional(),
+    isActive: z.coerce.boolean(),
+  });
+}
 
-type CreateValues = z.infer<typeof createSchema>;
-type EditValues = z.infer<typeof editSchema>;
+function makeEditSchema(t: TFunc) {
+  return z.object({
+    username: usernameField(),
+    name: z.string().min(1, t("settings.userForm.errNameRequired")),
+    password: z.union([z.string(), z.literal("")]).optional(),
+    role: roleEnum,
+    email: z.union([z.string().email(t("settings.userForm.errEmailInvalid")), z.literal("")]).optional(),
+    phone: z.string().optional(),
+    isActive: z.coerce.boolean(),
+  });
+}
+
+type CreateValues = z.infer<ReturnType<typeof makeCreateSchema>>;
+type EditValues = z.infer<ReturnType<typeof makeEditSchema>>;
 
 function normalizeRole(r: string): Role {
   if (r === "SALESPERSON") return "SELLER";
@@ -204,6 +210,9 @@ export function UserForm() {
     enabled: !isNew && Boolean(id),
   });
 
+  const createSchema = useMemo(() => makeCreateSchema(t), [t]);
+  const editSchema = useMemo(() => makeEditSchema(t), [t]);
+
   const createForm = useForm<CreateValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
@@ -221,7 +230,7 @@ export function UserForm() {
     resolver: zodResolver(
       editSchema.superRefine((data, ctx) => {
         if (data.password && data.password.length > 0 && data.password.length < 8) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "كلمة المرور 8 أحرف على الأقل", path: ["password"] });
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("settings.userForm.errPasswordMin"), path: ["password"] });
         }
       }),
     ),
@@ -364,28 +373,28 @@ export function UserForm() {
       <div className="mx-auto max-w-lg space-y-6 pb-8">
         <PageHeader
           title={t("settings.userForm.newTitle")}
-          description="أدخل اسم المستخدم وكلمة المرور واختر الدور. عند الحفظ تُطبَّق تلقائياً صلاحيات الدور الافتراضيّة."
+          description={t("settings.userForm.newDescription")}
         />
         <form
           className="space-y-4 rounded-lg border bg-card p-4"
           onSubmit={createForm.handleSubmit((v) => createMut.mutate(v))}
         >
           <div className="grid gap-2">
-            <Label htmlFor="username">اسم المستخدم *</Label>
-            <Input id="username" dir="auto" autoComplete="username" placeholder="أدخل اسم المستخدم" {...createForm.register("username")} />
+            <Label htmlFor="username">{t("settings.userForm.usernameLabel")}</Label>
+            <Input id="username" dir="auto" autoComplete="username" placeholder={t("settings.userForm.usernamePlaceholder")} {...createForm.register("username")} />
             {createForm.formState.errors.username ? (
               <p className="text-sm text-destructive">{createForm.formState.errors.username.message}</p>
             ) : null}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="name">الاسم الكامل (للعرض) *</Label>
+            <Label htmlFor="name">{t("settings.userForm.nameLabel")}</Label>
             <Input id="name" {...createForm.register("name")} />
             {createForm.formState.errors.name ? (
               <p className="text-sm text-destructive">{createForm.formState.errors.name.message}</p>
             ) : null}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password">كلمة المرور *</Label>
+            <Label htmlFor="password">{t("settings.userForm.passwordLabel")}</Label>
             <Input id="password" type="password" autoComplete="new-password" {...createForm.register("password")} />
             {createForm.formState.errors.password ? (
               <p className="text-sm text-destructive">{createForm.formState.errors.password.message}</p>
@@ -397,7 +406,7 @@ export function UserForm() {
             render={({ field }) => (
               <div className="space-y-2">
                 <div className="grid gap-2">
-                  <Label htmlFor="role">الدور *</Label>
+                  <Label htmlFor="role">{t("settings.userForm.roleLabel")}</Label>
                   <select
                     id="role"
                     className={cn(
@@ -414,13 +423,13 @@ export function UserForm() {
                   >
                     {PRIMARY_ROLES.map((r) => (
                       <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
+                        {t(`roles.${r}`, { defaultValue: r })}
                       </option>
                     ))}
                   </select>
                 </div>
                 <p className="rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">
-                  {ROLE_DESCRIPTIONS_AR[field.value as Role] ?? "—"}
+                  {ROLE_DESC_KEYS[field.value as Role] ? t(ROLE_DESC_KEYS[field.value as Role]) : "—"}
                 </p>
               </div>
             )}
@@ -442,21 +451,21 @@ export function UserForm() {
               )}
             />
             <Label htmlFor="isActive" className="font-normal">
-              حساب نشط
+              {t("settings.userForm.activeLabel")}
             </Label>
           </div>
 
           <details className="group rounded-md border border-dashed bg-muted/20 p-2">
             <summary className="cursor-pointer list-none text-sm text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
-              بيانات التواصل (اختياري)
+              {t("settings.userForm.contactInfo")}
             </summary>
             <div className="mt-3 space-y-3">
               <div className="grid gap-2">
-                <Label htmlFor="phone">الجوال</Label>
+                <Label htmlFor="phone">{t("settings.userForm.phoneLabel")}</Label>
                 <Input id="phone" dir="ltr" inputMode="tel" {...createForm.register("phone")} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">البريد</Label>
+                <Label htmlFor="email">{t("settings.userForm.emailLabel")}</Label>
                 <Input id="email" dir="ltr" type="email" autoComplete="off" {...createForm.register("email")} />
               </div>
             </div>
@@ -476,10 +485,10 @@ export function UserForm() {
           ) : null}
           <div className="flex gap-2">
             <Button type="submit" disabled={createMut.isPending}>
-              {createMut.isPending ? "جاري الحفظ…" : "حفظ"}
+              {createMut.isPending ? t("common.saving") : t("common.save")}
             </Button>
             <Button type="button" variant="outline" asChild>
-              <Link to="/settings/users">إلغاء</Link>
+              <Link to="/settings/users">{t("common.cancel")}</Link>
             </Button>
           </div>
         </form>
@@ -490,23 +499,23 @@ export function UserForm() {
   return (
     <div className="mx-auto max-w-lg space-y-6 pb-8">
       <PageHeader
-        title="تعديل مستخدم"
-        description="الصلاحيات تُبنى تلقائياً من الدور؛ تعديل التفاصيل يدويّاً اختياري عند الضرورة (صلاحيات متقدّمة)."
+        title={t("settings.userForm.editTitle")}
+        description={t("settings.userForm.editDescription")}
       />
       <form className="space-y-4 rounded-lg border bg-card p-4" onSubmit={editForm.handleSubmit((v) => editMut.mutate(v))}>
         <div className="grid gap-2">
-          <Label htmlFor="username">اسم المستخدم *</Label>
-          <Input id="username" dir="auto" autoComplete="username" placeholder="أدخل اسم المستخدم" {...editForm.register("username")} />
+          <Label htmlFor="username">{t("settings.userForm.usernameLabel")}</Label>
+          <Input id="username" dir="auto" autoComplete="username" placeholder={t("settings.userForm.usernamePlaceholder")} {...editForm.register("username")} />
           {editForm.formState.errors.username ? (
             <p className="text-sm text-destructive">{editForm.formState.errors.username.message}</p>
           ) : null}
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="name">الاسم الكامل (للعرض) *</Label>
+          <Label htmlFor="name">{t("settings.userForm.nameLabel")}</Label>
           <Input id="name" {...editForm.register("name")} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="password">كلمة مرور جديدة (اتركها فارغة إن لم تتغير)</Label>
+          <Label htmlFor="password">{t("settings.userForm.passwordEditLabel")}</Label>
           <Input id="password" type="password" autoComplete="new-password" {...editForm.register("password")} />
           {editForm.formState.errors.password ? (
             <p className="text-sm text-destructive">{editForm.formState.errors.password.message}</p>
@@ -518,7 +527,7 @@ export function UserForm() {
           render={({ field }) => (
             <div className="space-y-2">
               <div className="grid gap-2">
-                <Label htmlFor="edit-role">الدور *</Label>
+                <Label htmlFor="edit-role">{t("settings.userForm.roleLabel")}</Label>
                 <select
                   id="edit-role"
                   className={cn(
@@ -535,13 +544,13 @@ export function UserForm() {
                 >
                   {editRoleOptions.map((r) => (
                     <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
+                      {t(`roles.${r}`, { defaultValue: r })}
                     </option>
                   ))}
                 </select>
               </div>
               <p className="rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">
-                {ROLE_DESCRIPTIONS_AR[field.value as Role] ?? "—"}
+                {ROLE_DESC_KEYS[field.value as Role] ? t(ROLE_DESC_KEYS[field.value as Role]) : "—"}
               </p>
             </div>
           )}
@@ -563,21 +572,21 @@ export function UserForm() {
             )}
           />
           <Label htmlFor="isActive" className="font-normal">
-            حساب نشط
+            {t("settings.userForm.activeLabel")}
           </Label>
         </div>
 
         <details className="group rounded-md border border-dashed bg-muted/20 p-2">
           <summary className="cursor-pointer list-none text-sm text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
-            بيانات التواصل (اختياري)
+            {t("settings.userForm.contactInfo")}
           </summary>
           <div className="mt-3 space-y-3">
             <div className="grid gap-2">
-              <Label htmlFor="phone">الجوال</Label>
+              <Label htmlFor="phone">{t("settings.userForm.phoneLabel")}</Label>
               <Input id="phone" dir="ltr" inputMode="tel" {...editForm.register("phone")} />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">البريد</Label>
+              <Label htmlFor="email">{t("settings.userForm.emailLabel")}</Label>
               <Input id="email" dir="ltr" type="email" {...editForm.register("email")} />
             </div>
           </div>
@@ -597,10 +606,10 @@ export function UserForm() {
         ) : null}
         <div className="flex gap-2">
           <Button type="submit" disabled={editMut.isPending}>
-            {editMut.isPending ? "جاري الحفظ…" : "حفظ التعديلات"}
+            {editMut.isPending ? t("common.saving") : t("settings.userForm.saveEdits")}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link to="/settings/users">إلغاء</Link>
+            <Link to="/settings/users">{t("common.cancel")}</Link>
           </Button>
         </div>
       </form>

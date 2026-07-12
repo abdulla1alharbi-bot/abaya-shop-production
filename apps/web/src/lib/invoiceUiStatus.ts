@@ -13,19 +13,19 @@ export function invoiceBadgeStyle(key: SimpleInvoiceBadge): string {
   return `inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold ${badgeClass[key]}`;
 }
 
-/** Invoice-level badge for the operational hub (English). */
+/** Invoice-level badge for the operational hub. `labelKey` is an i18n key — render with t(). */
 export function getInvoiceOperationalBadge(args: {
   isVoid: boolean;
   deliveredAt: string | null | undefined;
   fulfillmentStatus: string;
-}): { key: SimpleInvoiceBadge; label: string } {
-  if (args.isVoid) return { key: "void", label: "Void" };
-  if (args.deliveredAt) return { key: "delivered", label: "Delivered" };
+}): { key: SimpleInvoiceBadge; labelKey: string } {
+  if (args.isVoid) return { key: "void", labelKey: "status.relatedInvoice.void" };
+  if (args.deliveredAt) return { key: "delivered", labelKey: "status.job.delivered" };
   if (args.fulfillmentStatus === "READY_FOR_DELIVERY" || args.fulfillmentStatus === "NO_TAILORING") {
-    return { key: "ready", label: "Ready for delivery" };
+    return { key: "ready", labelKey: "status.badge.readyForDelivery" };
   }
-  if (args.fulfillmentStatus === "IN_WORKSHOP") return { key: "in_progress", label: "In Progress" };
-  return { key: "new", label: "New" };
+  if (args.fulfillmentStatus === "IN_WORKSHOP") return { key: "in_progress", labelKey: "status.job.in_progress" };
+  return { key: "new", labelKey: "status.job.new" };
 }
 
 type JobLite = {
@@ -34,35 +34,20 @@ type JobLite = {
   deliveredAt?: string | null;
 };
 
-/** Per tailoring line / job. */
-export function getTailoringItemBadge(
-  job: JobLite,
-  opts?: { locale?: "en" | "ar" },
-): { key: SimpleInvoiceBadge; label: string } {
-  const ar = opts?.locale === "ar";
+/** Per tailoring line / job. `labelKey` is an i18n key — render with t(). */
+export function getTailoringItemBadge(job: JobLite): { key: SimpleInvoiceBadge; labelKey: string } {
   if (job.deliveredAt || job.stage === "DELIVERED")
-    return { key: "delivered", label: ar ? "مُسلَّمة" : "Delivered" };
+    return { key: "delivered", labelKey: "status.job.delivered" };
   if (job.stage === "CONVERTED_TO_READY")
-    return { key: "converted", label: ar ? "محول إلى جاهز" : "Converted to Ready" };
-  if (job.stage === "READY") return { key: "ready", label: ar ? "جاهز" : "Ready" };
+    return { key: "converted", labelKey: "status.badge.converted" };
+  if (job.stage === "READY") return { key: "ready", labelKey: "status.job.ready" };
   if (job.workStages?.length) {
     const allDone = job.workStages.every((w) => w.status === "DONE");
-    if (allDone) return { key: "ready", label: ar ? "جاهز" : "Ready" };
+    if (allDone) return { key: "ready", labelKey: "status.job.ready" };
     const anyStarted = job.workStages.some((w) => w.status !== "PENDING");
-    if (anyStarted) return { key: "in_progress", label: ar ? "قيد التنفيذ" : "In Progress" };
+    if (anyStarted) return { key: "in_progress", labelKey: "status.job.in_progress" };
   }
   if (job.stage === "NEW" || job.stage === "CUTTING")
-    return { key: "new", label: ar ? "جديد" : "New" };
-  return { key: "in_progress", label: ar ? "قيد التنفيذ" : "In Progress" };
-}
-
-export function relatedInvoiceStatusEn(inv: {
-  isVoid: boolean;
-  deliveredAt?: string | null;
-  balanceFils: number;
-}): string {
-  if (inv.isVoid) return "Void";
-  if (inv.deliveredAt) return "Delivered";
-  if (inv.balanceFils <= 0) return "Paid";
-  return "Open";
+    return { key: "new", labelKey: "status.job.new" };
+  return { key: "in_progress", labelKey: "status.job.in_progress" };
 }

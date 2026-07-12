@@ -275,7 +275,7 @@ export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueSta
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
             <DialogTitle>{t("components.invoiceQueue.readyTitle")}</DialogTitle>
             <DialogDescription>
-              فواتير اكتمل فيها العمل بالورشة ولم يُسجَّل تسليمها بعد.
+              {t("pages.invoices.descReady")}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-auto px-4 py-3 sm:px-6 sm:py-4">

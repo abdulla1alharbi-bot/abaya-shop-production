@@ -270,7 +270,7 @@ export function PendingTailoringSection() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder={t("components.globalSearch.placeholder")}
                 className="h-9 bg-background"
-                aria-label="بحث في قائمة التفصيل غير المكتمل"
+                aria-label={t("dashboard.pendingSearch.ariaLabel")}
               />
             </div>
           </div>
@@ -316,7 +316,7 @@ export function PendingTailoringSection() {
                             rowUrgencyClass(it.urgency),
                             rowHoverClass(it.urgency),
                           )}
-                          title="اضغط لعرض ملخص الفاتورة"
+                          title={t("dashboard.pendingRow.viewSummaryTitle")}
                           onClick={() => openInvoiceModal(it.invoiceId)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
@@ -365,8 +365,8 @@ export function PendingTailoringSection() {
                                 variant="outline"
                                 size="icon"
                                 className="h-8 w-8 shrink-0"
-                                title="View Invoice"
-                                aria-label="عرض تفاصيل الفاتورة"
+                                title={t("dashboard.action.viewInvoice")}
+                                aria-label={t("dashboard.action.viewInvoice")}
                                 onClick={() => openInvoiceModal(it.invoiceId)}
                               >
                                 <Eye className="h-4 w-4" />
@@ -376,8 +376,8 @@ export function PendingTailoringSection() {
                                 variant="secondary"
                                 size="icon"
                                 className="h-8 w-8 shrink-0"
-                                title="Job Process"
-                                aria-label="مسار التفصيل"
+                                title={t("dashboard.action.jobProcess")}
+                                aria-label={t("dashboard.action.jobProcess")}
                                 onClick={() => openJobModal(it.invoiceId, it.jobId)}
                               >
                                 <Scissors className="h-4 w-4" />
@@ -394,11 +394,10 @@ export function PendingTailoringSection() {
           </div>
 
           <p className="shrink-0 border-t px-4 py-3 text-[11px] leading-relaxed text-muted-foreground sm:px-6">
-            دليل الألوان:{" "}
-            <span className="font-medium text-red-800 dark:text-red-200">أحمر</span> = متأخر ·{" "}
-            <span className="font-medium text-orange-800 dark:text-orange-200">برتقالي</span> = اليوم ·{" "}
-            <span className="font-medium">رمادي</span> = لاحقاً. أيقونة العين = ملخص الفاتورة · أيقونة المقص =
-            مسار التفصيل.
+            {t("dashboard.legend.title")}:{" "}
+            <span className="font-medium text-red-800 dark:text-red-200">{t("dashboard.legend.red")}</span> = {t("dashboard.legend.overdue")} ·{" "}
+            <span className="font-medium text-orange-800 dark:text-orange-200">{t("dashboard.legend.orange")}</span> = {t("dashboard.legend.today")} ·{" "}
+            <span className="font-medium">{t("dashboard.legend.gray")}</span> = {t("dashboard.legend.later")}. {t("dashboard.legend.icons")}
           </p>
         </DialogContent>
       </Dialog>

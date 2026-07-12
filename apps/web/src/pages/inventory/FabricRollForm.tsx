@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, Upload, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/apiErrors";
 
 export function FabricRollForm() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const isNew = !id;
   const navigate = useNavigate();
@@ -82,7 +84,7 @@ export function FabricRollForm() {
       void navigate("/fabrics");
     },
     onError: (err: unknown) => {
-      setSaveError(getApiErrorMessage(err, "Failed to save. Please try again."));
+      setSaveError(getApiErrorMessage(err, t("fabrics.formSaveFailed")));
     },
   });
 
@@ -95,10 +97,10 @@ export function FabricRollForm() {
       void navigate("/fabrics");
     },
     onError: (err: unknown) => {
-      const msg = getApiErrorMessage(err, "حدث خطأ أثناء الحذف.");
+      const msg = getApiErrorMessage(err, t("fabrics.deleteError"));
       setDeleteError(
         msg.includes("used") || msg.includes("ROLL_IN_USE")
-          ? "لا يمكن حذف هذه اللفة لأنها مستخدمة في طلبات أو إنتاج."
+          ? t("fabrics.deleteInUse")
           : msg,
       );
     },
@@ -117,7 +119,7 @@ export function FabricRollForm() {
       });
       setImageUrl(res.data.data.url);
     } catch {
-      setUploadError("فشل رفع الصورة. تأكد أن الملف صورة وحجمه أقل من 5MB.");
+      setUploadError(t("fabrics.uploadError"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -127,8 +129,8 @@ export function FabricRollForm() {
   if (!isNew && isLoading) {
     return (
       <div>
-        <PageHeader title="Fabric roll" />
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <PageHeader title={t("fabrics.newTitle")} />
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
   }
@@ -142,7 +144,7 @@ export function FabricRollForm() {
 
   return (
     <div className="max-w-lg space-y-6">
-      <PageHeader title={isNew ? "New fabric roll" : "Edit fabric roll"} />
+      <PageHeader title={isNew ? t("fabrics.newTitle") : t("fabrics.editTitle")} />
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -153,7 +155,7 @@ export function FabricRollForm() {
       >
         {/* Image upload */}
         <div className="grid gap-2">
-          <Label>صورة القماش (اختياري)</Label>
+          <Label>{t("fabrics.imageLabel")}</Label>
           <div className="flex items-start gap-3">
             {fullImageUrl ? (
               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border bg-muted">
@@ -179,9 +181,9 @@ export function FabricRollForm() {
                 disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {uploading ? "جاري الرفع…" : fullImageUrl ? "تغيير الصورة" : "رفع صورة"}
+                {uploading ? t("fabrics.uploading") : fullImageUrl ? t("fabrics.changeImage") : t("fabrics.uploadImage")}
               </Button>
-              <p className="text-xs text-muted-foreground">JPG, PNG, WEBP — أقصى 5MB</p>
+              <p className="text-xs text-muted-foreground">{t("fabrics.imageHint")}</p>
               {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
             </div>
           </div>
@@ -195,7 +197,7 @@ export function FabricRollForm() {
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="category">الفئة</Label>
+          <Label htmlFor="category">{t("fabrics.categoryLabel")}</Label>
           <select
             id="category"
             name="category"
@@ -203,12 +205,12 @@ export function FabricRollForm() {
             defaultValue={existing ? String((existing as { category?: string }).category ?? "FABRIC") : "FABRIC"}
             key={String((existing as { category?: string })?.category ?? "cat")}
           >
-            <option value="FABRIC">قماش</option>
-            <option value="LACE">دانتيل</option>
+            <option value="FABRIC">{t("fabrics.optionFabric")}</option>
+            <option value="LACE">{t("fabrics.optionLace")}</option>
           </select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="name">الاسم</Label>
+          <Label htmlFor="name">{t("fabrics.nameLabel")}</Label>
           <Input
             id="name"
             name="name"
@@ -219,7 +221,7 @@ export function FabricRollForm() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="type">Type</Label>
+            <Label htmlFor="type">{t("fabrics.typeLabel")}</Label>
             <Input
               id="type"
               name="type"
@@ -229,7 +231,7 @@ export function FabricRollForm() {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="color">Color</Label>
+            <Label htmlFor="color">{t("fabrics.colorLabel")}</Label>
             <Input
               id="color"
               name="color"
@@ -240,14 +242,14 @@ export function FabricRollForm() {
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="branchId">Branch</Label>
+          <Label htmlFor="branchId">{t("fabrics.branchLabel")}</Label>
           <select
             id="branchId"
             name="branchId"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             defaultValue={existing ? String((existing as { branchId?: string }).branchId ?? "") : ""}
           >
-            <option value="">Default branch</option>
+            <option value="">{t("fabrics.defaultBranch")}</option>
             {branches?.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -257,7 +259,7 @@ export function FabricRollForm() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="totalMeters">Total meters</Label>
+            <Label htmlFor="totalMeters">{t("fabrics.totalMeters")}</Label>
             <Input
               id="totalMeters"
               name="totalMeters"
@@ -270,7 +272,7 @@ export function FabricRollForm() {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="lowStockAt">Low stock at (m)</Label>
+            <Label htmlFor="lowStockAt">{t("fabrics.lowStockAt")}</Label>
             <Input
               id="lowStockAt"
               name="lowStockAt"
@@ -282,7 +284,7 @@ export function FabricRollForm() {
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="costPerMeter">Cost per meter (AED)</Label>
+          <Label htmlFor="costPerMeter">{t("fabrics.costPerMeter")}</Label>
           <Input
             id="costPerMeter"
             name="costPerMeter"
@@ -305,7 +307,7 @@ export function FabricRollForm() {
             defaultChecked={existing ? (existing as { isActive?: boolean }).isActive !== false : true}
             className="h-4 w-4 rounded border-input"
           />
-          نشط (يظهر في اختيار القماش للتفصيل)
+          {t("fabrics.activeLabel")}
         </label>
         {saveError && (
           <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -315,10 +317,10 @@ export function FabricRollForm() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-2">
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Saving…" : "Save"}
+              {save.isPending ? t("common.saving") : t("common.save")}
             </Button>
             <Button type="button" variant="outline" asChild>
-              <Link to="/fabrics">Cancel</Link>
+              <Link to="/fabrics">{t("common.cancel")}</Link>
             </Button>
           </div>
           {!isNew && (
@@ -329,7 +331,7 @@ export function FabricRollForm() {
               onClick={() => { setDeleteError(null); setShowDeleteDialog(true); }}
             >
               <Trash2 className="me-1.5 h-4 w-4" />
-              حذف
+              {t("common.delete")}
             </Button>
           )}
         </div>
@@ -339,13 +341,13 @@ export function FabricRollForm() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>حذف اللفة</DialogTitle>
+            <DialogTitle>{t("fabrics.deleteTitle")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            هل أنت متأكد من حذف هذه اللفة؟ لا يمكن التراجع عن هذا الإجراء.
+            {t("fabrics.deleteConfirm")}
             <br />
             <span className="text-xs text-amber-600 mt-1 block">
-              ملاحظة: لا يمكن حذف لفة تم استخدامها في طلبات أو إنتاج.
+              {t("fabrics.deleteNote")}
             </span>
           </p>
           {deleteError && (
@@ -355,7 +357,7 @@ export function FabricRollForm() {
           )}
           <DialogFooter className="gap-2">
             <DialogClose asChild>
-              <Button variant="outline" size="sm">إلغاء</Button>
+              <Button variant="outline" size="sm">{t("common.cancel")}</Button>
             </DialogClose>
             <Button
               variant="destructive"
@@ -363,7 +365,7 @@ export function FabricRollForm() {
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "جاري الحذف…" : "نعم، احذف"}
+              {deleteMutation.isPending ? t("fabrics.deleting") : t("fabrics.confirmDelete")}
             </Button>
           </DialogFooter>
         </DialogContent>

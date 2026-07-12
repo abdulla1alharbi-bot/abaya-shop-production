@@ -72,9 +72,9 @@ export function ReadyConversionsPage() {
       <div className="grid gap-2 rounded-xl border bg-card p-3 md:grid-cols-5">
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-        <Input placeholder="فلتر بالموديل" value={model} onChange={(e) => setModel(e.target.value)} />
+        <Input placeholder={t("readyMade.filterByModel")} value={model} onChange={(e) => setModel(e.target.value)} />
         <Input
-          placeholder="فلتر باسم العميل"
+          placeholder={t("readyMade.filterByCustomer")}
           value={customer}
           onChange={(e) => setCustomer(e.target.value)}
         />
@@ -83,9 +83,9 @@ export function ReadyConversionsPage() {
           value={saleStatus}
           onChange={(e) => setSaleStatus(e.target.value as "all" | "available" | "sold")}
         >
-          <option value="all">الكل</option>
-          <option value="available">متاح للبيع</option>
-          <option value="sold">تم البيع</option>
+          <option value="all">{t("readyMade.saleAll")}</option>
+          <option value="available">{t("readyMade.saleAvailable")}</option>
+          <option value="sold">{t("readyMade.saleSold")}</option>
         </select>
         <div className="flex gap-2 md:col-span-5">
           <Button
@@ -93,7 +93,7 @@ export function ReadyConversionsPage() {
             onClick={() => setSubmitted({ from, to, model, customer, saleStatus })}
             disabled={isFetching}
           >
-            تصفية
+            {t("readyMade.filter")}
           </Button>
           <Button
             variant="outline"
@@ -107,19 +107,19 @@ export function ReadyConversionsPage() {
               void refetch();
             }}
           >
-            مسح
+            {t("readyMade.clear")}
           </Button>
         </div>
       </div>
 
       <div className="rounded-xl border bg-card p-3 text-sm">
-        <span className="text-muted-foreground">عدد التحويلات:</span>{" "}
+        <span className="text-muted-foreground">{t("readyMade.conversionsCount")}</span>{" "}
         <span className="font-semibold">{data?.summary?.convertedCount ?? data?.items.length ?? 0}</span>
         <span className="mx-2 text-muted-foreground">|</span>
-        <span className="text-muted-foreground">متاح:</span>{" "}
+        <span className="text-muted-foreground">{t("readyMade.availableLabel")}</span>{" "}
         <span className="font-semibold">{data?.summary?.availableCount ?? 0}</span>
         <span className="mx-2 text-muted-foreground">|</span>
-        <span className="text-muted-foreground">مباع:</span>{" "}
+        <span className="text-muted-foreground">{t("readyMade.soldLabel")}</span>{" "}
         <span className="font-semibold">{data?.summary?.soldCount ?? 0}</span>
       </div>
 
@@ -127,34 +127,34 @@ export function ReadyConversionsPage() {
         <table className="w-full min-w-[1180px] text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
-              <th className="px-3 py-2 text-start font-medium">رقم الفاتورة</th>
-              <th className="px-3 py-2 text-start font-medium">العميل</th>
-              <th className="px-3 py-2 text-start font-medium">الموديل</th>
-              <th className="px-3 py-2 text-start font-medium">تاريخ التحويل</th>
-              <th className="px-3 py-2 text-start font-medium">كود الجاهز</th>
-              <th className="px-3 py-2 text-start font-medium">حالة البيع</th>
-              <th className="px-3 py-2 text-start font-medium">تاريخ البيع</th>
-              <th className="px-3 py-2 text-start font-medium">فاتورة البيع</th>
-              <th className="px-3 py-2 text-start font-medium">ملاحظات</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colInvoiceNo")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colCustomer")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colModel")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colConvertedAt")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colReadyCode")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colSaleStatus")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colSoldAt")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colSaleInvoice")}</th>
+              <th className="px-3 py-2 text-start font-medium">{t("readyMade.colNotes")}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                  جاري التحميل…
+                  {t("common.loadingData")}
                 </td>
               </tr>
             ) : isError ? (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-destructive">
-                  تعذر تحميل سجل التحويلات.
+                  {t("readyMade.conversionsLoadFailed")}
                 </td>
               </tr>
             ) : !data?.items.length ? (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                  لا توجد تحويلات مطابقة.
+                  {t("readyMade.noMatchingConversions")}
                 </td>
               </tr>
             ) : (
@@ -168,11 +168,11 @@ export function ReadyConversionsPage() {
                   <td className="px-3 py-2">
                     {row.saleStatus === "SOLD" ? (
                       <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
-                        تم البيع
+                        {t("readyMade.saleSold")}
                       </span>
                     ) : (
                       <span className="rounded-full border border-cyan-300 bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-100">
-                        متاح للبيع
+                        {t("readyMade.saleAvailable")}
                       </span>
                     )}
                   </td>

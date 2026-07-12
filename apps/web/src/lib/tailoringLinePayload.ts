@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { TailoringCartLine } from "@/types/posCart";
 import type { AbayaCatalogType } from "@/lib/abayaTailoringCatalog";
 import { needsCustomText, resolveAbayaType } from "@/lib/abayaTailoringCatalog";
@@ -13,11 +14,11 @@ export interface FabricRollRow {
 }
 
 export function sizeSummary(line: TailoringCartLine): string {
-  if (line.sizeMode === "STANDARD") return `جاهز ${line.standardSize}`;
+  if (line.sizeMode === "STANDARD") return i18n.t("pos.cart.sizeReady", { size: line.standardSize });
   const parts = [line.shoulder, line.chest, line.waist, line.hip, line.lengthVal, line.sleeve].filter(
     Boolean,
   );
-  return parts.length ? `خاص: ${parts.join(" / ")}` : "مقاس خاص";
+  return parts.length ? i18n.t("pos.cart.sizeCustom", { parts: parts.join(" / ") }) : i18n.t("pos.cart.sizeCustomEmpty");
 }
 
 export function lineToMeasurementPayload(
@@ -92,10 +93,12 @@ export function tailoringLineToCheckoutItem(
 /** Short label for cart row */
 export function tailoringLineDisplayLabel(line: TailoringCartLine, catalog: { types: AbayaCatalogType[] } | undefined): string {
   const typeRow = resolveAbayaType(line.abayaTypeId, catalog);
+  const typeLabel =
+    (i18n.language === "en" ? typeRow?.labelEn || typeRow?.labelAr : typeRow?.labelAr) ?? "";
   const modelRow = typeRow?.models.find((mod) => mod.id === line.abayaModelId);
-  if (modelRow) return `${typeRow?.labelAr ?? ""} — ${modelRow.code} — ${modelRow.name}`;
+  if (modelRow) return `${typeLabel} — ${modelRow.code} — ${modelRow.name}`;
   if (needsCustomText(typeRow) && line.customStyleText?.trim()) {
-    return `${typeRow?.labelAr ?? ""} — ${line.customStyleText.trim()}`;
+    return `${typeLabel} — ${line.customStyleText.trim()}`;
   }
-  return typeRow?.labelAr ?? (line.abayaTypeId || "تفصيل");
+  return typeLabel || line.abayaTypeId || i18n.t("pos.cart.tailoring");
 }

@@ -52,6 +52,10 @@ export const createUserSchema = z.object({
     .optional()
     .transform((v) => (v?.trim() ? v.trim() : undefined)),
   isActive: z.boolean().optional().default(true),
+  branchId: z
+    .union([z.string(), z.literal("")])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? undefined : v)),
   extraPermissions: permissionList(),
   revokedPermissions: permissionList(),
 });
@@ -72,6 +76,10 @@ export const updateUserSchema = z.object({
       return t === "" ? null : t;
     }),
   isActive: z.boolean().optional(),
+  branchId: z
+    .union([z.string(), z.literal("")])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "" ? null : v)),
   extraPermissions: permissionList(),
   revokedPermissions: permissionList(),
 });

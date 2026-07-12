@@ -111,7 +111,7 @@ export function InvoiceSellerPanel({
       {balanceFils > 0 && can("invoices.payment") ? (
         <div className="space-y-3">
           <Label htmlFor="pay-amt" className="text-base font-semibold">
-            Add payment (AED)
+            {t("invoices.addPaymentAed")}
           </Label>
           <Input
             id="pay-amt"
@@ -129,23 +129,23 @@ export function InvoiceSellerPanel({
             disabled={addPayment.isPending}
             onClick={() => addPayment.mutate()}
           >
-            {addPayment.isPending ? "…" : "Save payment"}
+            {addPayment.isPending ? "…" : t("invoices.savePayment")}
           </Button>
           {addPayment.isError ? (
             <p className="text-sm text-destructive">{(addPayment.error as Error).message}</p>
           ) : null}
         </div>
       ) : balanceFils > 0 && !can("invoices.payment") ? (
-        <p className="text-sm text-muted-foreground">لا تملك صلاحية تسجيل دفعات على هذه الفاتورة.</p>
+        <p className="text-sm text-muted-foreground">{t("invoices.noPaymentPermission")}</p>
       ) : (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
-          Fully paid.
+          {t("invoices.fullyPaid")}
         </p>
       )}
 
       {payments.length > 0 ? (
         <div>
-          <h4 className="mb-2 text-sm font-semibold text-muted-foreground">Payment history</h4>
+          <h4 className="mb-2 text-sm font-semibold text-muted-foreground">{t("invoices.paymentHistory")}</h4>
           <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg border text-sm">
             {payments.map((p) => (
               <li key={p.id} className="flex justify-between gap-2 border-b px-3 py-2 last:border-0">
@@ -161,7 +161,7 @@ export function InvoiceSellerPanel({
 
       {can("invoices.edit") ? (
         <div className="space-y-2 rounded-xl border p-4">
-          <Label className="text-sm font-semibold">Expected delivery</Label>
+          <Label className="text-sm font-semibold">{t("invoices.expectedDelivery")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
               type="datetime-local"
@@ -176,7 +176,7 @@ export function InvoiceSellerPanel({
               disabled={saveDue.isPending}
               onClick={() => saveDue.mutate()}
             >
-              {saveDue.isPending ? "…" : "Save date"}
+              {saveDue.isPending ? "…" : t("invoices.saveDate")}
             </Button>
           </div>
           {saveDue.isError ? (
@@ -187,20 +187,19 @@ export function InvoiceSellerPanel({
 
       {can("invoices.deliver") ? (
         <div className="rounded-xl border-2 border-dashed border-amber-300/80 bg-amber-50/50 p-4 dark:bg-amber-950/20">
-          <p className="mb-1 text-sm font-semibold">Delivery</p>
+          <p className="mb-1 text-sm font-semibold">{t("invoices.delivery")}</p>
           <p className="mb-4 text-xs text-muted-foreground">
-            Available when workshop work is finished. You can deliver even if there is a balance — record payment
-            above first if you like.
+            {t("invoices.deliveryHint")}
           </p>
           <Button
             type="button"
             className="h-14 w-full rounded-xl text-lg"
             disabled={!canDeliver || deliveredAt != null || deliver.isPending}
             onClick={() => {
-              if (confirm(`Mark invoice #${invoiceNo} as delivered?`)) deliver.mutate();
+              if (confirm(t("invoices.confirmDeliver", { invoiceNo }))) deliver.mutate();
             }}
           >
-            {deliver.isPending ? "…" : deliveredAt ? "Delivered" : "Mark as delivered"}
+            {deliver.isPending ? "…" : deliveredAt ? t("invoices.delivered") : t("invoices.markAsDelivered")}
           </Button>
           {deliver.isError ? (
             <p className="mt-2 text-sm text-destructive">{(deliver.error as Error).message}</p>

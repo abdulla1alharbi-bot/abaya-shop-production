@@ -101,7 +101,7 @@ export function ReadyMadeProductsPage() {
                       <span>{p.name}</span>
                       {p.isSample ? (
                         <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-                          قطعة عرض
+                          {t("readyMade.sampleBadge")}
                         </span>
                       ) : null}
                     </div>
@@ -113,8 +113,8 @@ export function ReadyMadeProductsPage() {
                   <td className="px-4 py-2.5 text-xs">
                     {typeof p.createdFromInvoiceNo === "number" ? (
                       <span className="rounded-md border border-cyan-300 bg-cyan-50 px-2 py-1 font-medium text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-100">
-                        تم إنشاؤه من فاتورة #{p.createdFromInvoiceNo}
-                        {typeof p.createdFromJobNo === "number" ? ` · طلب #${p.createdFromJobNo}` : ""}
+                        {t("readyMade.createdFromInvoice", { invoiceNo: p.createdFromInvoiceNo })}
+                        {typeof p.createdFromJobNo === "number" ? t("readyMade.createdFromJobSuffix", { jobNo: p.createdFromJobNo }) : ""}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -123,7 +123,7 @@ export function ReadyMadeProductsPage() {
                   <td className="px-4 py-2.5 text-end">
                     {can("readyMade.edit") ? (
                       <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                        <Link to={`/ready-made/${p.id}/edit`}>تعديل</Link>
+                        <Link to={`/ready-made/${p.id}/edit`}>{t("common.edit")}</Link>
                       </Button>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>

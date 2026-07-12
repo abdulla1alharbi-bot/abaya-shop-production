@@ -31,6 +31,99 @@ workersRouter.get(
   }),
 );
 
+/**
+ * Per-worker quality & speed metrics for a date range:
+ * completed stages, rework count (QA fails + reopens), rework rate,
+ * and average hours from assignment to completion.
+ */
+workersRouter.get(
+  "/quality-metrics",
+  requirePermission("workers.view", "jobProcess.view"),
+  asyncHandler(async (req, res) => {
+    const { from, to } = parseDateRangeOrDefault(req.query as Record<string, unknown>);
+
+    const [completedStages, reworks, workers] = await Promise.all([
+      prisma.jobOrderWorkStage.findMany({
+        where: { status: "DONE", completedAt: { gte: from, lte: to }, workerId: { not: null } },
+        select: { workerId: true, stageKey: true, assignedAt: true, completedAt: true },
+      }),
+      prisma.reworkLog.findMany({
+        where: { createdAt: { gte: from, lte: to } },
+        select: { workerId: true, source: true },
+      }),
+      prisma.worker.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, role: true },
+      }),
+    ]);
+
+    type QRow = {
+      workerId: string;
+      name: string;
+      role: string;
+      completed: number;
+      reworks: number;
+      qaFails: number;
+      totalHours: number;
+      timedStages: number;
+    };
+    const byWorker = new Map<string, QRow>();
+    for (const w of workers) {
+      byWorker.set(w.id, {
+        workerId: w.id,
+        name: w.name,
+        role: w.role,
+        completed: 0,
+        reworks: 0,
+        qaFails: 0,
+        totalHours: 0,
+        timedStages: 0,
+      });
+    }
+    for (const s of completedStages) {
+      const row = byWorker.get(s.workerId!);
+      if (!row) continue;
+      row.completed += 1;
+      if (s.assignedAt && s.completedAt) {
+        const hours = (s.completedAt.getTime() - s.assignedAt.getTime()) / 3_600_000;
+        if (hours >= 0 && hours < 24 * 90) {
+          row.totalHours += hours;
+          row.timedStages += 1;
+        }
+      }
+    }
+    for (const r of reworks) {
+      if (!r.workerId) continue;
+      const row = byWorker.get(r.workerId);
+      if (!row) continue;
+      row.reworks += 1;
+      if (r.source === "QA_FAIL") row.qaFails += 1;
+    }
+
+    const rows = [...byWorker.values()]
+      .filter((r) => r.completed > 0 || r.reworks > 0)
+      .map((r) => ({
+        workerId: r.workerId,
+        name: r.name,
+        role: r.role,
+        completed: r.completed,
+        reworks: r.reworks,
+        qaFails: r.qaFails,
+        reworkRatePercent:
+          r.completed + r.reworks > 0
+            ? Math.round((r.reworks / (r.completed + r.reworks)) * 1000) / 10
+            : 0,
+        avgHoursPerStage: r.timedStages > 0 ? Math.round((r.totalHours / r.timedStages) * 10) / 10 : null,
+      }))
+      .sort((a, b) => b.completed - a.completed);
+
+    res.status(200).json({
+      success: true,
+      data: { from: from.toISOString(), to: to.toISOString(), rows },
+    });
+  }),
+);
+
 /** Aggregate earnings / payouts / due per worker (productivity & payroll). Query: from, to, workerId, workType */
 workersRouter.get(
   "/summary",

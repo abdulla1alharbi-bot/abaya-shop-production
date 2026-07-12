@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { getApiErrorMessage } from "@/lib/apiErrors";
 const EXCLUDED_READY_MADE_CATEGORIES = new Set(["MODEL"]);
 
 export function ProductForm() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const isNew = !id;
   const navigate = useNavigate();
@@ -88,8 +90,8 @@ export function ProductForm() {
   if (!isNew && loadingProduct) {
     return (
       <div>
-        <PageHeader title="تحميل…" />
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <PageHeader title={t("common.loading")} />
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       </div>
     );
   }
@@ -97,12 +99,12 @@ export function ProductForm() {
   if (!isNew && existing && readyMade && (existing as { isService?: boolean }).isService) {
     return (
       <div className="max-w-lg space-y-4">
-        <PageHeader title="غير متاح هنا" />
+        <PageHeader title={t("products.unavailableHereTitle")} />
         <p className="text-sm text-muted-foreground">
-          هذا السجل منتج خدمة / تفصيل يُدار من صفحة الموديلات، وليس من المنتجات الجاهزة.
+          {t("products.unavailableHereDesc")}
         </p>
         <Button asChild>
-          <Link to="/ready-made">العودة لمنتجات جاهزة</Link>
+          <Link to="/ready-made">{t("products.backToReadyMade")}</Link>
         </Button>
       </div>
     );
@@ -114,15 +116,15 @@ export function ProductForm() {
         title={
           readyMade
             ? isNew
-              ? "منتج جاهز جديد"
-              : "تعديل منتج جاهز"
+              ? t("products.newReadyMadeTitle")
+              : t("products.editReadyMadeTitle")
             : isNew
-              ? "New product"
-              : "Edit product"
+              ? t("products.newTitle")
+              : t("products.editTitle")
         }
         description={
           readyMade
-            ? "للبيع من كاشير «جاهز» فقط. موديلات التفصيل تُدار من صفحة الموديلات."
+            ? t("products.readyMadeDesc")
             : undefined
         }
       />
@@ -130,10 +132,11 @@ export function ProductForm() {
       readyMade &&
       typeof (existing as { createdFromInvoiceNo?: number | null } | null)?.createdFromInvoiceNo === "number" ? (
         <div className="rounded-lg border border-cyan-300/80 bg-cyan-50 px-3 py-2 text-xs text-cyan-900 dark:border-cyan-800/60 dark:bg-cyan-950/30 dark:text-cyan-100">
-          تم إنشاؤه من فاتورة #
-          {String((existing as { createdFromInvoiceNo?: number | null }).createdFromInvoiceNo ?? "—")}
+          {t("products.createdFromInvoice", {
+            invoiceNo: String((existing as { createdFromInvoiceNo?: number | null }).createdFromInvoiceNo ?? "—"),
+          })}
           {(existing as { createdFromJobNo?: number | null }).createdFromJobNo
-            ? ` · طلب #${String((existing as { createdFromJobNo?: number | null }).createdFromJobNo)}`
+            ? ` ${t("products.createdFromJob", { jobNo: String((existing as { createdFromJobNo?: number | null }).createdFromJobNo) })}`
             : ""}
         </div>
       ) : null}
@@ -145,7 +148,7 @@ export function ProductForm() {
         }}
       >
         <div className="grid gap-2">
-          <Label htmlFor="sku">SKU / الرمز</Label>
+          <Label htmlFor="sku">{t("products.skuLabel")}</Label>
           <Input
             id="sku"
             name="sku"
@@ -155,7 +158,7 @@ export function ProductForm() {
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="name">Name</Label>
+          <Label htmlFor="name">{t("products.nameLabel")}</Label>
           <Input
             id="name"
             name="name"
@@ -165,7 +168,7 @@ export function ProductForm() {
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="nameAr">Name (AR)</Label>
+          <Label htmlFor="nameAr">{t("products.nameArLabel")}</Label>
           <Input
             id="nameAr"
             name="nameAr"
@@ -174,7 +177,7 @@ export function ProductForm() {
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="categoryId">Category</Label>
+          <Label htmlFor="categoryId">{t("products.categoryLabel")}</Label>
           <select
             id="categoryId"
             name="categoryId"
@@ -183,7 +186,7 @@ export function ProductForm() {
             defaultValue={existing ? String((existing as { categoryId?: string }).categoryId ?? "") : ""}
             key={existing ? String((existing as { categoryId?: string }).categoryId) : "c0"}
           >
-            <option value="">Select…</option>
+            <option value="">{t("products.selectPlaceholder")}</option>
             {(readyMade ? retailCategories : categories)?.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -193,7 +196,7 @@ export function ProductForm() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="cost">Cost (AED)</Label>
+            <Label htmlFor="cost">{t("products.costLabel")}</Label>
             <Input
               id="cost"
               name="cost"
@@ -210,7 +213,7 @@ export function ProductForm() {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="price">Price (AED)</Label>
+            <Label htmlFor="price">{t("products.priceLabel")}</Label>
             <Input
               id="price"
               name="price"
@@ -228,7 +231,7 @@ export function ProductForm() {
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="stockQty">Stock quantity</Label>
+          <Label htmlFor="stockQty">{t("products.stockQtyLabel")}</Label>
           <Input
             id="stockQty"
             name="stockQty"
@@ -241,7 +244,7 @@ export function ProductForm() {
         {readyMade ? (
           <>
             <div className="grid gap-2">
-              <Label htmlFor="catalogImageUrl">رابط صورة المنتج (اختياري)</Label>
+              <Label htmlFor="catalogImageUrl">{t("products.catalogImageUrlLabel")}</Label>
               <Input
                 id="catalogImageUrl"
                 name="catalogImageUrl"
@@ -260,19 +263,19 @@ export function ProductForm() {
                 defaultChecked={existing ? (existing as { isActive?: boolean }).isActive !== false : true}
                 className="h-4 w-4 rounded border-input"
               />
-              نشط في الكاشير
+              {t("products.activeInPosLabel")}
             </label>
           </>
         ) : null}
         {!readyMade ? (
           <div className="space-y-3 border-t pt-4">
-            <p className="text-sm font-medium text-foreground">Tailoring stage wages (AED)</p>
+            <p className="text-sm font-medium text-foreground">{t("products.stageWagesTitle")}</p>
             <p className="text-xs text-muted-foreground">
-              Used automatically for job orders that use this model (cutting → sewing → embroidery → finishing).
+              {t("products.stageWagesHint")}
             </p>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div className="grid gap-2">
-                <Label htmlFor="cuttingWageAed">Cutting</Label>
+                <Label htmlFor="cuttingWageAed">{t("products.wageCutting")}</Label>
                 <Input
                   id="cuttingWageAed"
                   name="cuttingWageAed"
@@ -294,7 +297,7 @@ export function ProductForm() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="sewingWageAed">Sewing</Label>
+                <Label htmlFor="sewingWageAed">{t("products.wageSewing")}</Label>
                 <Input
                   id="sewingWageAed"
                   name="sewingWageAed"
@@ -316,7 +319,7 @@ export function ProductForm() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="embroideryWageAed">Embroidery</Label>
+                <Label htmlFor="embroideryWageAed">{t("products.wageEmbroidery")}</Label>
                 <Input
                   id="embroideryWageAed"
                   name="embroideryWageAed"
@@ -338,7 +341,7 @@ export function ProductForm() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="finishingWageAed">Finishing</Label>
+                <Label htmlFor="finishingWageAed">{t("products.wageFinishing")}</Label>
                 <Input
                   id="finishingWageAed"
                   name="finishingWageAed"
@@ -363,7 +366,7 @@ export function ProductForm() {
           </div>
         ) : null}
         <div className="grid gap-2">
-          <Label htmlFor="barcode">Barcode</Label>
+          <Label htmlFor="barcode">{t("products.barcodeLabel")}</Label>
           <Input
             id="barcode"
             name="barcode"
@@ -372,10 +375,10 @@ export function ProductForm() {
         </div>
         <div className="flex gap-2">
           <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Save"}
+            {save.isPending ? t("common.saving") : t("common.save")}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link to={baseList}>Cancel</Link>
+            <Link to={baseList}>{t("common.cancel")}</Link>
           </Button>
         </div>
         {save.isError ? (
