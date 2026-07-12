@@ -8,7 +8,7 @@ import * as authService from "./auth.service.js";
 export const postLogin = [
   validateBody(loginBodySchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const result = await authService.login(req.body, res);
+    const result = await authService.login(req.body, res, req.ip);
     res.status(200).json({ success: true, data: result });
   }),
 ];

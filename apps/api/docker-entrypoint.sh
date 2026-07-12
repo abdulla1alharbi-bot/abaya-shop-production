@@ -7,7 +7,10 @@ TSX="./apps/api/node_modules/.bin/tsx"
 SEED="./apps/api/prisma/seed.ts"
 
 echo "Pushing database schema..."
-"$PRISMA" db push --schema="$SCHEMA" --accept-data-loss
+# NO --accept-data-loss: if a schema change would drop data, refuse and stop the
+# boot loudly instead of silently destroying production rows. Handle such
+# migrations manually (backup first, then run the change deliberately).
+"$PRISMA" db push --schema="$SCHEMA"
 
 echo "Seeding database..."
 if [ -f "$TSX" ]; then

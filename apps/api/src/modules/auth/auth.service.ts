@@ -58,14 +58,16 @@ function userAuthRow(user: {
   };
 }
 
-export async function login(body: LoginBody, res: Response) {
+export async function login(body: LoginBody, res: Response, clientIp?: string) {
   const username = normalizeUsername(body.username);
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user || !user.isActive) {
+    logger.warn("Login failed: unknown or inactive user", { username, ip: clientIp });
     throw new AppError(401, "اسم المستخدم أو كلمة المرور غير صحيحة", "INVALID_CREDENTIALS");
   }
   const ok = await bcrypt.compare(body.password, user.password);
   if (!ok) {
+    logger.warn("Login failed: wrong password", { username, ip: clientIp });
     throw new AppError(401, "اسم المستخدم أو كلمة المرور غير صحيحة", "INVALID_CREDENTIALS");
   }
 

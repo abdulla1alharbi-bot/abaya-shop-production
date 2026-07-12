@@ -1,5 +1,16 @@
 import type { NextFunction, Request, Response } from "express";
 import { AppError } from "./error.middleware.js";
+import { logger } from "../utils/logger.js";
+
+function logDenial(req: Request, keys: string[]): void {
+  logger.warn("Permission denied", {
+    user: req.user?.username,
+    role: req.user?.role,
+    required: keys.join(","),
+    path: `${req.method} ${req.originalUrl}`,
+    ip: req.ip,
+  });
+}
 
 /** User must have at least one of the given permissions. */
 export function requirePermission(...keys: string[]) {
@@ -18,6 +29,7 @@ export function requirePermission(...keys: string[]) {
       next();
       return;
     }
+    logDenial(req, keys);
     next(new AppError(403, "ليس لديك صلاحية لهذا الإجراء", "FORBIDDEN"));
   };
 }
@@ -39,6 +51,7 @@ export function requireAllPermissions(...keys: string[]) {
       next();
       return;
     }
+    logDenial(req, keys);
     next(new AppError(403, "ليس لديك صلاحية لهذا الإجراء", "FORBIDDEN"));
   };
 }

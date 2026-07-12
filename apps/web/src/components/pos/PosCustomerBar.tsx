@@ -96,8 +96,8 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
     mutationFn: async () => {
       const name = qName.trim();
       const mobile = qMobile.trim();
-      if (name.length < 2) throw new Error("أدخل اسماً صحيحاً");
-      if (mobile.length < 5) throw new Error("أدخل رقم جوال صحيحاً");
+      if (name.length < 2) throw new Error(t("pos.customer.errInvalidName"));
+      if (mobile.length < 5) throw new Error(t("pos.customer.errInvalidMobile"));
 
       const im = {
         shoulder: numIn(qShoulder),
@@ -160,10 +160,10 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-0.5">
           <Label className={cn("font-semibold text-foreground", isHero ? "text-base" : "text-sm")}>
-            {isHero ? "العميل" : "من العميل؟"}
+            {isHero ? t("pos.customer.label") : t("pos.customer.whichCustomer")}
           </Label>
           {isHero ? (
-            <p className="text-xs text-muted-foreground">ابدأ هنا: بحث بالاسم أو الجوال ثم اختيار العميل.</p>
+            <p className="text-xs text-muted-foreground">{t("pos.customer.heroHint")}</p>
           ) : null}
         </div>
         <Button
@@ -172,13 +172,13 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
           size={isHero ? "default" : "sm"}
           className={cn("h-auto shrink-0 gap-2", isHero && "px-4 py-2.5")}
           onClick={() => setQuickOpen(true)}
-          aria-label="Add new customer"
+          aria-label={t("pos.customer.addNew")}
         >
           <UserPlus className={cn("shrink-0", isHero ? "h-4 w-4" : "h-3.5 w-3.5")} />
           <span className="flex flex-col items-start leading-tight text-start">
-            <span className="font-medium">عميل جديد</span>
+            <span className="font-medium">{t("pos.customer.newCustomer")}</span>
             <span className={cn("font-normal opacity-90", isHero ? "text-xs" : "text-[10px]")}>
-              Add new customer
+              {t("pos.customer.addNew")}
             </span>
           </span>
         </Button>
@@ -186,7 +186,7 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
 
       {posCustomerId ? (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-brand-200 bg-background px-3 py-2.5 text-sm shadow-sm dark:border-brand-800 dark:bg-card">
-          <span className="font-medium">{posCustomerLabel || "عميل محدد"}</span>
+          <span className="font-medium">{posCustomerLabel || t("pos.customer.selectedCustomer")}</span>
           <Button
             type="button"
             variant="ghost"
@@ -196,7 +196,7 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
               setPosCustomer(null, "");
               setCustomerQuery("");
             }}
-            aria-label="إلغاء اختيار العميل"
+            aria-label={t("pos.customer.clearSelection")}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -205,7 +205,7 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
         <>
           <Input
             ref={searchInputRef}
-            placeholder={isHero ? "ابحث بالاسم أو الجوال (name or phone)" : "ابحث بالاسم أو الجوال"}
+            placeholder={isHero ? t("pos.customer.searchPhHero") : t("pos.customer.searchPh")}
             value={customerQuery}
             onChange={(e) => setCustomerQuery(e.target.value)}
             className={cn("h-10", isHero && "border-brand-200 bg-background dark:border-brand-800")}
@@ -236,24 +236,24 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
       <Dialog open={quickOpen} onOpenChange={setQuickOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>عميل جديد سريع</DialogTitle>
+            <DialogTitle>{t("pos.customer.quickNewTitle")}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid gap-2 sm:grid-cols-2">
               <div>
-                <Label>الاسم</Label>
-                <Input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="اسم العميل" />
+                <Label>{t("pos.customer.name")}</Label>
+                <Input value={qName} onChange={(e) => setQName(e.target.value)} placeholder={t("pos.customer.namePh")} />
               </div>
               <div>
-                <Label>الجوال</Label>
+                <Label>{t("pos.customer.mobile")}</Label>
                 <Input inputMode="tel" value={qMobile} onChange={(e) => setQMobile(e.target.value)} placeholder="05xxxxxxxx" />
               </div>
             </div>
             <div>
-              <Label>ملاحظات العميل (اختياري)</Label>
-              <Input value={qNotes} onChange={(e) => setQNotes(e.target.value)} placeholder="ملاحظات عامة…" />
+              <Label>{t("pos.customer.notesLabel")}</Label>
+              <Input value={qNotes} onChange={(e) => setQNotes(e.target.value)} placeholder={t("pos.customer.notesPh")} />
             </div>
-            <p className="text-xs font-medium text-muted-foreground">المقاسات (اختياري — تُحفظ مع العميل)</p>
+            <p className="text-xs font-medium text-muted-foreground">{t("pos.customer.measurementsHint")}</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <div>
                 <Label className="text-xs">{t("measurements.shoulder")}</Label>
@@ -280,22 +280,22 @@ export function PosCustomerBar({ variant = "default", className }: PosCustomerBa
                 <Input value={qLength} onChange={(e) => setQLength(e.target.value)} />
               </div>
               <div>
-                <Label className="text-xs">ملاحظات المقاس</Label>
+                <Label className="text-xs">{t("pos.customer.measNotes")}</Label>
                 <Input value={qMeasNotes} onChange={(e) => setQMeasNotes(e.target.value)} />
               </div>
             </div>
           </div>
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={() => setQuickOpen(false)}>
-              إلغاء
+              {t("pos.customer.cancel")}
             </Button>
             <Button type="button" disabled={quickCreate.isPending} onClick={() => quickCreate.mutate()}>
-              {quickCreate.isPending ? "جاري الحفظ…" : "إنشاء واختيار"}
+              {quickCreate.isPending ? t("pos.customer.saving") : t("pos.customer.createSelect")}
             </Button>
           </DialogFooter>
           {quickCreate.isError ? (
             <p className="text-sm text-destructive">
-              {(quickCreate.error as Error).message || "تعذر الإنشاء (ربما الجوال مسجّل)"}
+              {(quickCreate.error as Error).message || t("pos.customer.createFailed")}
             </p>
           ) : null}
         </DialogContent>

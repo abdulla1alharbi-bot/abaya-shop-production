@@ -117,34 +117,34 @@ export function ShiftsPage() {
 
       {/* Active shift panel */}
       {currentQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       ) : current ? (
         <div className="rounded-xl border-2 border-green-400 bg-green-50 p-5 dark:border-green-700 dark:bg-green-950/30">
           <h2 className="mb-4 text-lg font-bold text-green-900 dark:text-green-100">
-            🟢 وردية مفتوحة منذ {new Date(current.openedAt).toLocaleTimeString("ar-AE")}
+            🟢 {t("shifts.openSince", { time: new Date(current.openedAt).toLocaleTimeString("ar-AE") })}
           </h2>
           <div className="grid gap-3 text-sm sm:grid-cols-3">
             <div>
-              <p className="text-xs text-muted-foreground">رصيد الفتح</p>
+              <p className="text-xs text-muted-foreground">{t("shifts.openingBalance")}</p>
               <p className="text-lg font-bold">{formatAED(current.openingBalanceFils)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">مبيعات كاش حتى الآن</p>
+              <p className="text-xs text-muted-foreground">{t("shifts.cashSalesSoFar")}</p>
               <p className="text-lg font-bold text-green-700 dark:text-green-300">
                 {formatAED(current.cashSalesFils)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">كاش متوقع في الدرج</p>
+              <p className="text-xs text-muted-foreground">{t("shifts.expectedCashInDrawer")}</p>
               <p className="text-lg font-bold">{formatAED(current.expectedCashFils)}</p>
             </div>
           </div>
 
           <div className="mt-5 space-y-3 border-t pt-4">
-            <h3 className="text-sm font-semibold">إغلاق الوردية</h3>
+            <h3 className="text-sm font-semibold">{t("shifts.closeShift")}</h3>
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <Label className="text-xs">الكاش الفعلي في الدرج (درهم)</Label>
+                <Label className="text-xs">{t("shifts.actualCashLabel")}</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -155,10 +155,10 @@ export function ShiftsPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs">ملاحظات (اختياري)</Label>
+                <Label className="text-xs">{t("shifts.notesOptional")}</Label>
                 <Input
                   className="mt-1 w-48"
-                  placeholder="ملاحظات الإغلاق"
+                  placeholder={t("shifts.closeNotesPlaceholder")}
                   value={closeNotes}
                   onChange={(e) => setCloseNotes(e.target.value)}
                 />
@@ -169,12 +169,12 @@ export function ShiftsPage() {
                 disabled={closeShift.isPending || !closingAed}
                 onClick={() => closeShift.mutate(current.id)}
               >
-                {closeShift.isPending ? "جاري الإغلاق…" : "إغلاق الوردية"}
+                {closeShift.isPending ? t("shifts.closing") : t("shifts.closeShift")}
               </Button>
             </div>
             {closingAed ? (
               <p className="text-xs text-muted-foreground">
-                الفرق المتوقع:{" "}
+                {t("shifts.expectedVariance")}{" "}
                 <strong>
                   {Math.round((parseFloat(closingAed) || 0) * 100) - current.expectedCashFils > 0
                     ? "+"
@@ -190,10 +190,10 @@ export function ShiftsPage() {
         </div>
       ) : (
         <div className="rounded-xl border-2 border-border bg-muted/30 p-5">
-          <h2 className="mb-4 text-base font-bold">فتح وردية جديدة</h2>
+          <h2 className="mb-4 text-base font-bold">{t("shifts.openNewShift")}</h2>
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <Label className="text-xs">الكاش الابتدائي في الدرج (درهم)</Label>
+              <Label className="text-xs">{t("shifts.openingCashLabel")}</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -204,10 +204,10 @@ export function ShiftsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs">ملاحظات (اختياري)</Label>
+              <Label className="text-xs">{t("shifts.notesOptional")}</Label>
               <Input
                 className="mt-1 w-48"
-                placeholder="ملاحظات الفتح"
+                placeholder={t("shifts.openNotesPlaceholder")}
                 value={openNotes}
                 onChange={(e) => setOpenNotes(e.target.value)}
               />
@@ -217,7 +217,7 @@ export function ShiftsPage() {
               disabled={openShift.isPending}
               onClick={() => openShift.mutate()}
             >
-              {openShift.isPending ? "جاري الفتح…" : "فتح الوردية"}
+              {openShift.isPending ? t("shifts.opening") : t("shifts.openShift")}
             </Button>
           </div>
           {openShift.isError ? (
@@ -230,31 +230,31 @@ export function ShiftsPage() {
       {canManage ? (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold">سجل الورديات</h2>
+            <h2 className="text-base font-bold">{t("shifts.logTitle")}</h2>
             <select
               className="rounded-md border px-2 py-1 text-sm"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
-              <option value="">الكل</option>
-              <option value="OPEN">مفتوحة</option>
-              <option value="CLOSED">مغلقة</option>
-              <option value="APPROVED">معتمدة</option>
+              <option value="">{t("shifts.filterAll")}</option>
+              <option value="OPEN">{t("shifts.statusOpen")}</option>
+              <option value="CLOSED">{t("shifts.statusClosed")}</option>
+              <option value="APPROVED">{t("shifts.statusApproved")}</option>
             </select>
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-muted/80 text-xs font-semibold">
                 <tr>
-                  <th className="px-3 py-2 text-start">الموظف</th>
-                  <th className="px-3 py-2 text-start">الفتح</th>
-                  <th className="px-3 py-2 text-start">الإغلاق</th>
-                  <th className="px-3 py-2 text-end">رصيد الفتح</th>
-                  <th className="px-3 py-2 text-end">كاش مبيعات</th>
-                  <th className="px-3 py-2 text-end">الكاش المتوقع</th>
-                  <th className="px-3 py-2 text-end">رصيد الإغلاق</th>
-                  <th className="px-3 py-2 text-center">الفرق</th>
-                  <th className="px-3 py-2 text-center">الحالة</th>
+                  <th className="px-3 py-2 text-start">{t("shifts.colEmployee")}</th>
+                  <th className="px-3 py-2 text-start">{t("shifts.colOpen")}</th>
+                  <th className="px-3 py-2 text-start">{t("shifts.colClose")}</th>
+                  <th className="px-3 py-2 text-end">{t("shifts.openingBalance")}</th>
+                  <th className="px-3 py-2 text-end">{t("shifts.colCashSales")}</th>
+                  <th className="px-3 py-2 text-end">{t("shifts.colExpectedCash")}</th>
+                  <th className="px-3 py-2 text-end">{t("shifts.colClosingBalance")}</th>
+                  <th className="px-3 py-2 text-center">{t("shifts.colVariance")}</th>
+                  <th className="px-3 py-2 text-center">{t("shifts.colStatus")}</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -263,10 +263,10 @@ export function ShiftsPage() {
                   allShiftsQuery.data.map((shift) => {
                     const statusLabel =
                       shift.status === "OPEN"
-                        ? "مفتوحة"
+                        ? t("shifts.statusOpen")
                         : shift.status === "CLOSED"
-                          ? "مغلقة"
-                          : "معتمدة";
+                          ? t("shifts.statusClosed")
+                          : t("shifts.statusApproved");
                     const statusColor =
                       shift.status === "OPEN"
                         ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
@@ -311,7 +311,7 @@ export function ShiftsPage() {
                               disabled={approveShift.isPending}
                               onClick={() => approveShift.mutate(shift.id)}
                             >
-                              اعتماد
+                              {t("shifts.approve")}
                             </Button>
                           ) : null}
                         </td>
@@ -321,7 +321,7 @@ export function ShiftsPage() {
                 ) : (
                   <tr>
                     <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
-                      لا توجد ورديات.
+                      {t("shifts.noShifts")}
                     </td>
                   </tr>
                 )}

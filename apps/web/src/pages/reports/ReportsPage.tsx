@@ -361,22 +361,22 @@ export function ReportsPage() {
   });
 
   const invoiceTable = (rows: InvoiceReportItem[] | undefined, loading: boolean) => {
-    if (loading) return <p className="text-sm text-muted-foreground">جاري التحميل…</p>;
-    if (!rows?.length) return <p className="text-sm text-muted-foreground">لا فواتير في هذه الفترة.</p>;
+    if (loading) return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
+    if (!rows?.length) return <p className="text-sm text-muted-foreground">{t("reports.noInvoicesInPeriod")}</p>;
     return (
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full min-w-[900px] text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
-              <th className="px-3 py-2 text-start">رقم</th>
-              <th className="px-3 py-2 text-start">العميل</th>
-              <th className="px-3 py-2 text-start">الجوال</th>
-              <th className="px-3 py-2 text-start">تاريخ الفاتورة</th>
-              <th className="px-3 py-2 text-end">الإجمالي</th>
-              <th className="px-3 py-2 text-end">المدفوع</th>
-              <th className="px-3 py-2 text-end">المتبقي</th>
-              <th className="px-3 py-2 text-start">التشغيل</th>
-              <th className="px-3 py-2 text-start">السداد</th>
+              <th className="px-3 py-2 text-start">{t("reports.colNo")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colCustomer")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colMobile")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colInvoiceDate")}</th>
+              <th className="px-3 py-2 text-end">{t("reports.colTotal")}</th>
+              <th className="px-3 py-2 text-end">{t("reports.colPaid")}</th>
+              <th className="px-3 py-2 text-end">{t("reports.colRemaining")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colFulfillment")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colPayment")}</th>
             </tr>
           </thead>
           <tbody>
@@ -473,10 +473,9 @@ export function ReportsPage() {
       <Dialog open={wagesOpen} onOpenChange={setWagesOpen}>
         <DialogContent className="flex max-h-[min(92vh,880px)] w-[min(96vw,960px)] max-w-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>أجور العمال (الورشة)</DialogTitle>
+            <DialogTitle>{t("reports.wagesDialogTitle")}</DialogTitle>
             <DialogDescription>
-              أجور مراحل التشغيل المكتملة (قص، خياطة، تطريز، الشغل اليدوي) — كل مهمة مكتملة تُحسب بأجرها المحفوظ. أسفلها
-              سجلات الإنتاج للمراجعة.
+              {t("reports.wagesDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -513,7 +512,7 @@ export function ReportsPage() {
               }
             >
               <Printer className="me-1 h-4 w-4" />
-              طباعة / PDF
+              {t("reports.printPdf")}
             </Button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
@@ -521,13 +520,13 @@ export function ReportsPage() {
               <p className="text-xs leading-relaxed text-muted-foreground">{workshopWagesQuery.data.note}</p>
             ) : null}
             {workshopWagesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : workshopWagesQuery.isError ? (
-              <p className="text-sm text-destructive">تعذّر تحميل التقرير.</p>
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
             ) : (
               <>
                 <p className="text-sm">
-                  <span className="text-muted-foreground">إجمالي أجور الورشة في الفترة: </span>
+                  <span className="text-muted-foreground">{t("reports.totalWorkshopWagesInPeriod")} </span>
                   <span className="font-semibold tabular-nums">
                     {formatAED(workshopWagesQuery.data?.totalWageFils ?? 0)}
                   </span>
@@ -536,9 +535,9 @@ export function ReportsPage() {
                   <table className="w-full text-sm">
                     <thead className="border-b bg-muted/50">
                       <tr>
-                        <th className="px-3 py-2 text-start">العامل</th>
-                        <th className="px-3 py-2 text-end">عدد المهام المكتملة</th>
-                        <th className="px-3 py-2 text-end">إجمالي الأجر</th>
+                        <th className="px-3 py-2 text-start">{t("reports.colWorker")}</th>
+                        <th className="px-3 py-2 text-end">{t("reports.colCompletedTasks")}</th>
+                        <th className="px-3 py-2 text-end">{t("reports.colTotalWage")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -553,7 +552,7 @@ export function ReportsPage() {
                       ) : (
                         <tr>
                           <td colSpan={3} className="px-3 py-6 text-center text-muted-foreground">
-                            لا مراحل مكتملة في هذه الفترة.
+                            {t("reports.noCompletedStagesInPeriod")}
                           </td>
                         </tr>
                       )}
@@ -565,20 +564,20 @@ export function ReportsPage() {
 
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                سجلات الإنتاج (تفصيل)
+                {t("reports.productionRecordsDetail")}
               </h3>
               {entriesQuery.isLoading ? (
-                <p className="text-xs text-muted-foreground">جاري تحميل التفاصيل…</p>
+                <p className="text-xs text-muted-foreground">{t("reports.loadingDetails")}</p>
               ) : entriesQuery.data?.entries?.length ? (
                 <div className="max-h-[240px] overflow-auto rounded-md border">
                   <table className="w-full min-w-[700px] text-xs">
                     <thead className="sticky top-0 border-b bg-muted/80">
                       <tr>
-                        <th className="px-2 py-1.5 text-start">التاريخ</th>
-                        <th className="px-2 py-1.5 text-start">العامل</th>
-                        <th className="px-2 py-1.5 text-start">طلب / نوع</th>
-                        <th className="px-2 py-1.5 text-end">الكمية</th>
-                        <th className="px-2 py-1.5 text-end">الأجر</th>
+                        <th className="px-2 py-1.5 text-start">{t("reports.colDate")}</th>
+                        <th className="px-2 py-1.5 text-start">{t("reports.colWorker")}</th>
+                        <th className="px-2 py-1.5 text-start">{t("reports.colOrderType")}</th>
+                        <th className="px-2 py-1.5 text-end">{t("reports.colQty")}</th>
+                        <th className="px-2 py-1.5 text-end">{t("reports.colWage")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -599,7 +598,7 @@ export function ReportsPage() {
                   </table>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">لا سجلات تفصيلية.</p>
+                <p className="text-xs text-muted-foreground">{t("reports.noDetailRecords")}</p>
               )}
             </div>
           </div>
@@ -610,10 +609,9 @@ export function ReportsPage() {
       <Dialog open={salesOpen} onOpenChange={setSalesOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1100px)] max-w-[1100px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1100px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>تقرير المبيعات</DialogTitle>
+            <DialogTitle>{t("reports.salesDialogTitle")}</DialogTitle>
             <DialogDescription>
-              فواتير غير الملغاة صُدرت في الفترة: يظهر إجمالي الفاتورة، والمدفوع حتى الآن على تلك الفواتير، والمتبقي
-              — الدخل النقدي الفعلي يُتابع من تقرير «النشاط المالي» (التحصيلات).
+              {t("reports.salesDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -660,30 +658,30 @@ export function ReportsPage() {
               }}
             >
               <Printer className="me-1 h-4 w-4" />
-              طباعة / PDF
+              {t("reports.printPdf")}
             </Button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {salesReportQuery.data?.summary ? (
               <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 sm:grid-cols-2 lg:grid-cols-4">
                 <p className="text-sm">
-                  <span className="text-muted-foreground">عدد الفواتير: </span>
+                  <span className="text-muted-foreground">{t("reports.invoiceCount")} </span>
                   <span className="font-semibold tabular-nums">{salesReportQuery.data.summary.invoiceCount}</span>
                 </p>
                 <p className="text-sm">
-                  <span className="text-muted-foreground">إجمالي المبيعات: </span>
+                  <span className="text-muted-foreground">{t("reports.totalSales")} </span>
                   <span className="font-semibold tabular-nums">
                     {formatAED(salesReportQuery.data.summary.totalSalesFils)}
                   </span>
                 </p>
                 <p className="text-sm">
-                  <span className="text-muted-foreground">إجمالي المدفوع: </span>
+                  <span className="text-muted-foreground">{t("reports.totalPaid")} </span>
                   <span className="font-semibold tabular-nums">
                     {formatAED(salesReportQuery.data.summary.totalPaidFils)}
                   </span>
                 </p>
                 <p className="text-sm">
-                  <span className="text-muted-foreground">إجمالي المتبقي: </span>
+                  <span className="text-muted-foreground">{t("reports.totalRemaining")} </span>
                   <span className="font-semibold tabular-nums text-amber-900 dark:text-amber-100">
                     {formatAED(salesReportQuery.data.summary.totalRemainingFils)}
                   </span>
@@ -699,8 +697,8 @@ export function ReportsPage() {
       <Dialog open={invoicesOpen} onOpenChange={setInvoicesOpen}>
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1100px)] max-w-[1100px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1100px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
-            <DialogTitle>تقرير الفواتير</DialogTitle>
-            <DialogDescription>جميع الفواتير الصادرة في الفترة (غير الملغاة).</DialogDescription>
+            <DialogTitle>{t("reports.invoicesDialogTitle")}</DialogTitle>
+            <DialogDescription>{t("reports.invoicesDialogDesc")}</DialogDescription>
           </DialogHeader>
           <div className="border-b px-4 py-3 sm:px-6">
             <ReportDateRangeBar
@@ -786,14 +784,14 @@ export function ReportsPage() {
               }}
             >
               <Printer className="me-1 h-4 w-4" />
-              طباعة / PDF
+              {t("reports.printPdf")}
             </Button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {receivablesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : receivablesQuery.isError ? (
-              <p className="text-sm text-destructive">تعذّر تحميل التقرير.</p>
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
             ) : (
               <div className="space-y-4">
                 {/* Aging summary cards */}
@@ -947,14 +945,14 @@ export function ReportsPage() {
               }}
             >
               <Printer className="me-1 h-4 w-4" />
-              طباعة / PDF
+              {t("reports.printPdf")}
             </Button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {tailoringQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : tailoringQuery.isError ? (
-              <p className="text-sm text-destructive">تعذّر تحميل التقرير.</p>
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
             ) : (
               <>
                 <p className="mb-3 text-sm text-muted-foreground">
@@ -1037,7 +1035,7 @@ export function ReportsPage() {
               }}
             >
               <Printer className="me-1 h-4 w-4" />
-              طباعة / PDF
+              {t("reports.printPdf")}
             </Button>
           </div>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
@@ -1045,9 +1043,9 @@ export function ReportsPage() {
               <p className="text-xs leading-relaxed text-muted-foreground">{mostRequestedQuery.data.note}</p>
             ) : null}
             {mostRequestedQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : mostRequestedQuery.isError ? (
-              <p className="text-sm text-destructive">تعذّر تحميل التقرير.</p>
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
             ) : mostRequestedQuery.data?.items?.length ? (
               <div className="overflow-x-auto rounded-md border">
                 <table className="w-full min-w-[880px] text-sm">
@@ -1147,14 +1145,14 @@ export function ReportsPage() {
               }}
             >
               <Printer className="me-1 h-4 w-4" />
-              طباعة / PDF
+              {t("reports.printPdf")}
             </Button>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {financialActivityQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : financialActivityQuery.isError ? (
-              <p className="text-sm text-destructive">تعذّر تحميل التقرير.</p>
+              <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
             ) : financialActivityQuery.data ? (
               <>
                 <section

@@ -128,10 +128,10 @@ const emptyForm = {
   isActive: true,
 };
 
-const TAB_DEFS: Array<{ id: CatalogTabId; label: string; addLabel: string }> = [
-  { id: "MODEL", label: "موديلات", addLabel: "إضافة موديل" },
-  { id: "EMBROIDERY", label: "تطريز", addLabel: "إضافة تطريز" },
-  { id: "OTHER", label: "خدمات أخرى", addLabel: "إضافة عنصر" },
+const TAB_DEFS: Array<{ id: CatalogTabId; labelKey: string; addLabelKey: string }> = [
+  { id: "MODEL", labelKey: "models.tabModels", addLabelKey: "models.addModel" },
+  { id: "EMBROIDERY", labelKey: "models.tabEmbroidery", addLabelKey: "models.addEmbroidery" },
+  { id: "OTHER", labelKey: "models.tabOther", addLabelKey: "models.addItem" },
 ];
 
 function ModelCatalogCard({
@@ -141,6 +141,7 @@ function ModelCatalogCard({
   deactivatePending,
   canEdit,
   canDeactivate,
+  t,
 }: {
   row: AbayaModelRow;
   onEdit: () => void;
@@ -148,6 +149,7 @@ function ModelCatalogCard({
   deactivatePending: boolean;
   canEdit: boolean;
   canDeactivate: boolean;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
     <Card className="flex flex-col overflow-hidden">
@@ -156,7 +158,7 @@ function ModelCatalogCard({
           <img src={row.imageUrl} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-            بدون صورة
+            {t("models.noImage")}
           </div>
         )}
       </div>
@@ -164,29 +166,29 @@ function ModelCatalogCard({
         <p className="font-mono text-xs text-muted-foreground">{row.code}</p>
         <CardTitle className="text-base font-semibold leading-snug">{row.name}</CardTitle>
         <p className="text-sm font-medium text-foreground">
-          السعر الافتراضي: {filsToAed(row.defaultPriceFils)} د.إ
+          {t("models.defaultPriceLabel", { price: filsToAed(row.defaultPriceFils) })}
         </p>
       </CardHeader>
       <CardContent className="space-y-2 p-4 pt-0 text-xs">
-        <p className="font-medium text-muted-foreground">أجور الورشة (د.إ)</p>
+        <p className="font-medium text-muted-foreground">{t("models.workshopWagesLabel")}</p>
         <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
-          <span>قص: {filsToAed(row.cuttingWageFils)}</span>
-          <span>خياطة: {filsToAed(row.sewingWageFils)}</span>
-          <span>الشغل اليدوي: {filsToAed(row.finishingWageFils)}</span>
-          <span>تطريز: {filsToAed(row.embroideryWageFils)}</span>
+          <span>{t("models.stagesCut")}: {filsToAed(row.cuttingWageFils)}</span>
+          <span>{t("models.stagesSew")}: {filsToAed(row.sewingWageFils)}</span>
+          <span>{t("models.stagesFinish")}: {filsToAed(row.finishingWageFils)}</span>
+          <span>{t("models.stagesEmbroider")}: {filsToAed(row.embroideryWageFils)}</span>
         </div>
         <div className="border-t pt-2">
           {row.isActive ? (
-            <Badge variant="secondary">نشط</Badge>
+            <Badge variant="secondary">{t("models.statusActive")}</Badge>
           ) : (
-            <Badge variant="outline">موقوف</Badge>
+            <Badge variant="outline">{t("models.statusInactive")}</Badge>
           )}
         </div>
       </CardContent>
       <CardFooter className="mt-auto flex flex-wrap justify-end gap-2 border-t p-4 pt-3">
         {canEdit ? (
           <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-            تعديل
+            {t("common.edit")}
           </Button>
         ) : null}
         {row.isActive && canDeactivate ? (
@@ -198,7 +200,7 @@ function ModelCatalogCard({
             disabled={deactivatePending}
             onClick={onDeactivate}
           >
-            إيقاف
+            {t("models.deactivate")}
           </Button>
         ) : null}
       </CardFooter>
@@ -238,11 +240,11 @@ export function AbayaModelsPage() {
     e.target.value = "";
     if (!f) return;
     if (!f.type.startsWith("image/")) {
-      window.alert("يرجى اختيار ملف صورة فقط.");
+      window.alert(t("models.alertImageOnly"));
       return;
     }
     if (f.size > MAX_IMAGE_BYTES) {
-      window.alert("حجم الصورة يجب ألا يتجاوز 5 ميجابايت.");
+      window.alert(t("models.alertImageSize"));
       return;
     }
     if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
@@ -383,8 +385,8 @@ export function AbayaModelsPage() {
         sortOrder: parseInt(form.sortOrder, 10) || 0,
         isActive: form.isActive,
       };
-      if (!body.code || !body.name) throw new Error("أدخل رقم الموديل والاسم.");
-      if (!body.abayaTypeId) throw new Error("اختر نوع العباية.");
+      if (!body.code || !body.name) throw new Error(t("models.errorCodeNameRequired"));
+      if (!body.abayaTypeId) throw new Error(t("models.errorTypeRequired"));
 
       if (editing) {
         await api.patch(`/abaya-models/${editing.id}`, body);
@@ -411,16 +413,13 @@ export function AbayaModelsPage() {
 
   const confirmDeactivate = (id: string) => {
     if (!canDeactivateModel) return;
-    if (
-      window.confirm(
-        "إيقاف هذا العنصر؟ لن يظهر في قوائم الطلبات الجديدة (يمكن إعادة تفعيله لاحقاً).",
-      )
-    ) {
+    if (window.confirm(t("models.confirmDeactivate"))) {
       deactivateMutation.mutate(id);
     }
   };
 
-  const addLabel = TAB_DEFS.find((t) => t.id === activeTab)?.addLabel ?? "إضافة";
+  const addLabelKey = TAB_DEFS.find((tab) => tab.id === activeTab)?.addLabelKey;
+  const addLabel = addLabelKey ? t(addLabelKey) : t("common.add");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-8">
@@ -431,7 +430,7 @@ export function AbayaModelsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="outline" size="sm" asChild>
-          <Link to="/dashboard">← الرئيسية</Link>
+          <Link to="/dashboard">← {t("models.home")}</Link>
         </Button>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-md border bg-muted/40 p-0.5">
@@ -444,7 +443,7 @@ export function AbayaModelsPage() {
               aria-pressed={viewMode === "cards"}
             >
               <LayoutGrid className="h-4 w-4" />
-              بطاقات
+              {t("models.viewCards")}
             </Button>
             <Button
               type="button"
@@ -455,7 +454,7 @@ export function AbayaModelsPage() {
               aria-pressed={viewMode === "table"}
             >
               <Table2 className="h-4 w-4" />
-              جدول
+              {t("models.viewTable")}
             </Button>
           </div>
           {canCreate ? (
@@ -470,7 +469,7 @@ export function AbayaModelsPage() {
       <div
         className="flex flex-wrap gap-1 border-b border-border pb-px"
         role="tablist"
-        aria-label="تصنيف الكتالوج"
+        aria-label={t("models.catalogTabsAria")}
       >
         {TAB_DEFS.map((tab) => (
           <button
@@ -486,7 +485,7 @@ export function AbayaModelsPage() {
             )}
             onClick={() => setActiveTab(tab.id)}
           >
-            {tab.label}
+            {t(tab.labelKey)}
             <span className="ms-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">
               {tabCounts[tab.id]}
             </span>
@@ -496,16 +495,16 @@ export function AbayaModelsPage() {
 
       {deactivateMutation.isError ? (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {getApiErrorMessage(deactivateMutation.error, "تعذّر إيقاف العنصر.")}
+          {getApiErrorMessage(deactivateMutation.error, t("models.errorDeactivate"))}
         </p>
       ) : null}
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       ) : filteredRows.length === 0 ? (
         <p className="rounded-lg border border-dashed bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground">
-          لا توجد عناصر في هذا التبويب.
-          {canCreate ? ` استخدم «${addLabel}» لإضافة عنصر ضمن هذا التصنيف.` : ""}
+          {t("models.emptyTab")}
+          {canCreate ? ` ${t("models.emptyTabHint", { label: addLabel })}` : ""}
         </p>
       ) : viewMode === "cards" ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -518,6 +517,7 @@ export function AbayaModelsPage() {
               deactivatePending={deactivateMutation.isPending}
               canEdit={canEditModel}
               canDeactivate={canDeactivateModel}
+              t={t}
             />
           ))}
         </div>
@@ -526,20 +526,20 @@ export function AbayaModelsPage() {
           <table className="w-full min-w-[1000px] text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-right">
-                <th className="px-2 py-2 font-medium">صورة</th>
-                <th className="px-3 py-2 font-medium">النوع</th>
-                <th className="px-3 py-2 font-medium">الرمز</th>
-                <th className="px-3 py-2 font-medium">الاسم</th>
-                <th className="px-3 py-2 font-medium">سعر البيع</th>
-                <th className="px-3 py-2 font-medium">القماش الافتراضي</th>
-                <th className="px-3 py-2 font-medium">أيام التسليم</th>
-                <th className="px-3 py-2 font-medium">قص</th>
-                <th className="px-3 py-2 font-medium">خياطة</th>
-                <th className="px-3 py-2 font-medium">الشغل اليدوي</th>
-                <th className="px-3 py-2 font-medium">تطريز</th>
-                <th className="px-3 py-2 font-medium">الحالة</th>
+                <th className="px-2 py-2 font-medium">{t("models.colImage")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.colType")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.colCode")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.colName")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.colPrice")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.colDefaultFabric")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.colDeliveryDays")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.stagesCut")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.stagesSew")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.stagesFinish")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.stagesEmbroider")}</th>
+                <th className="px-3 py-2 font-medium">{t("models.colStatus")}</th>
                 {canEditModel || canDeactivateModel ? (
-                  <th className="px-3 py-2 font-medium">إجراءات</th>
+                  <th className="px-3 py-2 font-medium">{t("models.colActions")}</th>
                 ) : null}
               </tr>
             </thead>
@@ -573,9 +573,9 @@ export function AbayaModelsPage() {
                   <td className="px-3 py-2 whitespace-nowrap">{filsToAed(r.embroideryWageFils)}</td>
                   <td className="px-3 py-2">
                     {r.isActive ? (
-                      <Badge variant="secondary">نشط</Badge>
+                      <Badge variant="secondary">{t("models.statusActive")}</Badge>
                     ) : (
-                      <Badge variant="outline">موقوف</Badge>
+                      <Badge variant="outline">{t("models.statusInactive")}</Badge>
                     )}
                   </td>
                   {canEditModel || canDeactivateModel ? (
@@ -583,7 +583,7 @@ export function AbayaModelsPage() {
                       <div className="flex flex-wrap gap-1">
                         {canEditModel ? (
                           <Button type="button" variant="outline" size="sm" onClick={() => openEdit(r)}>
-                            تعديل
+                            {t("common.edit")}
                           </Button>
                         ) : null}
                         {r.isActive && canDeactivateModel ? (
@@ -595,7 +595,7 @@ export function AbayaModelsPage() {
                             disabled={deactivateMutation.isPending}
                             onClick={() => confirmDeactivate(r.id)}
                           >
-                            إيقاف
+                            {t("models.deactivate")}
                           </Button>
                         ) : null}
                       </div>

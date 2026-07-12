@@ -26,7 +26,14 @@ export async function nextInvoiceNo(prisma: Db): Promise<number> {
   return Math.max(agg._max.invoiceNo ?? 0, FIRST_INVOICE_NO - 1) + 1;
 }
 
+/** Arbitrary fixed key for the job-number advisory lock (see nextJobNo). */
+const JOB_NO_LOCK_KEY = 427420;
+
 export async function nextJobNo(prisma: Db): Promise<number> {
+  // Same serialization as nextInvoiceNo: two concurrent job creations must not
+  // read the same MAX and collide. Callers must run this INSIDE a transaction —
+  // the xact lock is released when the surrounding transaction ends.
+  await prisma.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${JOB_NO_LOCK_KEY})`);
   const agg = await prisma.jobOrder.aggregate({ _max: { jobNo: true } });
   return (agg._max.jobNo ?? 1000) + 1;
 }

@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ExternalLink } from "lucide-react";
 import { JobProcessPieceTable } from "@/components/job-orders/JobProcessPieceTable";
 import type { WorkshopWorkStageRow } from "@/components/job-orders/WorkshopTaskSheet";
@@ -15,7 +16,7 @@ import {
 import { useIsWorker } from "@/hooks/useIsWorker";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
-import { invoiceFulfillmentLabel } from "@/lib/invoiceOperationalLabels";
+import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 
 type JobOrderRow = {
   id: string;
@@ -39,11 +40,11 @@ type JobOrderRow = {
   workStages: WorkshopWorkStageRow[];
 };
 
-function paymentStatusAr(balanceFils: number, paidFils: number, isVoid: boolean): string {
-  if (isVoid) return "ملغاة";
-  if (balanceFils <= 0) return "مسددة";
-  if (paidFils <= 0) return "غير مدفوع";
-  return "مدفوع جزئياً";
+function paymentStatusKey(balanceFils: number, paidFils: number, isVoid: boolean): string {
+  if (isVoid) return "status.payment.void";
+  if (balanceFils <= 0) return "status.payment.paid";
+  if (paidFils <= 0) return "status.payment.unpaid";
+  return "status.payment.partial";
 }
 
 function ModalFooterLink({ href, children }: { href: string; children: ReactNode }) {
@@ -68,6 +69,7 @@ export function DashboardInvoiceModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const isWorker = useIsWorker();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["invoice", invoiceId],
@@ -82,39 +84,39 @@ export function DashboardInvoiceModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(90vh,720px)] max-w-lg overflow-y-auto">
         <DialogHeader className="text-start">
-          <DialogTitle>تفاصيل الفاتورة</DialogTitle>
-          <DialogDescription>ملخص سريع دون مغادرة لوحة التحكم.</DialogDescription>
+          <DialogTitle>{t("dashboard.invoiceModal.title")}</DialogTitle>
+          <DialogDescription>{t("dashboard.invoiceModal.desc")}</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+          <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
         ) : isError || !data ? (
-          <p className="text-sm text-destructive">تعذّر تحميل الفاتورة.</p>
+          <p className="text-sm text-destructive">{t("dashboard.invoiceModal.loadError")}</p>
         ) : (
           <div className="space-y-3 text-sm">
             <dl className="grid gap-2 sm:grid-cols-2">
               <div>
-                <dt className="text-xs text-muted-foreground">رقم الفاتورة</dt>
+                <dt className="text-xs text-muted-foreground">{t("pages.invoices.colInvoiceNo")}</dt>
                 <dd className="font-mono font-semibold">#{String(data.invoiceNo)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">العميل</dt>
+                <dt className="text-xs text-muted-foreground">{t("pages.invoices.colCustomer")}</dt>
                 <dd className="font-medium">
                   {(data.customer as { name?: string } | null)?.name ?? "—"}
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-xs text-muted-foreground">الجوال</dt>
+                <dt className="text-xs text-muted-foreground">{t("pages.invoices.colMobile")}</dt>
                 <dd className="font-mono" dir="ltr">
                   {(data.customer as { mobile?: string } | null)?.mobile ?? "—"}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">تاريخ الفاتورة</dt>
+                <dt className="text-xs text-muted-foreground">{t("pages.invoices.colDate")}</dt>
                 <dd>{new Date(String(data.createdAt)).toLocaleString()}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">موعد التسليم</dt>
+                <dt className="text-xs text-muted-foreground">{t("dashboard.invoiceModal.deliveryDate")}</dt>
                 <dd>
                   {data.deliveryDate
                     ? new Date(String(data.deliveryDate)).toLocaleString()
@@ -124,15 +126,15 @@ export function DashboardInvoiceModal({
               {!isWorker && !data.financialsRedacted ? (
                 <>
                   <div>
-                    <dt className="text-xs text-muted-foreground">الإجمالي</dt>
+                    <dt className="text-xs text-muted-foreground">{t("pages.invoices.colTotal")}</dt>
                     <dd className="font-mono tabular-nums">{formatAED(data.totalFils as number)}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-muted-foreground">المدفوع</dt>
+                    <dt className="text-xs text-muted-foreground">{t("pages.invoices.colPaid")}</dt>
                     <dd className="font-mono tabular-nums">{formatAED(data.paidFils as number)}</dd>
                   </div>
                   <div className="sm:col-span-2">
-                    <dt className="text-xs text-muted-foreground">المتبقي</dt>
+                    <dt className="text-xs text-muted-foreground">{t("pages.invoices.colBalance")}</dt>
                     <dd className="font-mono tabular-nums font-semibold text-amber-900 dark:text-amber-100">
                       {formatAED(data.balanceFils as number)}
                     </dd>
@@ -140,24 +142,24 @@ export function DashboardInvoiceModal({
                 </>
               ) : null}
               <div className="sm:col-span-2">
-                <dt className="text-xs text-muted-foreground">حالة التشغيل / التفصيل</dt>
-                <dd>{invoiceFulfillmentLabel(String(data.fulfillmentStatus ?? ""))}</dd>
+                <dt className="text-xs text-muted-foreground">{t("pages.invoices.colFulfillmentStatus")}</dt>
+                <dd>{t(invoiceFulfillmentKey(String(data.fulfillmentStatus ?? "")))}</dd>
               </div>
               {!isWorker && !data.financialsRedacted ? (
                 <div className="sm:col-span-2">
-                  <dt className="text-xs text-muted-foreground">حالة السداد</dt>
+                  <dt className="text-xs text-muted-foreground">{t("pages.invoices.colPaymentStatus")}</dt>
                   <dd>
-                    {paymentStatusAr(
+                    {t(paymentStatusKey(
                       data.balanceFils as number,
                       data.paidFils as number,
                       Boolean(data.isVoid),
-                    )}
+                    ))}
                   </dd>
                 </div>
               ) : null}
             </dl>
             {invoiceId ? (
-              <ModalFooterLink href={`/invoices/${invoiceId}`}>فتح صفحة الفاتورة كاملة</ModalFooterLink>
+              <ModalFooterLink href={`/invoices/${invoiceId}`}>{t("dashboard.invoiceModal.openFullPage")}</ModalFooterLink>
             ) : null}
           </div>
         )}
@@ -177,6 +179,7 @@ export function DashboardJobProcessModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const hideInvoiceLinePricing = useIsWorker();
   const queryClient = useQueryClient();
 
@@ -209,19 +212,19 @@ export function DashboardJobProcessModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,720px)] max-w-[720px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[720px]">
         <DialogHeader className="shrink-0 border-b px-4 py-3 text-start sm:px-6 sm:py-4">
-          <DialogTitle>مسار التفصيل</DialogTitle>
+          <DialogTitle>{t("dashboard.jobProcessModal.title")}</DialogTitle>
           <DialogDescription>
-            جميع قطع التفصيل لهذه الفاتورة — تعيين العمال وإتمام المراحل من هنا.
+            {t("dashboard.jobProcessModal.desc")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+            <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
           ) : isError || !data ? (
-            <p className="text-sm text-destructive">تعذّر تحميل بيانات الفاتورة.</p>
+            <p className="text-sm text-destructive">{t("dashboard.jobProcessModal.loadError")}</p>
           ) : jobOrders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">لا توجد طلبات تفصيل على هذه الفاتورة.</p>
+            <p className="text-sm text-muted-foreground">{t("dashboard.jobProcessModal.noJobs")}</p>
           ) : (
             <div className="space-y-6">
               {jobOrders.map((job) => (
@@ -231,7 +234,7 @@ export function DashboardJobProcessModal({
                   className="rounded-xl border border-border/80 bg-muted/10 p-3 dark:bg-muted/5"
                 >
                   <p className="mb-2 text-xs font-semibold text-muted-foreground">
-                    طلب تفصيل #{job.jobNo} · {job.productStyle}
+                    {t("dashboard.jobProcessModal.jobHeader", { jobNo: job.jobNo, style: job.productStyle })}
                   </p>
                   <JobProcessPieceTable
                     jobId={job.id}
@@ -261,7 +264,7 @@ export function DashboardJobProcessModal({
 
         {invoiceId ? (
           <div className="shrink-0 border-t px-4 py-3 sm:px-6">
-            <ModalFooterLink href={`/invoices/${invoiceId}`}>فتح الفاتورة في صفحة كاملة</ModalFooterLink>
+            <ModalFooterLink href={`/invoices/${invoiceId}`}>{t("dashboard.jobProcessModal.openFullInvoice")}</ModalFooterLink>
           </div>
         ) : null}
       </DialogContent>

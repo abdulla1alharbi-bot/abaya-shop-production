@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { isAxiosError } from "axios";
+import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
 import { jobStageLabel, PIPELINE_STAGE_KEYS } from "@abaya-shop/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,21 +33,21 @@ export type WorkshopWorkStageRow = {
   notes?: string | null;
 };
 
-function statusBadge(status: string, locale: "ar" | "en") {
+function statusBadge(status: string, t: (key: string) => string) {
   switch (status) {
     case "DONE":
       return {
-        label: locale === "en" ? "Done" : "تم",
+        label: t("workshop.statusDone"),
         className: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100",
       };
     case "IN_PROGRESS":
       return {
-        label: locale === "en" ? "In progress" : "قيد التنفيذ",
+        label: t("workshop.statusInProgress"),
         className: "border-amber-200 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100",
       };
     default:
       return {
-        label: locale === "en" ? "Pending" : "معلّق",
+        label: t("workshop.statusPending"),
         className: "border-zinc-200 bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
       };
   }
@@ -119,6 +120,7 @@ export function WorkshopTaskSheet({
   embeddedInJobProcess = false,
 }: Props) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const { can } = usePermissions();
   const canAdminCorrect = can("jobProcess.adminEdit");
   const canComplete = can("jobProcess.complete");
@@ -233,7 +235,7 @@ export function WorkshopTaskSheet({
     mutationFn: async (stageKey: string) => {
       const row = sortedStages.find((r) => r.stageKey === stageKey);
       if (!row || row.status !== "PENDING") return;
-      if (!draftWorker) throw new Error("اختر عاملاً");
+      if (!draftWorker) throw new Error(t("workshop.selectWorker"));
       const wageFils = Math.round((parseFloat(draftWageAed) || 0) * 100);
       await api.post(`/job-orders/${jobId}/work-stages/${stageKey}/assign`, {
         workerId: draftWorker,
@@ -290,7 +292,7 @@ export function WorkshopTaskSheet({
       if (!adminEditRow) return;
       const wageFils = Math.round((parseFloat(adminDraftWageAed) || 0) * 100);
       const wid = adminDraftWorker.trim();
-      if (!wid) throw new Error(locale === "en" ? "Select a worker" : "اختر عاملاً");
+      if (!wid) throw new Error(t("workshop.selectWorker"));
       const completedIso = fromLocalDatetimeValue(adminDraftCompletedLocal);
       await api.patch(`/job-orders/${jobId}/work-stages/${adminEditRow.stageKey}`, {
         workerId: wid,
@@ -309,7 +311,7 @@ export function WorkshopTaskSheet({
     return (
       <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-sm">
         <p className="mb-2 font-medium">
-          طلب #{jobNo} — {productStyle}
+          {t("workshop.jobLabel", { jobNo })} — {productStyle}
         </p>
         {initPipeline.isError ? (
           <>
@@ -321,14 +323,14 @@ export function WorkshopTaskSheet({
                 disabled={initPipeline.isPending}
                 onClick={() => initPipeline.mutate()}
               >
-                {initPipeline.isPending ? "…" : "إعادة المحاولة — تفعيل المراحل"}
+                {initPipeline.isPending ? "…" : t("workshop.retryInitPipeline")}
               </Button>
             ) : null}
           </>
         ) : canInitPipeline ? (
-          <p className="text-muted-foreground">جارٍ تفعيل مراحل العمل (قص / خياطة / …)…</p>
+          <p className="text-muted-foreground">{t("workshop.initializingStages")}</p>
         ) : (
-          <p className="text-muted-foreground">لم يتم تفعيل مراحل العمل بعد.</p>
+          <p className="text-muted-foreground">{t("workshop.stagesNotActivated")}</p>
         )}
       </div>
     );
@@ -344,65 +346,53 @@ export function WorkshopTaskSheet({
       <div className="border-b bg-muted/40 px-3 py-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <span className="font-semibold">
-              {locale === "en" ? `Job #${jobNo}` : `طلب تفصيل #${jobNo}`}
-            </span>
+            <span className="font-semibold">{t("workshop.jobTitle", { jobNo })}</span>
             <span className="ms-2 text-muted-foreground">{productStyle}</span>
             {linkedProduct ? (
               <span className="ms-2 text-xs text-muted-foreground">
-                {locale === "en" ? "— Model:" : "— موديل:"} {linkedProduct.name}
+                {t("workshop.modelInline")} {linkedProduct.name}
               </span>
             ) : null}
           </div>
           {invoiceLine ? (
             <div className="text-xs text-muted-foreground">
-              {locale === "en" ? (
-                <>
-                  Line: {invoiceLine.description ?? "—"} · Qty {invoiceLine.qty} · Line total{" "}
-                  {formatAED(invoiceLine.totalFils)}
-                </>
-              ) : (
-                <>
-                  بند الفاتورة: {invoiceLine.description ?? "—"} — كمية {invoiceLine.qty} — سعر الوحدة{" "}
-                  {formatAED(invoiceLine.unitFils)} — إجمالي السطر {formatAED(invoiceLine.totalFils)}
-                </>
-              )}
+              {locale === "en"
+                ? t("workshop.lineSummaryEn", {
+                    description: invoiceLine.description ?? "—",
+                    qty: invoiceLine.qty,
+                    total: formatAED(invoiceLine.totalFils),
+                  })
+                : t("workshop.lineSummaryAr", {
+                    description: invoiceLine.description ?? "—",
+                    qty: invoiceLine.qty,
+                    unit: formatAED(invoiceLine.unitFils),
+                    total: formatAED(invoiceLine.totalFils),
+                  })}
             </div>
           ) : null}
         </div>
         {!embeddedInJobProcess ? (
-          locale === "ar" ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              أجر العامل لكل مرحلة يُعبأ من إعدادات الموديل في الكتالوج (يمكن تعديله قبل التعيين أو الإكمال). عند «تم
-              التنفيذ» يُسجَّل في مستحقات العامل.
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Wages default from the catalog model. Mark <strong>Done</strong> to record pay for the worker.
-            </p>
-          )
+          <p className="mt-1 text-xs text-muted-foreground">{t("workshop.wageHint")}</p>
         ) : (
-          <p className="mt-1 text-xs text-muted-foreground">
-            بالترتيب: اختر العامل ← تعيين وبدء ← عند الانتهاء اضغط «تم التنفيذ».
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("workshop.sequenceHint")}</p>
         )}
       </div>
       <table className="w-full min-w-[960px] text-sm">
         <thead>
           <tr className="border-b bg-muted/30 text-start text-xs text-muted-foreground">
-            <th className={`${headerPad} w-10 font-medium`}>{locale === "en" ? "✓" : "تم"}</th>
-            <th className={`${headerPad} font-medium`}>{locale === "en" ? "Task" : "المرحلة"}</th>
-            <th className={`${headerPad} font-medium`}>{locale === "en" ? "Status" : "الحالة"}</th>
-            <th className={`${headerPad} font-medium`}>{locale === "en" ? "Wage (AED)" : "أجر العامل (AED)"}</th>
-            <th className={`${headerPad} font-medium`}>{locale === "en" ? "Worker" : "العامل"}</th>
-            <th className={`${headerPad} font-medium`}>{locale === "en" ? "Done at" : "تاريخ الإنجاز"}</th>
-            <th className={`${headerPad} font-medium`}>{locale === "en" ? "Notes" : "ملاحظات"}</th>
-            <th className={`${headerPad} font-medium`}>{locale === "en" ? "Action" : "إجراءات"}</th>
+            <th className={`${headerPad} w-10 font-medium`}>{t("workshop.colDone")}</th>
+            <th className={`${headerPad} font-medium`}>{t("workshop.colTask")}</th>
+            <th className={`${headerPad} font-medium`}>{t("workshop.colStatus")}</th>
+            <th className={`${headerPad} font-medium`}>{t("workshop.colWage")}</th>
+            <th className={`${headerPad} font-medium`}>{t("workshop.colWorker")}</th>
+            <th className={`${headerPad} font-medium`}>{t("workshop.colDoneAt")}</th>
+            <th className={`${headerPad} font-medium`}>{t("workshop.colNotes")}</th>
+            <th className={`${headerPad} font-medium`}>{t("workshop.colAction")}</th>
           </tr>
         </thead>
         <tbody>
           {sortedStages.map((row) => {
-            const badge = statusBadge(row.status, locale);
+            const badge = statusBadge(row.status, t);
             const label = jobStageLabel(row.stageKey, locale);
             const isJobHere = jobStage === row.stageKey;
             const isPipelineKey = (PIPELINE_STAGE_KEYS as readonly string[]).includes(row.stageKey);

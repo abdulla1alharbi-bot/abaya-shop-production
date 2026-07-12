@@ -117,7 +117,7 @@ export function TailoringIntakePanel() {
 
   const reloadProfile = useMutation({
     mutationFn: async () => {
-      if (!posCustomerId) throw new Error("لا عميل");
+      if (!posCustomerId) throw new Error(t("pos.intake.errNoCustomer"));
       const res = await api.get<{ success: boolean; data: PosMeasurementHint }>(
         `/customers/${posCustomerId}/pos-measurement-hint`,
       );
@@ -138,9 +138,9 @@ export function TailoringIntakePanel() {
 
   const saveProfile = useMutation({
     mutationFn: async () => {
-      if (!posCustomerId) throw new Error("اختر العميل من أعلى الصفحة أولاً");
+      if (!posCustomerId) throw new Error(t("pos.intake.errSelectCustomer"));
       const body = tailoringDraftToMeasurementBody(tailoringDraft, abayaCatalog);
-      if (Object.keys(body).length === 0) throw new Error("لا توجد بيانات مقاس لحفظها");
+      if (Object.keys(body).length === 0) throw new Error(t("pos.intake.errNoMeasurement"));
       if (latestProfileMeasurementId) {
         const res = await api.patch<{ success: boolean; data: { id: string } }>(
           `/customers/measurements/${latestProfileMeasurementId}`,

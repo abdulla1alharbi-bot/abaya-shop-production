@@ -67,7 +67,7 @@ export function ProductGrid() {
       <CardContent className="p-4">
         {!canAdd ? (
           <p className="mb-3 rounded-md border border-dashed border-amber-300/80 bg-amber-50/80 px-3 py-2 text-center text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-            Please select a customer first — ثم يمكن إضافة المنتجات.
+            {t("pos.selectCustomerBeforeProducts")}
           </p>
         ) : null}
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
@@ -127,7 +127,7 @@ export function ProductGrid() {
                 <div className="mt-1 text-xs text-muted-foreground">{p.sku}</div>
                 <div className="mt-3 flex flex-wrap items-end justify-between gap-2 border-t pt-2">
                   <div>
-                    <div className="text-[10px] uppercase text-muted-foreground">السعر</div>
+                    <div className="text-[10px] uppercase text-muted-foreground">{t("pos.price")}</div>
                     <span className="text-base font-bold text-brand-800">{formatAED(p.priceFils)}</span>
                   </div>
                   <div
@@ -140,7 +140,7 @@ export function ProductGrid() {
                           : "bg-muted text-foreground",
                     )}
                   >
-                    مخزون: {p.stockQty}
+                    {t("pos.stock", { qty: p.stockQty })}
                   </div>
                 </div>
               </button>

@@ -8,6 +8,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { buildPaginatedMeta, prismaSkipTake } from "../../utils/pagination.js";
 import { parseOptionalDate, parsePageLimit, queryParamString } from "../../utils/queryParams.js";
+import { nextJobNo } from "../../utils/counters.js";
 import {
   createPipelineRowsForJob,
   initialPipelineStage,
@@ -109,13 +110,13 @@ async function createProductionBatch(args: {
     });
 
     const jobs: string[] = [];
-    const maxJob = await tx.jobOrder.aggregate({ _max: { jobNo: true } });
-    let nextJobNo = (maxJob._max.jobNo ?? 0) + 1;
+    // Advisory-locked so concurrent batch/POS creations can't collide on jobNo.
+    let jobNoCursor = await nextJobNo(tx);
 
     for (let i = 0; i < args.quantity; i += 1) {
       const j = await tx.jobOrder.create({
         data: {
-          jobNo: nextJobNo++,
+          jobNo: jobNoCursor++,
           productionBatchId: pb.id,
           customerId,
           productId: model.productId,

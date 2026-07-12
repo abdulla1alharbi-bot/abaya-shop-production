@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ export function InvoiceSellerPanel({
   canDeliver,
   onUpdated,
 }: Props) {
+  const { t } = useTranslation();
   const { can } = usePermissions();
   const queryClient = useQueryClient();
   const [payAmount, setPayAmount] = useState("");
@@ -54,7 +56,7 @@ export function InvoiceSellerPanel({
   const addPayment = useMutation({
     mutationFn: async () => {
       const fils = Math.round((parseFloat(payAmount) || 0) * 100);
-      if (fils <= 0) throw new Error("Enter a valid amount");
+      if (fils <= 0) throw new Error(t("invoices.enterValidAmount"));
       await api.post(`/invoices/${invoiceId}/payments`, {
         payments: [{ method: "CASH", amountFils: fils }],
       });
@@ -91,15 +93,15 @@ export function InvoiceSellerPanel({
     <div className="space-y-6 text-base">
       <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
         <div className="flex justify-between gap-4 text-sm">
-          <span className="text-muted-foreground">Total</span>
+          <span className="text-muted-foreground">{t("invoiceDetail.totalLabel")}</span>
           <span className="font-mono text-lg font-semibold tabular-nums">{formatAED(totalFils)}</span>
         </div>
         <div className="flex justify-between gap-4 text-sm">
-          <span className="text-muted-foreground">Paid</span>
+          <span className="text-muted-foreground">{t("invoiceDetail.paidLabel")}</span>
           <span className="font-mono text-lg font-semibold tabular-nums">{formatAED(paidFils)}</span>
         </div>
         <div className="flex justify-between gap-4 border-t pt-3 text-sm">
-          <span className="font-medium text-foreground">Remaining</span>
+          <span className="font-medium text-foreground">{t("invoices.remaining")}</span>
           <span className="font-mono text-xl font-bold tabular-nums text-amber-900 dark:text-amber-100">
             {formatAED(balanceFils)}
           </span>

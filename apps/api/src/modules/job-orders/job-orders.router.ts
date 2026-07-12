@@ -298,13 +298,14 @@ jobOrdersRouter.post(
     if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
 
     const balanceFils = body.totalFils - body.paidFils;
-    const jobNo = await nextJobNo(prisma);
 
     const settingsRows = await prisma.setting.findMany();
     const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
     const wageDefaults = parseWageDefaults(settingsMap);
 
     const job = await prisma.$transaction(async (tx) => {
+      // Inside the transaction so the advisory lock serializes concurrent creations.
+      const jobNo = await nextJobNo(tx);
       const productRow = body.productId
         ? await tx.product.findUnique({ where: { id: body.productId } })
         : null;

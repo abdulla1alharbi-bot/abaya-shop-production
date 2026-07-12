@@ -70,7 +70,7 @@ export function FabricRollsPage() {
       setError("");
     },
     onError: () => {
-      setError("حدث خطأ، تحقق من البيانات وحاول مجدداً.");
+      setError(t("fabrics.errorSave"));
     },
   });
 
@@ -87,7 +87,7 @@ export function FabricRollsPage() {
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.message;
-      setError(msg === "Not enough available meters" ? "الكمية المطلوبة تتجاوز المتاح." : "حدث خطأ، تحقق من البيانات وحاول مجدداً.");
+      setError(msg === "Not enough available meters" ? t("fabrics.errorExceedsAvailable") : t("fabrics.errorSave"));
     },
   });
 

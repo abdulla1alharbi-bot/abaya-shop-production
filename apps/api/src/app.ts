@@ -4,6 +4,9 @@ import path from "node:path";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import { prisma } from "./config/db.js";
 import { initSocket } from "./config/socket.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
 import { auditRouter } from "./modules/audit/audit.router.js";
@@ -37,6 +40,13 @@ const PORT = Number(process.env.PORT) || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:5173";
 
 app.use(
+  helmet({
+    // API serves JSON + /uploads images consumed by the separate web origin.
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(
   cors({
     origin: FRONTEND_URL,
     credentials: true,
@@ -45,8 +55,31 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 
-app.get("/health", (_req, res) => {
-  res.status(200).json({ ok: true });
+// Brute-force protection on credential endpoints; generous global ceiling for the rest.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts, try again later", code: "RATE_LIMITED" },
+});
+const apiLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 2000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests", code: "RATE_LIMITED" },
+});
+app.use("/api/auth/login", loginLimiter);
+app.use("/api", apiLimiter);
+
+app.get("/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ ok: true, db: true });
+  } catch {
+    res.status(503).json({ ok: false, db: false });
+  }
 });
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
@@ -90,6 +123,13 @@ httpServer.listen(PORT, () => {
     frontend: FRONTEND_URL,
     env: process.env.NODE_ENV ?? "development",
   });
+
+  if (process.env.NODE_ENV === "production" && process.env.SECURE_COOKIES !== "true") {
+    logger.warn(
+      "SECURE_COOKIES is not 'true': refresh-token cookies are sent without the Secure flag. " +
+        "Fine for plain-HTTP deployments, but set SECURE_COOKIES=true once the site is behind HTTPS.",
+    );
+  }
 
   // Self-heal: guarantee the records the app hard-requires exist, regardless of
   // whether the (demo) seed ran. Non-fatal — the server is already listening.

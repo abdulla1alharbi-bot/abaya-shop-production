@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import axios from "axios";
@@ -25,24 +26,15 @@ import { cn } from "@/lib/utils";
 /** Main roles in the product (legacy ADMIN kept only when editing that role). */
 const PRIMARY_ROLES: readonly Role[] = ["OWNER", "MANAGER", "SELLER", "WORKER", "WORKSHOP_SUPERVISOR", "ACCOUNTANT"] as const;
 
-const ROLE_LABELS: Record<Role, string> = {
-  OWNER: "مالك",
-  MANAGER: "مدير",
-  ADMIN: "مسؤول",
-  SELLER: "بائع",
-  WORKER: "عامل ورشة",
-  WORKSHOP_SUPERVISOR: "مشرف ورشة",
-  ACCOUNTANT: "محاسب",
-};
-
-const ROLE_DESCRIPTIONS_AR: Record<Role, string> = {
-  OWNER: "وصول كامل — جميع أجزاء النظام",
-  SELLER: "الكاشير، الفواتير، العملاء، المدفوعات",
-  WORKER: "متابعة طلبات الورشة والمراحل فقط",
-  WORKSHOP_SUPERVISOR: "متابعة الورشة وتعيين العمال للمراحل بدون صلاحيات مالية",
-  ACCOUNTANT: "التقارير، الفواتير، والمصروفات",
-  MANAGER: "نطاق واسع — بدون إدارة المستخدمين والصلاحيات",
-  ADMIN: "نفس وصول المدير (دور قديم)",
+/** Role descriptions use per-role i18n keys under settings.userForm.roleDesc.*. */
+const ROLE_DESC_KEYS: Record<Role, string> = {
+  OWNER: "settings.userForm.roleDesc.OWNER",
+  SELLER: "settings.userForm.roleDesc.SELLER",
+  WORKER: "settings.userForm.roleDesc.WORKER",
+  WORKSHOP_SUPERVISOR: "settings.userForm.roleDesc.WORKSHOP_SUPERVISOR",
+  ACCOUNTANT: "settings.userForm.roleDesc.ACCOUNTANT",
+  MANAGER: "settings.userForm.roleDesc.MANAGER",
+  ADMIN: "settings.userForm.roleDesc.ADMIN",
 };
 
 const roleEnum = z.enum(["OWNER", "MANAGER", "ADMIN", "SELLER", "WORKER", "WORKSHOP_SUPERVISOR", "ACCOUNTANT"]);
@@ -105,6 +97,7 @@ function PermissionOverridesEditor({
   onExtraChange: (v: string[]) => void;
   onRevokedChange: (v: string[]) => void;
 }) {
+  const { t } = useTranslation();
   function toggle(arr: string[], id: string, set: (v: string[]) => void) {
     if (arr.includes(id)) set(arr.filter((x) => x !== id));
     else set([...arr, id]);
@@ -113,12 +106,11 @@ function PermissionOverridesEditor({
   return (
     <div className="space-y-4 rounded-md border border-dashed bg-muted/30 p-3">
       <p className="text-sm text-muted-foreground">
-        الدور يحدد الصلاحيات الأساسيّة. هنا تضيف تفضيلات لهذا المستخدم فقط: صلاحيات زائدة تُفعل،
-        وصلاحيات تُلغى من ميزات الدور الافتراضي.
+        {t("settings.userForm.overridesHint")}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <p className="mb-2 text-xs font-medium text-brand-800">صلاحيات إضافية</p>
+          <p className="mb-2 text-xs font-medium text-brand-800">{t("settings.userForm.extraPermsTitle")}</p>
           <div className="max-h-48 space-y-1.5 overflow-y-auto text-xs">
             {ALL_PERMISSIONS.map((pid) => (
               <label key={`e-${pid}`} className="flex cursor-pointer items-start gap-2">
@@ -137,7 +129,7 @@ function PermissionOverridesEditor({
           </div>
         </div>
         <div>
-          <p className="mb-2 text-xs font-medium text-destructive">إلغاء من صلاحيات الدور</p>
+          <p className="mb-2 text-xs font-medium text-destructive">{t("settings.userForm.revokedPermsTitle")}</p>
           <div className="max-h-48 space-y-1.5 overflow-y-auto text-xs">
             {ALL_PERMISSIONS.map((pid) => (
               <label key={`r-${pid}`} className="flex cursor-pointer items-start gap-2">
@@ -173,6 +165,7 @@ function AdvancedPermissionsBlock({
   hasStoredOverrides: boolean;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   if (!canEdit) return null;
 
   return (
@@ -180,10 +173,10 @@ function AdvancedPermissionsBlock({
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="ghost" className="h-auto py-1.5 pe-2 ps-0 text-sm" onClick={onToggle}>
           <ChevronDown className={cn("ms-0.5 h-4 w-4 transition-transform", show && "rotate-180")} />
-          صلاحيات متقدّمة
+          {t("settings.userForm.advancedPerms")}
         </Button>
         {!show && hasStoredOverrides ? (
-          <span className="text-xs text-amber-700 dark:text-amber-500">(يوجد تعديل مخصص محفوظ)</span>
+          <span className="text-xs text-amber-700 dark:text-amber-500">{t("settings.userForm.hasStoredOverrides")}</span>
         ) : null}
       </div>
       {show ? <div className="space-y-2">{children}</div> : null}
@@ -197,6 +190,7 @@ export function UserForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
+  const { t } = useTranslation();
   const [extraPerms, setExtraPerms] = useState<string[]>([]);
   const [revokedPerms, setRevokedPerms] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -347,8 +341,8 @@ export function UserForm() {
   if (!isNew && isLoading) {
     return (
       <div>
-        <PageHeader title="مستخدم" />
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <PageHeader title={t("settings.userForm.userTitle")} />
+        <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
       </div>
     );
   }
@@ -369,7 +363,7 @@ export function UserForm() {
     return (
       <div className="mx-auto max-w-lg space-y-6 pb-8">
         <PageHeader
-          title="مستخدم جديد"
+          title={t("settings.userForm.newTitle")}
           description="أدخل اسم المستخدم وكلمة المرور واختر الدور. عند الحفظ تُطبَّق تلقائياً صلاحيات الدور الافتراضيّة."
         />
         <form

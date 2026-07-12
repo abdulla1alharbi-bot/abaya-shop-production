@@ -146,8 +146,8 @@ function InvoiceQueueTable({
                       variant="outline"
                       size="icon"
                       className="h-8 w-8"
-                      title="View Invoice"
-                      aria-label="عرض الفاتورة"
+                      title={t("dashboard.action.viewInvoice")}
+                      aria-label={t("dashboard.action.viewInvoice")}
                       onClick={() => onView(inv.id)}
                     >
                       <Eye className="h-4 w-4" />
@@ -162,8 +162,8 @@ function InvoiceQueueTable({
                         variant="secondary"
                         size="icon"
                         className="h-8 w-8"
-                        title="Job Process"
-                        aria-label="مسار التفصيل"
+                        title={t("dashboard.action.jobProcess")}
+                        aria-label={t("dashboard.action.jobProcess")}
                         onClick={() => onJob(inv.id, jobId)}
                       >
                         <Scissors className="h-4 w-4" />
@@ -280,9 +280,9 @@ export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueSta
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-auto px-4 py-3 sm:px-6 sm:py-4">
             {readyQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+              <p className="text-sm text-muted-foreground">{t("common.loadingData")}</p>
             ) : readyQuery.isError || !readyQuery.data ? (
-              <p className="text-sm text-destructive">تعذّر تحميل القائمة.</p>
+              <p className="text-sm text-destructive">{t("common.error")}</p>
             ) : readyQuery.data.items.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">{t("pages.invoices.emptyReady")}</p>
             ) : (

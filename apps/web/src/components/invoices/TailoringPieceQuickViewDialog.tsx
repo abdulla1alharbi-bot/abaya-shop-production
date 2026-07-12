@@ -1,14 +1,16 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { lastUpdateFromWorkStages, labelForWorkStageKey } from "@/lib/invoiceTailoringUi";
+import { lastUpdateFromWorkStages } from "@/lib/invoiceTailoringUi";
 import { formatAED } from "@/lib/money";
+import { useLangStore } from "@/store/langStore";
 import type { WorkshopWorkStageRow } from "@/components/job-orders/WorkshopTaskSheet";
-import { PIPELINE_STAGE_KEYS } from "@abaya-shop/shared";
+import { PIPELINE_STAGE_KEYS, jobStageLabel } from "@abaya-shop/shared";
 
 type Props = {
   open: boolean;
@@ -36,6 +38,8 @@ export function TailoringPieceQuickViewDialog({
   showMoney,
 }: Props) {
   const uid = useId();
+  const { t } = useTranslation();
+  const { lang } = useLangStore();
   const last = lastUpdateFromWorkStages(workStages);
   const keys = new Set(PIPELINE_STAGE_KEYS as readonly string[]);
   const stageRows = [...workStages]
@@ -46,40 +50,40 @@ export function TailoringPieceQuickViewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(90vh,640px)] max-w-md overflow-y-auto" dir="rtl">
         <DialogHeader className="text-start">
-          <DialogTitle>عرض القطعة — أمر العمل #{jobNo}</DialogTitle>
+          <DialogTitle>{t("invoices.pieceQuickViewTitle", { jobNo })}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 text-sm">
           <p className="font-medium leading-relaxed text-foreground">{pieceLabel}</p>
           <dl className="grid gap-2 sm:grid-cols-2">
             <div>
-              <dt className="text-xs text-muted-foreground">الموديل (الستايل)</dt>
+              <dt className="text-xs text-muted-foreground">{t("invoices.pieceModelStyle")}</dt>
               <dd className="font-medium">{productStyle || "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">القماش</dt>
+              <dt className="text-xs text-muted-foreground">{t("invoices.pieceFabric")}</dt>
               <dd className="font-medium">{fabric}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">اللون</dt>
+              <dt className="text-xs text-muted-foreground">{t("invoices.pieceColor")}</dt>
               <dd className="font-medium">{color}</dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-xs text-muted-foreground">آخر تحديث</dt>
+              <dt className="text-xs text-muted-foreground">{t("invoices.pieceLastUpdate")}</dt>
               <dd>{last ?? "—"}</dd>
             </div>
             {showMoney && lineTotalFils != null ? (
               <div className="sm:col-span-2">
-                <dt className="text-xs text-muted-foreground">إجمالي سطر التفصيل</dt>
+                <dt className="text-xs text-muted-foreground">{t("invoices.pieceLineTotal")}</dt>
                 <dd className="font-mono font-semibold tabular-nums">{formatAED(lineTotalFils)}</dd>
               </div>
             ) : null}
           </dl>
           <div>
-            <p className="mb-2 text-xs font-semibold text-muted-foreground">عامل لكل مرحلة (قراءة)</p>
+            <p className="mb-2 text-xs font-semibold text-muted-foreground">{t("invoices.pieceWorkerPerStage")}</p>
             <ul className="space-y-1.5 text-xs">
               {stageRows.map((r) => (
                 <li key={r.id} className="flex flex-wrap justify-between gap-2 border-b border-border/50 py-1.5 last:border-0" id={`${uid}-st-${r.id}`}>
-                  <span className="text-muted-foreground">{labelForWorkStageKey(r.stageKey)}</span>
+                  <span className="text-muted-foreground">{jobStageLabel(r.stageKey, lang)}</span>
                   <span className="font-medium">{r.worker?.name ?? "—"}</span>
                 </li>
               ))}

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { syncLinkedProductForAbayaModelId } from "../src/utils/abayaModelProductSync.js";
@@ -17,7 +18,12 @@ const DEFAULT_RATES: Record<string, number> = {
 const WORK_TYPES = Object.keys(DEFAULT_RATES);
 
 async function main(): Promise<void> {
-  const passwordHash = await bcrypt.hash("Admin@123", 12);
+  // Initial password comes from SEED_ADMIN_PASSWORD, or is generated randomly.
+  // It is only used when CREATING a user (never on re-seed) and only printed
+  // when a user was actually created this run.
+  const ownerExisted = (await prisma.user.findUnique({ where: { username: "owner" }, select: { id: true } })) !== null;
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD ?? crypto.randomBytes(9).toString("base64url");
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
 
   const owner = await prisma.user.upsert({
     where: { username: "owner" },
@@ -468,7 +474,14 @@ async function main(): Promise<void> {
   console.log("══════════════════════════════════════════════════════════");
   console.log("  Login:");
   console.log("    Username: owner");
-  console.log("    Password: Admin@123");
+  if (ownerExisted) {
+    console.log("    Password: (unchanged — existing user, seed never resets passwords)");
+  } else if (process.env.SEED_ADMIN_PASSWORD) {
+    console.log("    Password: (from SEED_ADMIN_PASSWORD env var)");
+  } else {
+    // Printed once, on first creation only. Change it after first login.
+    console.log(`    Password (generated, save it now): ${seedPassword}`);
+  }
   console.log("    (optional contact email: owner@abayashop.ae)");
   console.log("  Owner user id:", owner.id);
   console.log("  Branch id:", branch.id);

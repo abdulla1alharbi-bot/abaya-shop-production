@@ -1,10 +1,10 @@
 import { useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { PIPELINE_STAGE_KEYS } from "@abaya-shop/shared";
+import { PIPELINE_STAGE_KEYS, jobStageLabel } from "@abaya-shop/shared";
 import { cn } from "@/lib/utils";
+import { useLangStore } from "@/store/langStore";
 import {
   isPieceOverdueForInvoice,
-  labelForWorkStageKey,
   pipelineProgress,
   stageKindClasses,
   stageStatusGlyph,
@@ -33,6 +33,7 @@ export function TailoringPieceProgressStrip({
 }) {
   const baseId = useId();
   const { t } = useTranslation();
+  const { lang } = useLangStore();
   const sorted = useMemo(
     () => [...workStages].sort((a, b) => a.sortOrder - b.sortOrder),
     [workStages],
@@ -55,9 +56,9 @@ export function TailoringPieceProgressStrip({
           isFuture,
           pieceOverdue,
         });
-        return { row, kind, label: labelForWorkStageKey(row.stageKey) };
+        return { row, kind, label: jobStageLabel(row.stageKey, lang) };
       });
-  }, [sorted, jobStage, pieceOverdue, pipelineKeys]);
+  }, [sorted, jobStage, pieceOverdue, pipelineKeys, lang]);
 
   if (stages.length === 0) return null;
 
@@ -83,7 +84,7 @@ export function TailoringPieceProgressStrip({
       {total > 0 ? (
         <div
           className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
-          title={`${done} / ${total} مرحلة مكتملة`}
+          title={t("invoices.stagesCompleted", { done, total })}
           role="progressbar"
           aria-valuenow={pct}
           aria-valuemin={0}
