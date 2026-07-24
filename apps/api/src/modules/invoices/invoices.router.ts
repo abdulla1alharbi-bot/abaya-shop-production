@@ -1008,8 +1008,12 @@ invoicesRouter.post(
 
       const productsById = new Map<
         string,
-        { id: string; name: string; stockQty: number; isService: boolean }
+        { id: string; name: string; stockQty: number; isService: boolean; costFils: number }
       >();
+
+      // Ready-made lines sold below their cost floor — the seller may edit the
+      // POS price freely, but selling under cost alerts the owner/manager.
+      const belowFloor: Array<{ name: string; unitFils: number; floorFils: number }> = [];
 
       if (retail.length > 0) {
         const productIds = [...new Set(retail.map((i) => i.productId))];
@@ -1034,6 +1038,9 @@ invoicesRouter.post(
             discountFils: line.discountFils,
             totalFils: lineTotal,
           });
+          if (!p.isService && p.costFils > 0 && line.unitFils < p.costFils) {
+            belowFloor.push({ name: p.name, unitFils: line.unitFils, floorFils: p.costFils });
+          }
         }
       }
 
@@ -1168,6 +1175,26 @@ invoicesRouter.post(
           await tx.product.update({
             where: { id: productId },
             data: { stockQty: { decrement: qtyInt } },
+          });
+        }
+      }
+
+      // Alert owner/manager when any ready-made item was sold below its cost floor.
+      if (belowFloor.length > 0) {
+        const sellerName = req.user?.name ?? "بائع";
+        const details = belowFloor
+          .map((b) => `${b.name} (${(b.unitFils / 100).toFixed(2)} < ${(b.floorFils / 100).toFixed(2)})`)
+          .join("، ");
+        const message = `فاتورة #${inv.invoiceNo} — باع ${sellerName} بسعر أقل من الحد: ${details}`;
+        for (const role of ["OWNER", "MANAGER"]) {
+          await tx.notification.create({
+            data: {
+              targetRole: role,
+              type: "PRICE_BELOW_FLOOR",
+              title: "بيع تحت حد التكلفة",
+              message,
+              link: `/invoices/${inv.id}`,
+            },
           });
         }
       }

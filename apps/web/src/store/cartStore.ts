@@ -40,6 +40,7 @@ interface CartState {
 
   addRetailItem: (item: Omit<RetailCartLine, "kind">) => void;
   updateRetailQty: (productId: string, qty: number) => void;
+  updateRetailUnit: (productId: string, unitFils: number) => void;
   removeRetailLine: (productId: string) => void;
 
   setTailoringDraft: (partial: Partial<TailoringDraft>) => void;
@@ -169,6 +170,20 @@ export const useCartStore = create<CartState>((set, get) => ({
           ...l,
           qty,
           totalFils: Math.round((l.unitFils - l.discountFils) * qty),
+        };
+      }),
+    }));
+  },
+
+  updateRetailUnit: (productId, unitFils) => {
+    const u = Math.max(0, Math.round(unitFils));
+    set((state) => ({
+      lines: state.lines.map((l) => {
+        if (l.kind !== "retail" || l.productId !== productId) return l;
+        return {
+          ...l,
+          unitFils: u,
+          totalFils: Math.round((u - l.discountFils) * l.qty),
         };
       }),
     }));

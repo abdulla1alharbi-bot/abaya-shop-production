@@ -627,6 +627,7 @@
       "tailoring": "تفصيل",
       "removeFromCart": "حذف من السلة",
       "qty": "الكمية",
+      "unitPrice": "السعر",
       "subtotal": "المجموع الفرعي",
       "discount": "خصم الفاتورة (AED)",
       "vat": "ضريبة ({{pct}}%)",

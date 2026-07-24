@@ -627,6 +627,7 @@
       "tailoring": "Tailoring",
       "removeFromCart": "Remove from cart",
       "qty": "Quantity",
+      "unitPrice": "Price",
       "subtotal": "Subtotal",
       "discount": "Invoice discount (AED)",
       "vat": "VAT ({{pct}}%)",

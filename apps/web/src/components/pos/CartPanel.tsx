@@ -40,6 +40,7 @@ export function CartPanel() {
   const lines = useCartStore((s) => s.lines);
   const invoiceDiscountFils = useCartStore((s) => s.invoiceDiscountFils);
   const updateRetailQty = useCartStore((s) => s.updateRetailQty);
+  const updateRetailUnit = useCartStore((s) => s.updateRetailUnit);
   const removeRetailLine = useCartStore((s) => s.removeRetailLine);
   const removeTailoringLine = useCartStore((s) => s.removeTailoringLine);
   const startEditTailoringLine = useCartStore((s) => s.startEditTailoringLine);
@@ -323,6 +324,23 @@ export function CartPanel() {
                         </Button>
                       </div>
                       <span className="ms-auto text-sm font-semibold">{formatAED(line.totalFils)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{t("pos.cart.unitPrice")}</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="h-9 w-[96px]"
+                        value={(line.unitFils / 100).toFixed(2)}
+                        onChange={(e) =>
+                          updateRetailUnit(
+                            line.productId,
+                            Math.round((parseFloat(e.target.value) || 0) * 100),
+                          )
+                        }
+                        aria-label={t("pos.cart.unitPrice")}
+                      />
                     </div>
                   </li>
                 ) : (
