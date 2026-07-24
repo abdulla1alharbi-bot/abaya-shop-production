@@ -283,6 +283,7 @@ model FabricRoll {
   branch          Branch       @relation(fields: [branchId], references: [id])
   totalMeters     Float
   usedMeters      Float        @default(0)
+  /// DEPRECATED — fabric is never reserved (stock is deducted only at cutting). Unused by all code; kept to avoid a destructive column drop.
   reservedMeters  Float        @default(0)
   availableMeters Float
   costPerMeter    Int

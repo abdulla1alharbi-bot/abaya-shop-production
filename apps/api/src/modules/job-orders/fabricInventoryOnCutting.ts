@@ -4,15 +4,23 @@ import { AppError } from "../../middleware/error.middleware.js";
 /**
  * Fabric stock rules (tailoring / job materials)
  * ───────────────────────────────────────────────
- * - On invoice/job creation: `JobOrderMaterial` stores chosen `rollId` + planned `meters`; **no** stock movement.
+ * NO RESERVATION MODEL: fabric is never reserved/held at order creation.
+ * The only stock movement is the physical deduction at CUTTING completion.
+ *
+ * - On invoice/job creation: `JobOrderMaterial` stores chosen `rollId` + planned `meters`
+ *   and records the computed material cost; **no** stock movement, **no** reservation.
  * - Stock is **deducted once** when the **CUTTING** work stage is completed (`deductFabricOnCuttingComplete`).
+ *   Availability is validated at this point (`assertEnoughAvailable`); a shortfall throws INSUFFICIENT_STOCK.
  *   Lines with `fabricDeducted: false` are processed; each is marked `fabricDeducted: true`, `deductedMeters`, `deductedRollId`.
  * - **Reopen CUTTING**: restores using `deductedRollId ?? rollId` + `deductedMeters`, clears flags (`restoreFabricOnCuttingReopen`).
  * - **Job cancel / invoice void**: restores every line still `fabricDeducted: true` once (`restoreAllDeductedMaterialsForJob`).
+ *   Uncut lines (`fabricDeducted: false`) hold no stock, so nothing is released.
  * - **PATCH material** after cutting: adjusts by delta or swap roll (`patchJobOrderMaterialFabric`).
  * - **Delivery / job DELIVERED via PATCH**: does **not** touch fabric (see invoices `/:id/deliver` comment).
  *
  * Idempotency: deduction only runs for `fabricDeducted: false`; restore only for `fabricDeducted: true`, then flags cleared.
+ * NOTE: fabric is never reserved. The legacy `reservedMeters` column on `FabricRoll` is fully unused — no code
+ * reads or writes it (kept only to avoid a destructive column drop). The sole stock gate is the cutting deduction.
  */
 
 /** Client passed to Prisma interactive transactions */
@@ -46,35 +54,23 @@ export function metersLastDeducted(m: {
 async function assertEnoughAvailable(tx: PrismaTx, rollId: string, needMeters: number): Promise<void> {
   const roll = await tx.fabricRoll.findUnique({ where: { id: rollId } });
   if (!roll) throw new AppError(400, `Roll ${rollId} not found`, "NOT_FOUND");
-  // availableMeters includes reservedMeters (promised to jobs not yet cut).
-  // At cutting time, the reservation is already in place, so check only availableMeters.
+  // No reservation model: availableMeters is the physical stock on the roll.
+  // This is the only stock gate — enforced at cutting time.
   if (roll.availableMeters < needMeters - 1e-9) {
     throw new AppError(400, `Insufficient fabric on roll ${roll.rollCode}`, "INSUFFICIENT_STOCK");
   }
 }
 
-/** Reserve fabric at job creation time (before cutting). Returns computed cost in fils. */
+/**
+ * Record the chosen fabric for a job material at creation time and return the computed
+ * cost in fils. No reservation, no stock movement — stock is only deducted at cutting.
+ */
 export async function reserveFabricForMaterial(
   tx: PrismaTx,
   rollId: string,
   meters: number,
 ): Promise<number> {
-  if (meters <= 1e-9) return 0;
-  const roll = await tx.fabricRoll.findUnique({ where: { id: rollId } });
-  if (!roll) throw new AppError(400, `Roll ${rollId} not found`, "NOT_FOUND");
-  const free = roll.availableMeters - roll.reservedMeters;
-  if (free < meters - 1e-9) {
-    throw new AppError(
-      400,
-      `Insufficient fabric on roll ${roll.rollCode} (free: ${free.toFixed(2)}m, need: ${meters}m)`,
-      "INSUFFICIENT_STOCK",
-    );
-  }
-  await tx.fabricRoll.update({
-    where: { id: rollId },
-    data: { reservedMeters: { increment: meters } },
-  });
-  return Math.round(meters * (roll.costPerMeter ?? 0));
+  return computeMaterialCostFils(tx, rollId, meters);
 }
 
 /** Compute material cost in fils without changing inventory. */
@@ -89,19 +85,6 @@ export async function computeMaterialCostFils(
     select: { costPerMeter: true },
   });
   return Math.round(meters * (roll?.costPerMeter ?? 0));
-}
-
-/** Release reservation without deducting stock (job cancelled before cutting). */
-export async function releaseReservation(
-  tx: PrismaTx,
-  rollId: string,
-  meters: number,
-): Promise<void> {
-  if (meters <= 1e-9) return;
-  await tx.fabricRoll.update({
-    where: { id: rollId },
-    data: { reservedMeters: { decrement: meters } },
-  });
 }
 
 async function applyDeductionToRoll(
@@ -124,8 +107,6 @@ async function applyDeductionToRoll(
     data: {
       usedMeters: { increment: meters },
       availableMeters: { decrement: meters },
-      // Reservation fulfilled: fabric moves from reserved → used
-      reservedMeters: { decrement: Math.min(meters, roll.reservedMeters) },
     },
   });
   await tx.fabricTransaction.create({
@@ -263,8 +244,8 @@ export async function recordCuttingWaste(
 }
 
 /**
- * Restore every deducted line (`fabricDeducted: true`) and release reservations for
- * uncut lines (`fabricDeducted: false`). Used on job cancel / invoice void.
+ * Restore every deducted line (`fabricDeducted: true`). Used on job cancel / invoice void.
+ * Uncut lines (`fabricDeducted: false`) never touched stock, so there is nothing to release.
  * (Idempotent: second run finds nothing to process.)
  */
 export async function restoreAllDeductedMaterialsForJob(
@@ -272,61 +253,43 @@ export async function restoreAllDeductedMaterialsForJob(
   params: { jobOrderId: string; jobNo: number; reason: string },
 ): Promise<void> {
   const materials = await tx.jobOrderMaterial.findMany({
-    where: { jobOrderId: params.jobOrderId },
+    where: { jobOrderId: params.jobOrderId, fabricDeducted: true },
   });
   for (const m of materials) {
-    if (m.fabricDeducted) {
-      // Cutting was done — restore stock from usedMeters back to availableMeters.
-      const rollId = physicalRollIdForRestore(m);
-      const amt = metersLastDeducted(m);
-      if (amt > 1e-9) {
-        await applyRestoreToRoll(tx, {
-          rollId,
-          meters: amt,
-          jobOrderId: params.jobOrderId,
-          jobNo: params.jobNo,
-          reason: params.reason,
-        });
-      }
-      await tx.jobOrderMaterial.update({
-        where: { id: m.id },
-        data: { fabricDeducted: false, deductedMeters: null, deductedRollId: null },
+    // Cutting was done — restore stock from usedMeters back to availableMeters.
+    const rollId = physicalRollIdForRestore(m);
+    const amt = metersLastDeducted(m);
+    if (amt > 1e-9) {
+      await applyRestoreToRoll(tx, {
+        rollId,
+        meters: amt,
+        jobOrderId: params.jobOrderId,
+        jobNo: params.jobNo,
+        reason: params.reason,
       });
-    } else if (m.meters > 1e-9) {
-      // Not yet cut — release the reservation so other jobs can use this fabric.
-      await releaseReservation(tx, m.rollId, m.meters);
     }
+    await tx.jobOrderMaterial.update({
+      where: { id: m.id },
+      data: { fabricDeducted: false, deductedMeters: null, deductedRollId: null },
+    });
   }
 }
 
 /**
- * When Cutting is reopened: return booked meters to rolls and re-add reservation
- * (uses `deductedRollId` / `deductedMeters`).
+ * When Cutting is reopened: return booked meters to rolls (uses `deductedRollId` /
+ * `deductedMeters`). No reservation is re-added — lines revert to planned/uncut and
+ * hold no stock until cutting is completed again.
  */
 export async function restoreFabricOnCuttingReopen(
   tx: PrismaTx,
   params: { jobOrderId: string; jobNo: number; stageKey: string },
 ): Promise<void> {
   if (params.stageKey !== "CUTTING") return;
-  // Capture which materials were deducted before restoring them.
-  const deductedMaterials = await tx.jobOrderMaterial.findMany({
-    where: { jobOrderId: params.jobOrderId, fabricDeducted: true },
-  });
   await restoreAllDeductedMaterialsForJob(tx, {
     jobOrderId: params.jobOrderId,
     jobNo: params.jobNo,
     reason: "[REOPEN] cutting reopened — stock restored",
   });
-  // Re-add reservation: materials are now back to fabricDeducted: false (planned, not cut).
-  for (const m of deductedMaterials) {
-    const meters = metersLastDeducted(m);
-    if (meters > 1e-9) {
-      await tx.fabricRoll.update({
-        where: { id: m.rollId },
-        data: { reservedMeters: { increment: meters } },
-      });
-    }
-  }
 }
 
 export type PatchMaterialFabricInput = {
@@ -365,20 +328,12 @@ export async function patchJobOrderMaterialFabric(
 
   const newMaterialCostFils = Math.round(newMeters * (newRoll.costPerMeter ?? 0));
 
-  // Before cutting completed: update reservation and check free meters.
+  // Before cutting completed: nothing is reserved or deducted yet, so just
+  // update the planned line. Stock is only ever touched at cutting completion.
   if (!cuttingDone || !m.fabricDeducted) {
-    const freeMeters = newRoll.availableMeters - newRoll.reservedMeters;
-    // Add back the current reservation for this material before checking
-    const currentReservation = m.rollId === newRollId ? m.meters : 0;
-    if (freeMeters + currentReservation < newMeters - 1e-9) {
+    // Soft availability check against physical stock (the hard gate is at cutting).
+    if (newRoll.availableMeters < newMeters - 1e-9) {
       throw new AppError(400, `Insufficient fabric on roll ${newRoll.rollCode}`, "INSUFFICIENT_STOCK");
-    }
-    // Adjust reservations if roll or meters changed
-    if (m.rollId !== newRollId) {
-      await tx.fabricRoll.update({ where: { id: m.rollId }, data: { reservedMeters: { decrement: m.meters } } });
-      await tx.fabricRoll.update({ where: { id: newRollId }, data: { reservedMeters: { increment: newMeters } } });
-    } else if (Math.abs(newMeters - m.meters) > 1e-9) {
-      await tx.fabricRoll.update({ where: { id: m.rollId }, data: { reservedMeters: { increment: newMeters - m.meters } } });
     }
     await tx.jobOrderMaterial.update({
       where: { id: m.id },
