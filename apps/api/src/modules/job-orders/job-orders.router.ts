@@ -32,6 +32,7 @@ import {
   restoreFabricOnCuttingReopen,
 } from "./fabricInventoryOnCutting.js";
 import { isWorkerRequest, redactJobOrderDetailForWorker } from "../../utils/workerFinancialRedaction.js";
+import { notifyIfInvoiceFullyReady } from "../../utils/invoiceReadyNotify.js";
 import {
   patchWorkStageBody,
   patchWorkStageBodyWithOptionalWageAed,
@@ -736,6 +737,8 @@ jobOrdersRouter.post(
       });
     });
 
+    if (data?.stage === "READY") await notifyIfInvoiceFullyReady(prisma, data.id);
+
     res.status(200).json({ success: true, data });
   }),
 );
@@ -968,6 +971,8 @@ jobOrdersRouter.post(
         },
       });
     });
+
+    if (data?.stage === "READY") await notifyIfInvoiceFullyReady(prisma, data.id);
 
     res.status(200).json({ success: true, data });
   }),
@@ -1332,6 +1337,8 @@ jobOrdersRouter.post(
       }),
     ]);
 
+    await notifyIfInvoiceFullyReady(prisma, job.id);
+
     res.status(200).json({ success: true });
   }),
 );
@@ -1375,6 +1382,7 @@ jobOrdersRouter.post(
           },
         }),
       ]);
+      await notifyIfInvoiceFullyReady(prisma, job.id);
       return res.status(200).json({ success: true, stage: "READY" });
     }
 
@@ -1571,6 +1579,8 @@ jobOrdersRouter.post(
 
       return product;
     });
+
+    await notifyIfInvoiceFullyReady(prisma, existing.id);
 
     res.status(200).json({
       success: true,

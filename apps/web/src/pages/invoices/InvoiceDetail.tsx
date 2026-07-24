@@ -2,7 +2,7 @@
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Banknote, MessageCircle, Printer, Trash2 } from "lucide-react";
+import { Banknote, CheckCheck, MessageCircle, Printer, Trash2 } from "lucide-react";
 import { VOID_CATEGORIES } from "@abaya-shop/shared";
 import { printInvoice } from "@/lib/printInvoice";
 import { buildWhatsAppLink, orderReadyMessage, paymentReminderMessage } from "@/lib/whatsappLinks";
@@ -83,6 +83,13 @@ type JobOrderRow = {
     roll: { rollCode: string; name: string; color: string; type: string };
   }>;
   totalFils?: number;
+};
+
+/** One logged "we told the customer her order is ready" — the app never sends anything itself. */
+type CustomerNotice = {
+  id: string;
+  createdAt: string;
+  user: { id: string; name: string; username: string } | null;
 };
 
 type RelatedInv = {
@@ -243,6 +250,14 @@ export function InvoiceDetail() {
     },
   });
 
+  /** Logs that a human contacted the customer. Fired alongside the WhatsApp link and by the manual button. */
+  const recordCustomerNotice = useMutation({
+    mutationFn: async () => {
+      await api.post(`/invoices/${id}/customer-notice`, {});
+    },
+    onSuccess: () => invalidate(),
+  });
+
   const voidInvoice = useMutation({
     mutationFn: async () => {
       await api.post(`/invoices/${id}/void`, {
@@ -291,6 +306,8 @@ export function InvoiceDetail() {
   }>) ?? [];
   const jobOrders = (data.jobOrders as JobOrderRow[]) ?? [];
   const relatedInvoices = (data.relatedInvoices as RelatedInv[]) ?? [];
+  const customerNotices = (data.customerNotices as CustomerNotice[]) ?? [];
+  const lastNotice = customerNotices[0] ?? null;
   const fulfillmentStatus = String(data.fulfillmentStatus ?? "NO_TAILORING");
   const balanceFils = data.balanceFils as number;
   const customer = data.customer as { id: string; name: string; mobile: string } | null;
@@ -424,6 +441,36 @@ export function InvoiceDetail() {
           <span className={invoiceBadgeStyle(invBadge.key)}>{t(invBadge.labelKey)}</span>
         </div>
 
+        {!isVoid && !deliveredAt && fulfillmentStatus === "READY_FOR_DELIVERY" ? (
+          <div className="mt-3 space-y-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                {t("invoiceDetail.customerNoticeLabel")}
+              </span>
+              {lastNotice ? (
+                <span className="rounded-lg border border-green-300 bg-green-100 px-3 py-1 text-sm font-medium text-green-900 dark:border-green-800 dark:bg-green-950/40 dark:text-green-100">
+                  {t("invoiceDetail.customerNoticeDone", {
+                    name: lastNotice.user?.name ?? "—",
+                    date: new Date(lastNotice.createdAt).toLocaleString(),
+                  })}
+                </span>
+              ) : (
+                <span className="rounded-lg border border-amber-300 bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                  {t("invoiceDetail.customerNoticeNone")}
+                </span>
+              )}
+            </div>
+            {customerNotices.length > 1 ? (
+              <p className="text-xs text-muted-foreground">
+                {t("invoiceDetail.customerNoticeTimes", { count: customerNotices.length })}:{" "}
+                {customerNotices
+                  .map((n) => `${new Date(n.createdAt).toLocaleDateString()} (${n.user?.name ?? "—"})`)
+                  .join(" · ")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="mt-6 flex flex-wrap gap-3">
           {!hideMoney ? (
             <Button
@@ -464,14 +511,31 @@ export function InvoiceDetail() {
               <a
                 href={buildWhatsAppLink(
                   customer.mobile,
-                  orderReadyMessage(customer.name, invoiceNo),
+                  orderReadyMessage(customer.name, invoiceNo, jobOrders.length),
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => recordCustomerNotice.mutate()}
               >
                 <MessageCircle className="me-2 h-5 w-5" />
                 {t("invoiceDetail.whatsappReadyNotify")}
               </a>
+            </Button>
+          ) : null}
+          {/* For contact made outside the app — a call, or WhatsApp from the seller's own phone */}
+          {!isVoid && !deliveredAt && fulfillmentStatus === "READY_FOR_DELIVERY" && jobOrders.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-14 rounded-xl"
+              disabled={recordCustomerNotice.isPending}
+              onClick={() => recordCustomerNotice.mutate()}
+            >
+              <CheckCheck className="me-2 h-5 w-5" />
+              {lastNotice
+                ? t("invoiceDetail.logCustomerNoticeAgain")
+                : t("invoiceDetail.logCustomerNotice")}
             </Button>
           ) : null}
           {/* WhatsApp: payment reminder */}

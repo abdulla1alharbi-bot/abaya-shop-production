@@ -21,6 +21,7 @@ import {
   canMarkInvoiceDelivered,
   computeInvoiceFulfillment,
   invoiceReadyForDeliveryWhere,
+  invoiceTailoringReadyWhere,
 } from "../../utils/invoiceFulfillment.js";
 import { reserveFabricForMaterial, restoreAllDeductedMaterialsForJob } from "../job-orders/fabricInventoryOnCutting.js";
 import {
@@ -93,6 +94,10 @@ async function fetchInvoiceDetailWithMeta(invoiceId: string) {
       branch: true,
       salesPerson: { select: { id: true, name: true, username: true } },
       jobOrders: invoiceDetailJobOrdersInclude,
+      customerNotices: {
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { id: true, name: true, username: true } } },
+      },
     },
   });
   if (!invoice) return null;
@@ -132,6 +137,9 @@ invoicesRouter.get(
       queryParamString(q, "balanceDue") === "true" || String(q.balanceDue ?? "") === "true";
     const readyForDelivery =
       queryParamString(q, "readyForDelivery") === "true" || String(q.readyForDelivery ?? "") === "true";
+    /** Ready to collect, but nobody has recorded contacting the customer yet. */
+    const readyNotNotified =
+      queryParamString(q, "readyNotNotified") === "true" || String(q.readyNotNotified ?? "") === "true";
 
     const pagination = { page, limit };
     const { skip, take } = prismaSkipTake(pagination);
@@ -171,6 +179,9 @@ invoicesRouter.get(
     if (readyForDelivery) {
       filterParts.push(invoiceReadyForDeliveryWhere());
     }
+    if (readyNotNotified) {
+      filterParts.push(invoiceTailoringReadyWhere(), { customerNotices: { none: {} } });
+    }
     if (searchWhere) {
       filterParts.push(searchWhere);
     }
@@ -193,6 +204,7 @@ invoicesRouter.get(
           customer: { select: { id: true, name: true, mobile: true, code: true } },
           branch: { select: { id: true, name: true } },
           jobOrders: { select: { id: true, stage: true } },
+          _count: { select: { customerNotices: true } },
         },
       }),
       balanceDue
@@ -214,9 +226,10 @@ invoicesRouter.get(
         { isVoid: inv.isVoid, deliveredAt: inv.deliveredAt },
         inv.jobOrders,
       );
-      const { jobOrders: jo, ...rest } = inv;
+      const { jobOrders: jo, _count, ...rest } = inv;
       return {
         ...rest,
+        customerNoticeCount: _count.customerNotices,
         fulfillmentStatus,
         status:
           inv.isVoid ? "VOID" : inv.deliveredAt ? "DELIVERED" : inv.balanceFils > 0 ? "OPEN" : "PAID",
@@ -1590,6 +1603,34 @@ invoicesRouter.post(
     const data = await fetchInvoiceDetailWithMeta(invoiceId);
     if (!data) throw new AppError(404, "Invoice not found", "NOT_FOUND");
     res.status(200).json({ success: true, data });
+  }),
+);
+
+/**
+ * Record that a staff member told the customer her order is ready. The system never
+ * messages anyone — this only logs that a human did, so uncontacted ready invoices
+ * can be surfaced and repeat reminders can be evidenced later.
+ */
+invoicesRouter.post(
+  "/:id/customer-notice",
+  requirePermission("invoices.view", "jobProcess.view"),
+  asyncHandler(async (req, res) => {
+    const invoiceId = req.params.id;
+    if (!invoiceId) throw new AppError(400, "Missing invoice id", "VALIDATION_ERROR");
+    const userId = req.user?.id;
+    if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      select: { id: true, isVoid: true },
+    });
+    if (!invoice) throw new AppError(404, "Invoice not found", "NOT_FOUND");
+    if (invoice.isVoid) throw new AppError(400, "الفاتورة ملغاة", "INVALID_STATE");
+
+    await prisma.invoiceCustomerNotice.create({ data: { invoiceId: invoice.id, userId } });
+
+    const data = await fetchInvoiceDetailWithMeta(invoice.id);
+    res.status(201).json({ success: true, data });
   }),
 );
 

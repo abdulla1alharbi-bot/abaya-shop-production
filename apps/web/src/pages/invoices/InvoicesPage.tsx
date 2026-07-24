@@ -67,7 +67,7 @@ function paymentBadgeClass(inv: InvoiceListItem): string {
 
 function setListMode(
   setSearchParams: ReturnType<typeof useSearchParams>[1],
-  mode: "all" | "balance" | "ready",
+  mode: "all" | "balance" | "ready" | "notNotified",
 ) {
   if (mode === "all") {
     setSearchParams({}, { replace: true });
@@ -75,6 +75,10 @@ function setListMode(
   }
   if (mode === "balance") {
     setSearchParams({ balanceDue: "true" }, { replace: true });
+    return;
+  }
+  if (mode === "notNotified") {
+    setSearchParams({ readyNotNotified: "true" }, { replace: true });
     return;
   }
   setSearchParams({ readyForDelivery: "true" }, { replace: true });
@@ -86,6 +90,8 @@ export function InvoicesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const balanceDueMode = searchParams.get("balanceDue") === "true";
   const readyForDeliveryMode = searchParams.get("readyForDelivery") === "true";
+  /** Ready to collect, but nobody has logged contacting the customer — should stay empty. */
+  const readyNotNotifiedMode = searchParams.get("readyNotNotified") === "true";
   const { t } = useTranslation();
 
   const [searchInput, setSearchInput] = useState("");
@@ -97,7 +103,7 @@ export function InvoicesPage() {
   }, [searchInput]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["invoices", balanceDueMode, readyForDeliveryMode, debouncedQ],
+    queryKey: ["invoices", balanceDueMode, readyForDeliveryMode, readyNotNotifiedMode, debouncedQ],
     queryFn: async () => {
       const res = await api.get<{
         success: boolean;
@@ -107,6 +113,7 @@ export function InvoicesPage() {
           limit: 100,
           ...(balanceDueMode ? { balanceDue: "true" } : {}),
           ...(readyForDeliveryMode ? { readyForDelivery: "true" } : {}),
+          ...(readyNotNotifiedMode ? { readyNotNotified: "true" } : {}),
           ...(debouncedQ ? { q: debouncedQ } : {}),
         },
       });
@@ -119,25 +126,31 @@ export function InvoicesPage() {
 
   const pageTitle = balanceDueMode
     ? t("pages.invoices.titleBalance")
-    : readyForDeliveryMode
-      ? t("pages.invoices.titleReady")
-      : t("pages.invoices.title");
+    : readyNotNotifiedMode
+      ? t("pages.invoices.titleNotNotified")
+      : readyForDeliveryMode
+        ? t("pages.invoices.titleReady")
+        : t("pages.invoices.title");
 
   const colCount = isWorker ? 8 : 12;
 
   const pageDescription = balanceDueMode
     ? t("pages.invoices.descBalance")
-    : readyForDeliveryMode
-      ? t("pages.invoices.descReady")
-      : t("pages.invoices.descAll");
+    : readyNotNotifiedMode
+      ? t("pages.invoices.descNotNotified")
+      : readyForDeliveryMode
+        ? t("pages.invoices.descReady")
+        : t("pages.invoices.descAll");
 
   const emptyMessage = debouncedQ
     ? t("pages.invoices.emptySearch")
     : balanceDueMode
       ? t("pages.invoices.emptyBalance")
-      : readyForDeliveryMode
-        ? t("pages.invoices.emptyReady")
-        : t("pages.invoices.emptyDefault");
+      : readyNotNotifiedMode
+        ? t("pages.invoices.emptyNotNotified")
+        : readyForDeliveryMode
+          ? t("pages.invoices.emptyReady")
+          : t("pages.invoices.emptyDefault");
 
   function paymentStatusLabel(inv: InvoiceListItem): string {
     if (inv.isVoid) return t("status.payment.void");
@@ -155,7 +168,9 @@ export function InvoicesPage() {
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant={!balanceDueMode && !readyForDeliveryMode ? "default" : "outline"}
+              variant={
+                !balanceDueMode && !readyForDeliveryMode && !readyNotNotifiedMode ? "default" : "outline"
+              }
               size="sm"
               onClick={() => setListMode(setSearchParams, "all")}
             >
@@ -178,6 +193,14 @@ export function InvoicesPage() {
                   onClick={() => setListMode(setSearchParams, "ready")}
                 >
                   {t("pages.invoices.btnReady")}
+                </Button>
+                <Button
+                  type="button"
+                  variant={readyNotNotifiedMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setListMode(setSearchParams, "notNotified")}
+                >
+                  {t("pages.invoices.btnNotNotified")}
                 </Button>
               </>
             ) : null}

@@ -49,6 +49,22 @@ export function invoiceReadyForDeliveryWhere(): Prisma.InvoiceWhereInput {
   };
 }
 
+/**
+ * Tailoring invoices whose every piece is finished and that haven't been handed over.
+ * Unlike {@link invoiceReadyForDeliveryWhere} this EXCLUDES no-tailoring retail sales —
+ * a walk-in customer already left with her purchase, so there is nobody to call.
+ */
+export function invoiceTailoringReadyWhere(): Prisma.InvoiceWhereInput {
+  return {
+    isVoid: false,
+    deliveredAt: null,
+    jobOrders: {
+      some: {},
+      every: { stage: { in: ["READY", "DELIVERED", "CONVERTED_TO_READY"] } },
+    },
+  };
+}
+
 export function canMarkInvoiceDelivered(
   invoice: { isVoid: boolean; deliveredAt: Date | null },
   jobs: Pick<JobOrder, "stage">[],

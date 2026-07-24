@@ -11,6 +11,7 @@ import {
   redactPendingTailoringItem,
 } from "../../utils/workerFinancialRedaction.js";
 import { notify } from "../../utils/notify.js";
+import { alertUncontactedReadyInvoices } from "../../utils/invoiceReadyNotify.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
@@ -297,6 +298,8 @@ dashboardRouter.get(
         }
       }
     }
+
+    await alertUncontactedReadyInvoices(prisma);
 
     const paymentsTodayFils = paymentsTodayAgg._sum.amountFils ?? 0;
     const wagesTodayFils = wagesTodayAgg._sum.wageFils ?? 0;

@@ -4,8 +4,14 @@ export function buildWhatsAppLink(phone: string, message: string): string {
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`;
 }
 
-export function orderReadyMessage(customerName: string, jobNo: number | string): string {
-  return `عزيزتي ${customerName}،\nطلبك رقم ${jobNo} جاهز للاستلام الآن. 🎉\nيسعدنا خدمتك.`;
+/** Sent once per invoice — only when every piece on it is ready, never per piece. */
+export function orderReadyMessage(
+  customerName: string,
+  invoiceNo: number | string,
+  pieceCount?: number,
+): string {
+  const pieces = pieceCount && pieceCount > 1 ? `\nجميع القطع (${pieceCount}) جاهزة.` : "";
+  return `عزيزتي ${customerName}،\nطلبك رقم ${invoiceNo} جاهز للاستلام الآن. 🎉${pieces}\nيسعدنا خدمتك.`;
 }
 
 export function paymentReminderMessage(

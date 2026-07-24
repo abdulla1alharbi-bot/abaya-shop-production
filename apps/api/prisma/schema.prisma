@@ -46,6 +46,7 @@ model User {
   notifications Notification[]
   voidedInvoices Invoice[] @relation("InvoiceVoidedBy")
   invoiceReturns InvoiceReturn[] @relation("InvoiceReturnCreatedBy")
+  customerNotices InvoiceCustomerNotice[]
 }
 
 model RefreshToken {
@@ -358,17 +359,36 @@ model Invoice {
   discountReason  String?
   /// When the seller marked the whole invoice as delivered to the customer
   deliveredAt     DateTime?
+  /// When the LAST tailoring piece of this invoice became ready — the whole order is
+  /// collectable from this moment. Drives the "ready but customer not contacted" alert.
+  readyAt         DateTime?
   items           InvoiceItem[]
   payments        Payment[]
   jobOrders       JobOrder[]
   conversionLogs  ConversionLog[]
   sampleSales     SampleSaleLog[]
   returns         InvoiceReturn[]
+  customerNotices InvoiceCustomerNotice[]
   createdAt       DateTime      @default(now())
 
   @@index([customerId])
   @@index([createdAt])
   @@index([isVoid])
+  @@index([readyAt])
+}
+
+/// One row per time a staff member told the customer her order is ready.
+/// Repeat rows are expected — unclaimed pieces need several reminders before
+/// they may be converted to ready stock, and this is the proof they were made.
+model InvoiceCustomerNotice {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
 }
 
 model InvoiceItem {
