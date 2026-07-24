@@ -62,6 +62,13 @@ export function ProductGrid() {
     ];
   }, [categories]);
 
+  const orderedProducts = useMemo(() => {
+    // In-stock items first, out-of-stock (empty) last; order preserved within each group.
+    return [...(products ?? [])].sort(
+      (a, b) => Number(b.stockQty > 0) - Number(a.stockQty > 0),
+    );
+  }, [products]);
+
   return (
     <Card className="min-h-[320px]">
       <CardContent className="p-4">
@@ -96,7 +103,7 @@ export function ProductGrid() {
           </div>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {products.map((p) => (
+            {orderedProducts.map((p) => (
               <button
                 key={p.id}
                 type="button"
