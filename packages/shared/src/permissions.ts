@@ -239,6 +239,7 @@ export const ROLE_DEFAULTS: Record<AppRole, readonly string[]> = {
     "jobProcess.update",
     "jobProcess.assignWorkers",
     "jobProcess.complete",
+    "jobProcess.editWage",
     "jobProcess.reopenStage",
     "jobProcess.inspect",
     "models.view",

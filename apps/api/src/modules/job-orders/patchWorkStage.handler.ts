@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { PIPELINE_STAGE_KEYS, parseWageDefaults, wageForPipelineStage } from "./jobStageHelpers.js";
+import { notify } from "../../utils/notify.js";
 
 export const patchWorkStageBody = z.object({
   workerId: z.union([z.string(), z.null()]).optional(),
@@ -166,6 +167,37 @@ export async function patchWorkStageHandler(req: Request, res: Response): Promis
   const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
   const wageDefaults = parseWageDefaults(settingsMap);
 
+  const stageDefaultWage = wageForPipelineStage(stageKey, job.product, wageDefaults);
+  const STAGE_LABELS_AR: Record<string, string> = {
+    CUTTING: "القص",
+    SEWING: "الخياطة",
+    EMBROIDERY: "التطريز",
+    FINISHING: "التشطيب",
+  };
+  const stageLabel = STAGE_LABELS_AR[stageKey] ?? stageKey;
+
+  /**
+   * When a stage wage is set to anything other than the system default, alert
+   * the owner/manager so wage overrides by supervisors stay visible.
+   */
+  async function alertWageDeviation(nextWageFils: number, workerName: string | null): Promise<void> {
+    if (nextWageFils === stageDefaultWage) return;
+    const actor = req.user?.name ?? "مستخدم";
+    const dir = nextWageFils > stageDefaultWage ? "رفع" : "خفّض";
+    const worker = workerName ? ` — العامل ${workerName}` : "";
+    const message = `طلب #${job!.jobNo} — مرحلة ${stageLabel}: ${dir} ${actor} الأجر من ${(stageDefaultWage / 100).toFixed(2)} إلى ${(nextWageFils / 100).toFixed(2)}${worker}`;
+    const link = job!.invoiceId ? `/invoices/${job!.invoiceId}` : "/workshop/board";
+    for (const role of ["OWNER", "MANAGER"]) {
+      await notify(prisma, {
+        targetRole: role,
+        type: "WAGE_ABOVE_DEFAULT",
+        title: "تعديل أجر مرحلة عن الافتراضي",
+        message,
+        link,
+      });
+    }
+  }
+
   /** Planned worker / wage on any PENDING row (current or future stage). Status stays PENDING. */
   if (row.status === "PENDING") {
     const data: Prisma.JobOrderWorkStageUpdateInput = {};
@@ -203,6 +235,9 @@ export async function patchWorkStageHandler(req: Request, res: Response): Promis
       data,
       include: { worker: { select: { id: true, name: true, phone: true } } },
     });
+    if (body.wageFils !== undefined && canEditWage && body.wageFils !== row.wageFils) {
+      await alertWageDeviation(body.wageFils, updated.worker?.name ?? updated.workerNameSnapshot);
+    }
     res.status(200).json({ success: true, data: updated });
     return;
   }
@@ -237,6 +272,10 @@ export async function patchWorkStageHandler(req: Request, res: Response): Promis
     data,
     include: { worker: { select: { id: true, name: true, phone: true } } },
   });
+
+  if (body.wageFils !== undefined && canEditWage && nextWageFils !== row.wageFils) {
+    await alertWageDeviation(nextWageFils, updated.worker?.name ?? updated.workerNameSnapshot);
+  }
 
   res.status(200).json({ success: true, data: updated });
 }
