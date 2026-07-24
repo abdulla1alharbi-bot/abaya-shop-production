@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -28,7 +28,7 @@ import type { AbayaCatalogType } from "@/lib/abayaTailoringCatalog";
 import { calcVatFils, formatAED } from "@/lib/money";
 import { getApiErrorMessage, isCreditLimitError } from "@/lib/apiErrors";
 import { useCartStore, subtotalFilsFromLines } from "@/store/cartStore";
-import type { PosCartLine, TailoringCartLine } from "@/types/posCart";
+import type { PosCartLine, RetailCartLine, TailoringCartLine } from "@/types/posCart";
 
 type PayRow = { method: string; amountAed: string };
 
@@ -327,19 +327,10 @@ export function CartPanel() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs text-muted-foreground">{t("pos.cart.unitPrice")}</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        className="h-9 w-[96px]"
-                        value={(line.unitFils / 100).toFixed(2)}
-                        onChange={(e) =>
-                          updateRetailUnit(
-                            line.productId,
-                            Math.round((parseFloat(e.target.value) || 0) * 100),
-                          )
-                        }
-                        aria-label={t("pos.cart.unitPrice")}
+                      <RetailPriceInput
+                        line={line}
+                        onCommit={(fils) => updateRetailUnit(line.productId, fils)}
+                        ariaLabel={t("pos.cart.unitPrice")}
                       />
                     </div>
                   </li>
@@ -642,6 +633,51 @@ export function CartPanel() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * Editable unit-price field. Keeps a local draft string while focused so the
+ * value isn't reformatted to `0.00` on every keystroke (which blocks typing);
+ * commits the parsed fils live and normalizes the display on blur.
+ */
+function RetailPriceInput({
+  line,
+  onCommit,
+  ariaLabel,
+}: {
+  line: RetailCartLine;
+  onCommit: (fils: number) => void;
+  ariaLabel: string;
+}) {
+  const [draft, setDraft] = useState(() => (line.unitFils / 100).toFixed(2));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setDraft((line.unitFils / 100).toFixed(2));
+  }, [line.unitFils, focused]);
+
+  return (
+    <Input
+      type="number"
+      min={0}
+      step={0.01}
+      className="h-9 w-[96px]"
+      value={draft}
+      onFocus={(e) => {
+        setFocused(true);
+        e.currentTarget.select();
+      }}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        onCommit(Math.round((parseFloat(e.target.value) || 0) * 100));
+      }}
+      onBlur={() => {
+        setFocused(false);
+        setDraft((line.unitFils / 100).toFixed(2));
+      }}
+      aria-label={ariaLabel}
+    />
   );
 }
 
