@@ -7,6 +7,8 @@ import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parseOptionalInt, parsePageLimit, queryParamString } from "../../utils/queryParams.js";
+import { getShopTimezone } from "../../config/shop.js";
+import { monthRangeUtc } from "../../utils/shopTime.js";
 
 export const payrollRouter = Router();
 payrollRouter.use(authMiddleware);
@@ -80,8 +82,8 @@ payrollRouter.post(
   validateBody(generateBody),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof generateBody>;
-    const from = new Date(body.year, body.month - 1, 1, 0, 0, 0, 0);
-    const to = new Date(body.year, body.month, 0, 23, 59, 59, 999);
+    const timeZone = await getShopTimezone(prisma);
+    const { from, to } = monthRangeUtc(body.year, body.month, timeZone);
 
     const [workers, prodByWorker, adjustments] = await Promise.all([
       prisma.worker.findMany({ where: { isActive: true }, select: { id: true, name: true } }),

@@ -6,6 +6,13 @@ export async function getVatRatePercent(prisma: PrismaClient): Promise<number> {
   return Number.isFinite(v) ? v : 5;
 }
 
+/** The shop's IANA timezone (setting `timezone`), used to slice reporting periods. */
+export async function getShopTimezone(prisma: PrismaClient): Promise<string> {
+  const s = await prisma.setting.findUnique({ where: { key: "timezone" } });
+  const tz = s?.value?.trim();
+  return tz && tz.length > 0 ? tz : "Asia/Dubai";
+}
+
 export async function getDefaultBranchId(prisma: PrismaClient): Promise<string> {
   const b = await prisma.branch.findFirst({ where: { isDefault: true } });
   if (b) return b.id;

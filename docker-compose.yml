@@ -39,6 +39,10 @@ services:
       # Set to "true" once the site is served over HTTPS (adds Secure flag to auth cookies).
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+    volumes:
+      # Persist uploaded model images across container rebuilds/redeploys.
+      # Served by the API at /uploads (see app.ts); written to /app/uploads/models.
+      - uploads:/app/uploads
     ports:
       - "3001:3001"
     healthcheck:
@@ -61,3 +65,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
