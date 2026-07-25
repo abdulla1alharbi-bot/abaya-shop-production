@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import type { Role } from "../types/role.js";
 
@@ -49,7 +50,16 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 
 export function signRefreshToken(userId: string): string {
   const secret = requireEnv("JWT_REFRESH_SECRET", refreshSecret);
-  return jwt.sign({ sub: userId }, secret, { expiresIn: "7d", algorithm: "HS256" });
+  // `jti` is what makes each token unique. Without it the payload is just
+  // { sub, iat, exp } — and `iat` only has second resolution, so two refreshes
+  // landing in the same second produced byte-identical tokens. RefreshToken.token
+  // is unique, so the second insert threw P2002 -> 409 -> the web client cleared
+  // the session and bounced the user to the login screen.
+  return jwt.sign({ sub: userId }, secret, {
+    expiresIn: "7d",
+    algorithm: "HS256",
+    jwtid: randomUUID(),
+  });
 }
 
 export function verifyRefreshToken(token: string): { sub: string } {
