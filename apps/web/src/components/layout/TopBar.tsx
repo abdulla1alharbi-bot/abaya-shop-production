@@ -33,7 +33,9 @@ export function TopBar({ title, onOpenMobileNav }: TopBarProps) {
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background px-3 shadow-sm md:px-5">
+    // The extra top padding is the iPhone status bar / notch when the app runs
+    // installed on the home screen; it collapses to 0 in a browser.
+    <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between border-b bg-background px-3 pt-[env(safe-area-inset-top)] shadow-sm md:px-5">
       <div className="flex min-w-0 items-center gap-2">
         <Button
           type="button"

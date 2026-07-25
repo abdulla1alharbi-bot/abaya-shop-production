@@ -67,7 +67,7 @@ export function AppLayout() {
       </Sheet>
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar title={title} onOpenMobileNav={() => setMobileNavOpen(true)} />
-        <main className="flex-1 px-4 py-5 md:px-8 md:py-6">
+        <main className="flex-1 px-4 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:px-8 md:py-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           <Outlet />
         </main>
       </div>

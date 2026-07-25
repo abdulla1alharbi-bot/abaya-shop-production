@@ -264,7 +264,9 @@ export function SidebarHeader() {
 
 export function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <div className="flex h-full flex-col bg-slate-900">
+    // The insets only apply to the mobile drawer on an installed iPhone app,
+    // where the drawer runs edge to edge under the notch and home indicator.
+    <div className="flex h-full flex-col bg-slate-900 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       <SidebarHeader />
       <SidebarNav onNavigate={onNavigate} />
     </div>
