@@ -1460,7 +1460,13 @@
     "deliveryHint": "متاح عند انتهاء عمل الورشة. يمكنك التسليم حتى مع وجود رصيد — سجّل الدفعة أعلاه أولاً إن رغبت.",
     "confirmDeliver": "تحديد الفاتورة #{{invoiceNo}} كمسلَّمة؟",
     "delivered": "تم التسليم",
-    "markAsDelivered": "تحديد كمسلَّمة"
+    "markAsDelivered": "تحديد كمسلَّمة",
+    "quickSettle": {
+      "notReady": "لم يكتمل عمل الورشة بعد.",
+      "confirmOverpay": "المستلم {{amount}} والمستحق {{due}} فقط. الزائد {{excess}} سيُسجَّل كفرق تقريب. متابعة؟",
+      "deliveredOn": "سُلّمت في {{date}}",
+      "confirmDeliverWithBalance": "الفاتورة #{{invoiceNo}} عليها رصيد متبقٍ {{balance}}. هل تريد التسليم رغم ذلك؟"
+    }
   },
   "customers": {
     "detail": {

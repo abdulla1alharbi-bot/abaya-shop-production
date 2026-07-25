@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Loader2, Search } from "lucide-react";
+import { InvoiceQuickSettle } from "@/components/invoices/InvoiceQuickSettle";
 import { InvoiceSellerPanel } from "@/components/invoices/InvoiceSellerPanel";
 import { Button } from "@/components/ui/button";
 import {
@@ -233,6 +234,18 @@ function GlobalInvoiceQuickViewModal({
                   )}
                 </ul>
               </div>
+
+              {!hideMoney ? (
+                <InvoiceQuickSettle
+                  invoiceId={invoiceId}
+                  invoiceNo={data.invoiceNo as number}
+                  balanceFils={data.balanceFils as number}
+                  deliveredAt={(data.deliveredAt as string | null | undefined) ?? null}
+                  isVoid={Boolean(data.isVoid)}
+                  fulfillmentStatus={String(data.fulfillmentStatus ?? "")}
+                  onUpdated={invalidate}
+                />
+              ) : null}
 
               <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap">
                 <Button variant="default" size="sm" className="gap-2" onClick={() => onOpenChange(false)}>
@@ -696,8 +709,12 @@ export function GlobalInvoiceSearch({ className }: { className?: string }) {
             if (query.trim().length >= MIN_SEARCH_CHARS) setOpenDropdown(true);
           }}
           placeholder={t("components.globalSearch.placeholder")}
+          // ps-9/pe-24 reserve room for the icon and the Search button, but
+          // logical padding resolves against the input's own direction while
+          // the icon and button resolve against the wrapper's. Pinning the
+          // input to rtl flipped its padding in English mode and the typed
+          // text ran underneath the button — let it inherit the page instead.
           className="h-11 pe-24 ps-9"
-          dir="rtl"
           autoComplete="off"
         />
         <Button

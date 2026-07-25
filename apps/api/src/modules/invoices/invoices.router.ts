@@ -1372,10 +1372,17 @@ invoicesRouter.post(
       if (!inv || inv.isVoid) throw new AppError(404, "Invoice not found", "NOT_FOUND");
 
       const add = body.payments.reduce((a, p) => a + p.amountFils, 0);
-      const newPaid = inv.paidFils + add;
-      if (newPaid > inv.totalFils) {
-        throw new AppError(400, "Payments exceed invoice remaining balance", "VALIDATION_ERROR");
-      }
+      /**
+       * Overpayment is accepted — cash customers round up (163 on a 162.50 bill).
+       * The Payment rows keep the true amount handed over, so collections reports
+       * stay honest, but only the outstanding part settles the invoice: the extra
+       * is a rounding difference, not a receivable and not customer credit. That
+       * keeps `paid + balance == total` intact for every screen and for
+       * `syncInvoiceJobsFinancials`, which allocates paid across job lines.
+       */
+      const outstanding = Math.max(0, inv.totalFils - inv.paidFils);
+      const settled = Math.min(add, outstanding);
+      const newPaid = inv.paidFils + settled;
       const newBalance = inv.totalFils - newPaid;
 
       await tx.payment.createMany({
@@ -1392,10 +1399,12 @@ invoicesRouter.post(
         data: { paidFils: newPaid, balanceFils: newBalance },
       });
 
-      if (inv.customerId && add > 0) {
+      // Decrement by the settled part only — rounding change must never leave the
+      // customer sitting on a phantom credit.
+      if (inv.customerId && settled > 0) {
         await tx.customer.update({
           where: { id: inv.customerId },
-          data: { balanceFils: { decrement: add } },
+          data: { balanceFils: { decrement: settled } },
         });
       }
 
@@ -1408,7 +1417,12 @@ invoicesRouter.post(
           entity: "Invoice",
           entityId: invoiceId,
           oldValue: JSON.stringify({ paidFils: inv.paidFils, balanceFils: inv.balanceFils }),
-          newValue: JSON.stringify({ paidFils: newPaid, balanceFils: newBalance, amountAdded: add }),
+          newValue: JSON.stringify({
+            paidFils: newPaid,
+            balanceFils: newBalance,
+            amountAdded: add,
+            roundingFils: add - settled,
+          }),
         },
       });
     });

@@ -1460,7 +1460,13 @@
     "deliveryHint": "Available when workshop work is finished. You can deliver even if there is a balance — record payment above first if you like.",
     "confirmDeliver": "Mark invoice #{{invoiceNo}} as delivered?",
     "delivered": "Delivered",
-    "markAsDelivered": "Mark as delivered"
+    "markAsDelivered": "Mark as delivered",
+    "quickSettle": {
+      "notReady": "Workshop work isn't finished yet.",
+      "confirmOverpay": "Received {{amount}} but only {{due}} is due. The extra {{excess}} will be recorded as a rounding difference. Continue?",
+      "deliveredOn": "Delivered on {{date}}",
+      "confirmDeliverWithBalance": "Invoice #{{invoiceNo}} still has {{balance}} outstanding. Deliver anyway?"
+    }
   },
   "customers": {
     "detail": {

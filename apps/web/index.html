@@ -10,6 +10,10 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <title>Abaya Shop</title>
+    <!-- The app only ships a light palette. Declaring it stops Samsung Internet
+         and Chrome for Android from auto-darkening native widgets (the <select>
+         dropdown especially) while the page text keeps its light-theme color. -->
+    <meta name="color-scheme" content="light" />
 
     <!-- Installable web app ("Add to Home Screen") -->
     <link rel="manifest" href="/manifest.webmanifest" />

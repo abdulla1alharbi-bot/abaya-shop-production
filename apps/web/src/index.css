@@ -6,6 +6,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -56,6 +57,18 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Android draws the <select> popup on a system-themed surface but colors the
+     options with whatever `color` they inherit from the page. Inside a tinted
+     row (e.g. the amber "in progress" row in the workshop table) that inherited
+     color can land on top of a same-shade popup and the names read as blank —
+     reported on Samsung Internet. Pin both ends of the contrast pair instead of
+     inheriting. Tailwind utilities still win, so per-element colors are safe. */
+  select,
+  select option {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
   }
 
   [dir="ltr"] body {
