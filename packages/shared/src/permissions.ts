@@ -65,6 +65,15 @@ export const ALL_PERMISSIONS = [
   "jobProcess.markReady",
   /** Pass or fail a job at the QA inspection stage. */
   "jobProcess.inspect",
+  /**
+   * Turn a customer's tailoring piece into ready-made stock. Owner-only on
+   * purpose: it is effectively irreversible once the new product is sold, and
+   * it detaches the piece from the customer who ordered it. Granted to nobody
+   * but OWNER, which takes every key in this list.
+   */
+  "jobProcess.convertToReady",
+  /** Undo a mistaken conversion: deletes the created stock item. Owner-only. */
+  "jobProcess.revertConversion",
 
   "reports.sales",
   "reports.wages",

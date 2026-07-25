@@ -1443,7 +1443,7 @@ const convertToReadyBody = z.object({
 
 jobOrdersRouter.post(
   "/:id/convert-to-ready",
-  requirePermission("jobProcess.update", "jobProcess.adminEdit", "readyMade.create"),
+  requirePermission("jobProcess.convertToReady"),
   validateBody(convertToReadyBody),
   asyncHandler(async (req, res) => {
     const jobId = req.params.id;
@@ -1607,6 +1607,125 @@ jobOrdersRouter.post(
           size: sizeLabel,
           notes: extraNotes || null,
         },
+      },
+    });
+  }),
+);
+
+/**
+ * Undo a mistaken `convert-to-ready`.
+ *
+ * The conversion creates a stock product out of thin air, so reverting deletes
+ * it again — but only while it is still untouched. Once the piece has been sold,
+ * linked to a job, or logged as a sample sale, deleting it would tear a hole in
+ * invoices and reports, so the revert refuses instead of cascading.
+ *
+ * The job's pre-conversion stage is read back from its own `JobStageLog`
+ * history rather than guessed, falling back to the first unfinished pipeline
+ * stage and finally to NEW.
+ */
+jobOrdersRouter.post(
+  "/:id/revert-conversion",
+  requirePermission("jobProcess.revertConversion"),
+  asyncHandler(async (req, res) => {
+    const jobId = req.params.id;
+    const userId = req.user?.id;
+    if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
+
+    const existing = await prisma.jobOrder.findUnique({
+      where: { id: jobId },
+      include: {
+        workStages: { select: { stageKey: true, sortOrder: true, status: true } },
+        conversionLogs: { select: { id: true } },
+      },
+    });
+    if (!existing) throw new AppError(404, "Job order not found", "NOT_FOUND");
+    if (existing.stage !== CONVERTED_READY_STAGE && !existing.isConvertedToReady) {
+      throw new AppError(400, "هذه القطعة غير محوّلة إلى جاهز", "INVALID_STATE");
+    }
+
+    const productId = existing.convertedReadyProductId;
+    if (productId) {
+      const [soldCount, jobLinkCount, sampleSaleCount] = await Promise.all([
+        prisma.invoiceItem.count({ where: { productId } }),
+        prisma.jobOrder.count({ where: { productId } }),
+        prisma.sampleSaleLog.count({ where: { productId } }),
+      ]);
+      if (soldCount > 0 || jobLinkCount > 0 || sampleSaleCount > 0) {
+        throw new AppError(
+          400,
+          "لا يمكن التراجع: الصنف الجاهز مستخدم بالفعل (بيع أو ارتبط بأمر شغل)",
+          "PRODUCT_IN_USE",
+        );
+      }
+    }
+
+    // The stage the job sat in immediately before the conversion was logged.
+    const priorLog = await prisma.jobStageLog.findFirst({
+      where: { jobOrderId: existing.id, stage: { not: CONVERTED_READY_STAGE } },
+      orderBy: { createdAt: "desc" },
+      select: { stage: true },
+    });
+    const ordered = orderedPipelineKeys(existing.workStages);
+    const firstUnfinished = existing.workStages
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .find((s) => s.status !== "DONE");
+    const restoredStage =
+      priorLog?.stage ?? firstUnfinished?.stageKey ?? (ordered.length > 0 ? "READY" : "NEW");
+
+    await prisma.$transaction(async (tx) => {
+      if (existing.conversionLogs.length > 0) {
+        await tx.conversionLog.deleteMany({ where: { jobId: existing.id } });
+      }
+
+      await tx.jobOrder.update({
+        where: { id: existing.id },
+        data: {
+          stage: restoredStage,
+          isConvertedToReady: false,
+          convertedAt: null,
+          convertedReadyProductId: null,
+        },
+      });
+
+      // Only after the FK references above are cleared can the product go.
+      if (productId) {
+        await tx.product.delete({ where: { id: productId } });
+      }
+
+      await tx.jobStageLog.create({
+        data: {
+          jobOrderId: existing.id,
+          stage: restoredStage,
+          changedById: userId,
+          notes: "تراجع عن التحويل إلى جاهز — حُذف الصنف الجاهز وأُعيدت القطعة إلى الورشة",
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "CONVERSION_REVERTED",
+          entity: "JobOrder",
+          entityId: existing.id,
+          oldValue: JSON.stringify({
+            stage: existing.stage,
+            convertedReadyProductId: productId,
+          }),
+          newValue: JSON.stringify({ stage: restoredStage, deletedProductId: productId }),
+        },
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reverted: true,
+        jobId: existing.id,
+        jobNo: existing.jobNo,
+        restoredStage,
+        deletedProductId: productId,
       },
     });
   }),

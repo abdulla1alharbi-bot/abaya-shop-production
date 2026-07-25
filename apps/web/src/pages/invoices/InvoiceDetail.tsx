@@ -175,9 +175,10 @@ export function InvoiceDetail() {
   const [voidCategory, setVoidCategory] = useState<keyof typeof VOID_CATEGORIES>("DEFECT");
   const [voidReason, setVoidReason] = useState("");
   const isWorker = useIsWorker();
-  const { canAny, can } = usePermissions();
+  const { can } = usePermissions();
   const { t } = useTranslation();
-  const canConvertToReady = canAny("jobProcess.update", "jobProcess.adminEdit", "readyMade.create");
+  const canConvertToReady = can("jobProcess.convertToReady");
+  const canRevertConversion = can("jobProcess.revertConversion");
   const canInspect = can("jobProcess.inspect");
   const canViewCost = can("reports.financial");
   const canPrint = can("invoices.print");
@@ -224,6 +225,13 @@ export function InvoiceDetail() {
   const convertToReady = useMutation({
     mutationFn: async (jobId: string) => {
       await api.post(`/job-orders/${jobId}/convert-to-ready`, {});
+    },
+    onSuccess: () => invalidate(),
+  });
+
+  const revertConversion = useMutation({
+    mutationFn: async (jobId: string) => {
+      await api.post(`/job-orders/${jobId}/revert-conversion`, {});
     },
     onSuccess: () => invalidate(),
   });
@@ -983,6 +991,31 @@ export function InvoiceDetail() {
                           {t("invoiceDetail.convertedDateLabel")}{" "}
                           {job.convertedAt ? new Date(job.convertedAt).toLocaleString() : "—"}
                         </p>
+                        {canRevertConversion ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              disabled={revertConversion.isPending}
+                              onClick={() => {
+                                if (!window.confirm(t("invoiceDetail.revertConversionConfirm"))) return;
+                                revertConversion.mutate(job.id);
+                              }}
+                            >
+                              {revertConversion.isPending ? "..." : t("invoiceDetail.revertConversionBtn")}
+                            </Button>
+                            {revertConversion.isError ? (
+                              <p className="mt-1 text-destructive">
+                                {getApiErrorMessage(
+                                  revertConversion.error,
+                                  t("invoiceDetail.revertConversionFailed"),
+                                )}
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
