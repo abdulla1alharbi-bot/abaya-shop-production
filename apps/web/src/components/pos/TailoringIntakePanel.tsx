@@ -219,8 +219,10 @@ export function TailoringIntakePanel() {
   }, [selectedAbayaType, tailoringDraft.abayaModelId]);
 
   const lastAutofillModelIdRef = useRef<string | null>(null);
+  const lastLaceAutofillModelIdRef = useRef<string | null>(null);
   useEffect(() => {
     lastAutofillModelIdRef.current = null;
+    lastLaceAutofillModelIdRef.current = null;
   }, [tailoringDraft.abayaTypeId]);
 
   useEffect(() => {
@@ -241,6 +243,7 @@ export function TailoringIntakePanel() {
     );
     setTailoringDraft({
       ...(sale ? { saleAed: sale } : {}),
+      ...(mod.defaultFabricMeters ? { meters: String(mod.defaultFabricMeters) } : {}),
       dueDate: due,
     });
   }, [tailoringDraft.abayaModelId, selectedAbayaType, setTailoringDraft]);
@@ -255,6 +258,27 @@ export function TailoringIntakePanel() {
     if (!fid || !rolls.some((r) => r.id === fid)) return;
     setTailoringDraft({ rollId: fid });
   }, [rolls, tailoringDraft.abayaModelId, tailoringDraft.rollId, selectedAbayaType, setTailoringDraft]);
+
+  /**
+   * Apply the model's default lace. Keyed on its own ref rather than on
+   * `laceRollId` being empty, because lace is optional: if the seller deliberately
+   * removes it, an "is it empty?" check would just put it straight back.
+   */
+  useEffect(() => {
+    if (!selectedAbayaType || !needsModelPicker(selectedAbayaType)) return;
+    const mid = tailoringDraft.abayaModelId;
+    if (!mid) {
+      lastLaceAutofillModelIdRef.current = null;
+      return;
+    }
+    if (!rolls?.length || mid === lastLaceAutofillModelIdRef.current) return;
+    const mod = selectedAbayaType.models.find((m) => m.id === mid);
+    if (!mod) return;
+    lastLaceAutofillModelIdRef.current = mid;
+    const lid = mod.defaultLaceRollId;
+    if (!lid || !rolls.some((r) => r.id === lid)) return;
+    setTailoringDraft({ laceRollId: lid, laceMeters: String(mod.defaultLaceMeters ?? 1) });
+  }, [rolls, tailoringDraft.abayaModelId, selectedAbayaType, setTailoringDraft]);
 
   useEffect(() => {
     if (!abayaCatalog?.types.length || tailoringDraft.abayaTypeId) return;
@@ -285,7 +309,12 @@ export function TailoringIntakePanel() {
       draftSnap.rollId = "";
     }
 
-    useCartStore.getState().setTailoringDraft({ meters: DEFAULT_METERS, materialCostAed: "0" });
+    // Fabric meters are not exposed in the POS, so they are settled here: the
+    // model's own consumption when it declares one, else the shop-wide default.
+    const lineMeters = selectedCatalogModel?.defaultFabricMeters
+      ? String(selectedCatalogModel.defaultFabricMeters)
+      : DEFAULT_METERS;
+    useCartStore.getState().setTailoringDraft({ meters: lineMeters, materialCostAed: "0" });
     const result = useCartStore.getState().commitTailoringDraft({ fabricRequired });
     if (!result.ok) {
       showFlash(result.error, false);

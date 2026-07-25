@@ -204,6 +204,15 @@ model AbayaModel {
   /// Optional default fabric roll for POS / job forms (inventory)
   defaultFabricRollId String?
   defaultFabricRoll   FabricRoll? @relation("AbayaModelDefaultFabric", fields: [defaultFabricRollId], references: [id], onDelete: SetNull)
+  /// Meters of `defaultFabricRoll` this model normally consumes. Pre-fills the POS
+  /// tailoring form and is the quantity internal production batches deduct.
+  defaultFabricMeters Float?
+  /// Optional default lace roll (a FabricRoll with category = LACE). Models that
+  /// always use the same lace pre-fill it here so it is never forgotten at the till.
+  defaultLaceRollId   String?
+  defaultLaceRoll     FabricRoll? @relation("AbayaModelDefaultLace", fields: [defaultLaceRollId], references: [id], onDelete: SetNull)
+  /// Meters of `defaultLaceRoll` this model normally consumes.
+  defaultLaceMeters   Float?
   /// Calendar days from today to suggested delivery datetime
   defaultDeliveryDays Int       @default(7)
   sortOrder   Int       @default(0)
@@ -299,6 +308,7 @@ model FabricRoll {
   recipes         FabricRecipe[]
   jobMaterials    JobOrderMaterial[]
   abayaModelsDefault AbayaModel[] @relation("AbayaModelDefaultFabric")
+  abayaModelsDefaultLace AbayaModel[] @relation("AbayaModelDefaultLace")
   productionBatches ProductionBatch[]
 }
 

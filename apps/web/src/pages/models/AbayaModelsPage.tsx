@@ -69,6 +69,9 @@ type AbayaModelRow = {
   workflowStagesJson: string | null;
   defaultPriceFils: number;
   defaultFabricRollId: string | null;
+  defaultFabricMeters: number | null;
+  defaultLaceRollId: string | null;
+  defaultLaceMeters: number | null;
   defaultDeliveryDays: number;
   cuttingWageFils: number;
   sewingWageFils: number;
@@ -79,6 +82,7 @@ type AbayaModelRow = {
   abayaType: { id: string; code: string; labelAr: string };
   product: { id: string; sku: string } | null;
   defaultFabricRoll: { id: string; rollCode: string; name: string; color: string } | null;
+  defaultLaceRoll: { id: string; rollCode: string; name: string; color: string } | null;
 };
 
 /** Parent catalog type codes used for tabs (matches `AbayaType.code`). */
@@ -119,6 +123,9 @@ const emptyForm = {
   description: "",
   defaultPriceAed: "",
   defaultFabricRollId: "",
+  defaultFabricMeters: "",
+  defaultLaceRollId: "",
+  defaultLaceMeters: "",
   defaultDeliveryDays: "7",
   cuttingAed: "",
   sewingAed: "",
@@ -279,16 +286,31 @@ export function AbayaModelsPage() {
     },
   });
 
-  const { data: fabricRolls } = useQuery({
+  const { data: allRolls } = useQuery({
     queryKey: ["fabric-rolls", "models-admin"],
     queryFn: async () => {
       const res = await api.get<{
         success: boolean;
-        data: { items: Array<{ id: string; rollCode: string; name: string; color: string }> };
+        data: {
+          items: Array<{
+            id: string;
+            rollCode: string;
+            name: string;
+            color: string;
+            category?: string;
+          }>;
+        };
       }>("/fabric-rolls", { params: { limit: 500 } });
       return res.data.data.items;
     },
   });
+
+  // Same split the POS uses: rolls without a category are legacy fabric.
+  const fabricRolls = useMemo(
+    () => allRolls?.filter((r) => (r.category ?? "FABRIC") === "FABRIC"),
+    [allRolls],
+  );
+  const laceRolls = useMemo(() => allRolls?.filter((r) => r.category === "LACE"), [allRolls]);
 
   const typeOptions = catalog?.types ?? [];
 
@@ -346,6 +368,9 @@ export function AbayaModelsPage() {
       description: row.description ?? "",
       defaultPriceAed: filsToAed(row.defaultPriceFils),
       defaultFabricRollId: row.defaultFabricRollId ?? "",
+      defaultFabricMeters: row.defaultFabricMeters != null ? String(row.defaultFabricMeters) : "",
+      defaultLaceRollId: row.defaultLaceRollId ?? "",
+      defaultLaceMeters: row.defaultLaceMeters != null ? String(row.defaultLaceMeters) : "",
       defaultDeliveryDays: String(row.defaultDeliveryDays ?? 7),
       cuttingAed: filsToAed(row.cuttingWageFils),
       sewingAed: filsToAed(row.sewingWageFils),
@@ -368,6 +393,13 @@ export function AbayaModelsPage() {
       }
 
       const deliveryDays = Math.min(365, Math.max(0, parseInt(form.defaultDeliveryDays, 10) || 7));
+      const laceRollId = form.defaultLaceRollId.trim() || null;
+      // A meters value only means something alongside its roll; sending 0/NaN would
+      // fail the API's `positive()` check, so an empty box becomes null.
+      const positiveOrNull = (raw: string): number | null => {
+        const n = parseFloat(raw);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
       const body = {
         abayaTypeId: form.abayaTypeId,
         code: form.code.trim(),
@@ -377,6 +409,9 @@ export function AbayaModelsPage() {
         workflowStagesJson: stagesToJson(stagePick),
         defaultPriceFils: aedToFils(form.defaultPriceAed),
         defaultFabricRollId: form.defaultFabricRollId.trim() ? form.defaultFabricRollId.trim() : null,
+        defaultFabricMeters: positiveOrNull(form.defaultFabricMeters),
+        defaultLaceRollId: laceRollId,
+        defaultLaceMeters: laceRollId ? (positiveOrNull(form.defaultLaceMeters) ?? 1) : null,
         defaultDeliveryDays: deliveryDays,
         cuttingWageFils: aedToFils(form.cuttingAed),
         sewingWageFils: aedToFils(form.sewingAed),
@@ -754,7 +789,7 @@ export function AbayaModelsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, defaultPriceAed: e.target.value }))}
               />
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
               <div className="grid gap-2">
                 <Label htmlFor="am-fabric">{t("models.defaultFabric")}</Label>
                 <select
@@ -771,6 +806,56 @@ export function AbayaModelsPage() {
                   ))}
                 </select>
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="am-fabric-meters">{t("models.defaultFabricMeters")}</Label>
+                <Input
+                  id="am-fabric-meters"
+                  type="number"
+                  step={0.1}
+                  min={0}
+                  placeholder="2"
+                  value={form.defaultFabricMeters}
+                  onChange={(e) => setForm((f) => ({ ...f, defaultFabricMeters: e.target.value }))}
+                />
+              </div>
+            </div>
+            {laceRolls && laceRolls.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
+                <div className="grid gap-2">
+                  <Label htmlFor="am-lace">{t("models.defaultLace")}</Label>
+                  <select
+                    id="am-lace"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={form.defaultLaceRollId}
+                    onChange={(e) => setForm((f) => ({ ...f, defaultLaceRollId: e.target.value }))}
+                  >
+                    <option value="">{t("models.none")}</option>
+                    {laceRolls.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.rollCode} · {r.name} ({r.color})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="am-lace-meters">{t("models.defaultLaceMeters")}</Label>
+                  <Input
+                    id="am-lace-meters"
+                    type="number"
+                    step={0.1}
+                    min={0}
+                    placeholder="1"
+                    disabled={!form.defaultLaceRollId}
+                    value={form.defaultLaceMeters}
+                    onChange={(e) => setForm((f) => ({ ...f, defaultLaceMeters: e.target.value }))}
+                  />
+                </div>
+              </div>
+            ) : null}
+            {form.defaultLaceRollId ? (
+              <p className="text-xs text-muted-foreground">{t("models.defaultLaceHint")}</p>
+            ) : null}
+            <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="am-days">{t("models.defaultDeliveryDays")}</Label>
                 <Input

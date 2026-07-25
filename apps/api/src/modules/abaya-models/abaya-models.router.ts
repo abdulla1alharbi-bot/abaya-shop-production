@@ -41,11 +41,31 @@ abayaModelsAdminRouter.get(
         abayaType: { select: { id: true, code: true, labelAr: true } },
         product: { select: { id: true, sku: true } },
         defaultFabricRoll: { select: { id: true, rollCode: true, name: true, color: true } },
+        defaultLaceRoll: { select: { id: true, rollCode: true, name: true, color: true } },
       },
     });
     res.status(200).json({ success: true, data: { items: rows } });
   }),
 );
+
+/**
+ * Validate a roll chosen as a model default and return its id.
+ * `expectLace` guards the lace slot against picking a plain fabric roll (and vice
+ * versa) — the POS renders the two pickers from disjoint category lists, so a
+ * mismatch here would silently produce a default the seller can never see.
+ */
+async function assertDefaultRoll(rollId: string, expectLace: boolean): Promise<string> {
+  const roll = await prisma.fabricRoll.findUnique({ where: { id: rollId } });
+  if (!roll) throw new AppError(400, "Fabric roll not found", "NOT_FOUND");
+  const isLace = roll.category === "LACE";
+  if (expectLace && !isLace) {
+    throw new AppError(400, `Roll ${roll.rollCode} is not lace`, "VALIDATION_ERROR");
+  }
+  if (!expectLace && isLace) {
+    throw new AppError(400, `Roll ${roll.rollCode} is lace, not fabric`, "VALIDATION_ERROR");
+  }
+  return roll.id;
+}
 
 const createBody = z.object({
   abayaTypeId: z.string().min(1),
@@ -56,6 +76,9 @@ const createBody = z.object({
   workflowStagesJson: z.string().max(500).optional().nullable(),
   defaultPriceFils: z.number().int().min(0),
   defaultFabricRollId: z.string().min(1).nullable().optional(),
+  defaultFabricMeters: z.number().positive().max(1000).nullable().optional(),
+  defaultLaceRollId: z.string().min(1).nullable().optional(),
+  defaultLaceMeters: z.number().positive().max(1000).nullable().optional(),
   defaultDeliveryDays: z.number().int().min(0).max(365).optional(),
   cuttingWageFils: z.number().int().min(0),
   sewingWageFils: z.number().int().min(0),
@@ -76,9 +99,11 @@ abayaModelsAdminRouter.post(
 
     let fabricId: string | null = null;
     if (body.defaultFabricRollId) {
-      const roll = await prisma.fabricRoll.findUnique({ where: { id: body.defaultFabricRollId } });
-      if (!roll) throw new AppError(400, "Fabric roll not found", "NOT_FOUND");
-      fabricId = roll.id;
+      fabricId = await assertDefaultRoll(body.defaultFabricRollId, false);
+    }
+    let laceId: string | null = null;
+    if (body.defaultLaceRollId) {
+      laceId = await assertDefaultRoll(body.defaultLaceRollId, true);
     }
 
     const created = await prisma.abayaModel.create({
@@ -91,6 +116,9 @@ abayaModelsAdminRouter.post(
         workflowStagesJson: body.workflowStagesJson?.trim() || null,
         defaultPriceFils: body.defaultPriceFils,
         defaultFabricRollId: fabricId,
+        defaultFabricMeters: body.defaultFabricMeters ?? null,
+        defaultLaceRollId: laceId,
+        defaultLaceMeters: laceId ? (body.defaultLaceMeters ?? 1) : null,
         defaultDeliveryDays: body.defaultDeliveryDays ?? 7,
         cuttingWageFils: body.cuttingWageFils,
         sewingWageFils: body.sewingWageFils,
@@ -110,6 +138,7 @@ abayaModelsAdminRouter.post(
         abayaType: { select: { id: true, code: true, labelAr: true } },
         product: true,
         defaultFabricRoll: { select: { id: true, rollCode: true, name: true, color: true } },
+        defaultLaceRoll: { select: { id: true, rollCode: true, name: true, color: true } },
       },
     });
     res.status(201).json({ success: true, data: full });
@@ -124,6 +153,9 @@ const patchBody = z.object({
   workflowStagesJson: z.string().max(500).optional().nullable(),
   defaultPriceFils: z.number().int().min(0).optional(),
   defaultFabricRollId: z.string().min(1).nullable().optional(),
+  defaultFabricMeters: z.number().positive().max(1000).nullable().optional(),
+  defaultLaceRollId: z.string().min(1).nullable().optional(),
+  defaultLaceMeters: z.number().positive().max(1000).nullable().optional(),
   defaultDeliveryDays: z.number().int().min(0).max(365).optional(),
   cuttingWageFils: z.number().int().min(0).optional(),
   sewingWageFils: z.number().int().min(0).optional(),
@@ -150,9 +182,11 @@ abayaModelsAdminRouter.patch(
       if (!t) throw new AppError(400, "Abaya type not found", "NOT_FOUND");
     }
 
-    if (body.defaultFabricRollId !== undefined && body.defaultFabricRollId !== null) {
-      const roll = await prisma.fabricRoll.findUnique({ where: { id: body.defaultFabricRollId } });
-      if (!roll) throw new AppError(400, "Fabric roll not found", "NOT_FOUND");
+    if (body.defaultFabricRollId) {
+      await assertDefaultRoll(body.defaultFabricRollId, false);
+    }
+    if (body.defaultLaceRollId) {
+      await assertDefaultRoll(body.defaultLaceRollId, true);
     }
 
     await prisma.abayaModel.update({
@@ -168,6 +202,20 @@ abayaModelsAdminRouter.patch(
         ...(body.defaultPriceFils !== undefined ? { defaultPriceFils: body.defaultPriceFils } : {}),
         ...(body.defaultFabricRollId !== undefined
           ? { defaultFabricRollId: body.defaultFabricRollId }
+          : {}),
+        ...(body.defaultFabricMeters !== undefined
+          ? { defaultFabricMeters: body.defaultFabricMeters }
+          : {}),
+        ...(body.defaultLaceRollId !== undefined
+          ? {
+              defaultLaceRollId: body.defaultLaceRollId,
+              // Clearing the lace clears its meters too, so a later re-select can't
+              // inherit a stale quantity from a different lace.
+              ...(body.defaultLaceRollId === null ? { defaultLaceMeters: null } : {}),
+            }
+          : {}),
+        ...(body.defaultLaceMeters !== undefined && body.defaultLaceRollId !== null
+          ? { defaultLaceMeters: body.defaultLaceMeters }
           : {}),
         ...(body.defaultDeliveryDays !== undefined ? { defaultDeliveryDays: body.defaultDeliveryDays } : {}),
         ...(body.cuttingWageFils !== undefined ? { cuttingWageFils: body.cuttingWageFils } : {}),
@@ -188,6 +236,7 @@ abayaModelsAdminRouter.patch(
         abayaType: { select: { id: true, code: true, labelAr: true } },
         product: true,
         defaultFabricRoll: { select: { id: true, rollCode: true, name: true, color: true } },
+        defaultLaceRoll: { select: { id: true, rollCode: true, name: true, color: true } },
       },
     });
     res.status(200).json({ success: true, data: full });

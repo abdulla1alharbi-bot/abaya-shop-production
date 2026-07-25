@@ -86,6 +86,18 @@ async function createProductionBatch(args: {
     if (!roll) throw new AppError(404, "Fabric roll not found", "NOT_FOUND");
   }
 
+  // Materials each job in this batch consumes. The caller may override the fabric
+  // roll (colour runs); everything else comes from the model's defaults, so an
+  // internally produced piece deducts the same stock a sold one would.
+  const fabricRollId = args.fabricId ?? model.defaultFabricRollId;
+  const materialLines: { rollId: string; meters: number }[] = [];
+  if (fabricRollId) {
+    materialLines.push({ rollId: fabricRollId, meters: model.defaultFabricMeters ?? 1 });
+  }
+  if (model.defaultLaceRollId) {
+    materialLines.push({ rollId: model.defaultLaceRollId, meters: model.defaultLaceMeters ?? 1 });
+  }
+
   const customerId = await ensureInternalCustomerId();
   const settingsRows = await prisma.setting.findMany();
   const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
@@ -136,13 +148,15 @@ async function createProductionBatch(args: {
         },
       });
       await createPipelineRowsForJob(tx, j.id, linkedProduct, wageDefaults, stageKeys);
-      if (args.fabricId) {
-        const materialCostFils = await reserveFabricForMaterial(tx, args.fabricId, 1);
+      // One material line per roll this model consumes. Both are deducted together
+      // when the job's CUTTING stage completes, exactly like a POS tailoring job.
+      for (const mat of materialLines) {
+        const materialCostFils = await reserveFabricForMaterial(tx, mat.rollId, mat.meters);
         await tx.jobOrderMaterial.create({
           data: {
             jobOrderId: j.id,
-            rollId: args.fabricId,
-            meters: 1,
+            rollId: mat.rollId,
+            meters: mat.meters,
             materialCostFils,
             fabricDeducted: false,
           },

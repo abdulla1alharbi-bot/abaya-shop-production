@@ -12,6 +12,9 @@ export type AbayaCatalogModel = {
   workflowStagesJson: string | null;
   defaultPriceFils: number;
   defaultFabricRollId: string | null;
+  defaultFabricMeters: number | null;
+  defaultLaceRollId: string | null;
+  defaultLaceMeters: number | null;
   defaultDeliveryDays: number;
   cuttingWageFils: number;
   sewingWageFils: number;
@@ -20,6 +23,12 @@ export type AbayaCatalogModel = {
   productId: string | null;
   product: { id: string; name: string; sku: string } | null;
   defaultFabricRoll: {
+    id: string;
+    rollCode: string;
+    name: string;
+    color: string;
+  } | null;
+  defaultLaceRoll: {
     id: string;
     rollCode: string;
     name: string;

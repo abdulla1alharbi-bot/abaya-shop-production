@@ -28,6 +28,9 @@ abayaCatalogRouter.get(
             workflowStagesJson: true,
             defaultPriceFils: true,
             defaultFabricRollId: true,
+            defaultFabricMeters: true,
+            defaultLaceRollId: true,
+            defaultLaceMeters: true,
             defaultDeliveryDays: true,
             cuttingWageFils: true,
             sewingWageFils: true,
@@ -37,6 +40,9 @@ abayaCatalogRouter.get(
             sortOrder: true,
             product: { select: { id: true, name: true, sku: true } },
             defaultFabricRoll: {
+              select: { id: true, rollCode: true, name: true, color: true },
+            },
+            defaultLaceRoll: {
               select: { id: true, rollCode: true, name: true, color: true },
             },
           },
