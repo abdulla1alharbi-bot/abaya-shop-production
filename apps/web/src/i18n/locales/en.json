@@ -1201,6 +1201,9 @@
     "convertFailed": "Conversion failed.",
     "unclaimedSuggestion": "This piece is {{days}} days old — converting it to ready is recommended.",
     "convertedToReadyTitle": "Converted to Ready",
+    "revertConversionBtn": "Undo conversion",
+    "revertConversionConfirm": "Undo this conversion? The ready-made item created from this piece will be deleted from stock and the piece returns to the workshop. This is refused if the item has already been sold.",
+    "revertConversionFailed": "Couldn't undo the conversion.",
     "readyProductNoLabel": "Ready Product No.:",
     "convertedDateLabel": "Conversion Date:",
     "lineTotalLabel": "Line Total",
@@ -1262,7 +1265,18 @@
       "btnFinancialMovement": "Financial Movements",
       "btnAllReports": "All Reports",
       "deltaNew": "▲ New",
-      "deltaNoChange": "≈ No Change"
+      "deltaNoChange": "≈ No Change",
+      "attention": {
+        "title": "Needs action now",
+        "allClear": "Nothing overdue or pending today.",
+        "overdueJobs": "Pieces past their delivery date",
+        "oldestOverdue_one": "Oldest overdue: 1 day",
+        "oldestOverdue_other": "Oldest overdue: {{count}} days",
+        "dueToday": "Pieces due for delivery today",
+        "readyUncontacted": "Ready invoices — customer never contacted",
+        "lowStock": "Fabrics below the low-stock threshold",
+        "overCredit": "Customers over their credit limit"
+      }
     },
     "invoices": {
       "title": "Invoices",

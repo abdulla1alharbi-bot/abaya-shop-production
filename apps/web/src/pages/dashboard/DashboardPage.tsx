@@ -2,17 +2,17 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  AlertTriangle,
   ArrowRightLeft,
   Boxes,
   CheckCircle2,
+  ChevronDown,
   Clock,
   ShoppingCart,
   TrendingDown,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
 import { DashboardInvoiceQueueCards } from "@/components/dashboard/DashboardInvoiceQueueCards";
+import { NeedsAttentionSection } from "@/components/dashboard/NeedsAttentionSection";
 import { PendingTailoringSection } from "@/components/dashboard/PendingTailoringSection";
 import { Sparkline } from "@/components/dashboard/Sparkline";
 import { GlobalInvoiceSearch } from "@/components/invoices/GlobalInvoiceSearch";
@@ -120,243 +120,234 @@ export function DashboardPage() {
 
       <GlobalInvoiceSearch className="max-w-xl" />
 
-      <section>
-        <h2 className="mb-4 text-sm font-semibold text-foreground">{t("pages.dashboard.sectionOperations")}</h2>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {!isWorker ? (
-            data ? (
-              <DashboardInvoiceQueueCards
-                stats={{
-                  invoicesOutstandingFils: data.invoicesOutstandingFils,
-                  invoicesWithBalanceCount: data.invoicesWithBalanceCount,
-                  readyForDeliveryInvoiceCount: data.readyForDeliveryInvoiceCount,
-                  readyForDeliveryTotalFils: data.readyForDeliveryTotalFils,
-                }}
-              />
-            ) : (
-              <div className="flex min-h-[120px] items-center rounded-xl border border-dashed border-border/80 bg-muted/20 px-4 text-sm text-muted-foreground lg:col-span-2">
-                {isLoading ? t("pages.dashboard.loadingDebtSummary") : t("pages.dashboard.errorDebtSummary")}
-              </div>
-            )
-          ) : null}
-          <div className={isWorker ? "min-w-0 lg:col-span-3" : "min-w-0"}>
-            <PendingTailoringSection />
-          </div>
-        </div>
-      </section>
-
       {isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loadingStats")}</p>
       ) : isError || !data ? (
         <p className="text-sm text-destructive">{t("common.errorStats")}</p>
       ) : (
         <>
+          {/* Today's cash — the four numbers the owner opens the app for. */}
           {!isWorker ? (
             <section>
               <h2 className="mb-4 text-sm font-semibold text-foreground">{t("pages.dashboard.sectionFinancials")}</h2>
-              <p className="mb-4 text-xs text-muted-foreground">{t("pages.dashboard.sectionFinancialsNote")}</p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                  title={t("pages.dashboard.salesTodayCard")}
-                  value={formatAED(data.paymentsTodayFils)}
-                  icon={<Wallet className="h-4 w-4" />}
-                />
+                <div className="rounded-xl border-2 border-primary/40 bg-primary/5 px-5 py-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium leading-tight text-muted-foreground">
+                      {t("pages.dashboard.salesTodayCard")}
+                    </p>
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/70 text-primary">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight md:text-3xl">
+                    {formatAED(data.paymentsTodayFils)}
+                  </p>
+                  {trends ? (
+                    <div className="mt-3 space-y-1 border-t border-primary/20 pt-2">
+                      {(() => {
+                        const dy = deltaArrow(trends.salesToday, trends.salesYesterday);
+                        const dw = deltaArrow(trends.salesToday, trends.salesSameDayLastWeek);
+                        return (
+                          <>
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="text-muted-foreground">
+                                {t("pages.dashboard.yesterdayLabel")} {formatAED(trends.salesYesterday)}
+                              </span>
+                              <span className={`font-semibold ${dy.cls}`}>{dy.label}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="text-muted-foreground">
+                                {t("pages.dashboard.sameLastWeekLabel")} {formatAED(trends.salesSameDayLastWeek)}
+                              </span>
+                              <span className={`font-semibold ${dw.cls}`}>{dw.label}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
+                </div>
                 <StatCard
                   title={t("pages.dashboard.expensesTodayCard")}
                   value={formatAED(data.expensesTodayFils)}
                   icon={<TrendingDown className="h-4 w-4" />}
+                  to="/accounts/expenses"
                 />
                 <StatCard
                   title={t("pages.dashboard.wagesTodayCard")}
                   value={formatAED(data.wagesTodayFils)}
                   icon={<ShoppingCart className="h-4 w-4" />}
+                  to="/payroll"
                 />
                 <StatCard
                   title={t("pages.dashboard.netTodayCard")}
                   value={formatAED(data.netTodayFils)}
                   icon={<ArrowRightLeft className="h-4 w-4" />}
                   className={data.netTodayFils >= 0 ? "border-primary/25" : "border-destructive/30 bg-destructive/5"}
+                  to="/accounts"
                 />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 {t("pages.dashboard.salesTodayNote", { amount: formatAED(data.salesTodayFils) })}
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("pages.dashboard.sectionFinancialsNote")}</p>
             </section>
           ) : null}
 
-          {!isWorker && trends ? (
-            <section>
-              <h2 className="mb-4 text-sm font-semibold text-foreground">{t("pages.dashboard.sectionTrends")}</h2>
+          <NeedsAttentionSection />
 
-              <div className="mb-4 grid gap-4 sm:grid-cols-3">
-                {(() => {
-                  const dy = deltaArrow(trends.salesToday, trends.salesYesterday);
-                  const dw = deltaArrow(trends.salesToday, trends.salesSameDayLastWeek);
-                  return (
-                    <>
-                      <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-muted-foreground">{t("pages.dashboard.collectionsTodayLabel")}</p>
-                          <TrendingUp className="h-4 w-4 text-primary" />
-                        </div>
-                        <p className="mt-1 text-lg font-bold">{formatAED(trends.salesToday)}</p>
-                        <div className="mt-2 flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">
-                            {t("pages.dashboard.yesterdayLabel")} {formatAED(trends.salesYesterday)}
-                          </span>
-                          <span className={`font-semibold ${dy.cls}`}>{dy.label}</span>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">
-                            {t("pages.dashboard.sameLastWeekLabel")} {formatAED(trends.salesSameDayLastWeek)}
-                          </span>
-                          <span className={`font-semibold ${dw.cls}`}>{dw.label}</span>
-                        </div>
-                      </div>
-                      <div className="rounded-xl border-2 border-border bg-card p-4 sm:col-span-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-muted-foreground">{t("pages.dashboard.last7Days")}</p>
-                          <span className="text-xs text-muted-foreground">
-                            {t("pages.dashboard.totalLabel")} {formatAED(trends.salesLast7Days.reduce((s, x) => s + x, 0))}
-                          </span>
-                        </div>
-                        <div className="mt-3 flex items-center justify-center text-primary">
-                          <Sparkline values={trends.salesLast7Days} width={280} height={50} fillColor="currentColor" />
-                        </div>
-                        <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-                          {trends.salesLast7Days.map((_, i) => {
-                            const d = new Date();
-                            d.setDate(d.getDate() - (6 - i));
-                            return <span key={i}>{d.toLocaleDateString(dateLocale, { weekday: "narrow" })}</span>;
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
+          <section>
+            <h2 className="mb-4 text-sm font-semibold text-foreground">{t("pages.dashboard.sectionOperations")}</h2>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {!isWorker ? (
+                <DashboardInvoiceQueueCards
+                  stats={{
+                    invoicesOutstandingFils: data.invoicesOutstandingFils,
+                    invoicesWithBalanceCount: data.invoicesWithBalanceCount,
+                    readyForDeliveryInvoiceCount: data.readyForDeliveryInvoiceCount,
+                    readyForDeliveryTotalFils: data.readyForDeliveryTotalFils,
+                  }}
+                />
+              ) : null}
+              <div className={isWorker ? "min-w-0 lg:col-span-3" : "min-w-0"}>
+                <PendingTailoringSection />
               </div>
-
-              <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                  title={t("pages.dashboard.kpiOnTimeRate")}
-                  value={`${trends.onTimeDeliveryRate30d}%`}
-                  icon={<CheckCircle2 className="h-4 w-4" />}
-                  className={
-                    trends.onTimeDeliveryRate30d >= 90
-                      ? "border-green-400"
-                      : trends.onTimeDeliveryRate30d >= 70
-                        ? "border-yellow-400"
-                        : "border-red-400"
-                  }
-                />
-                <StatCard
-                  title={t("pages.dashboard.kpiOverdue")}
-                  value={String(trends.overdueJobsCount)}
-                  icon={<AlertTriangle className="h-4 w-4" />}
-                  className={trends.overdueJobsCount > 0 ? "border-red-400 bg-red-50/40 dark:bg-red-950/20" : ""}
-                />
-                <StatCard
-                  title={t("pages.dashboard.kpiDeliveries30d")}
-                  value={String(trends.deliveredJobsLast30Days)}
-                  icon={<Clock className="h-4 w-4" />}
-                />
-                <StatCard
-                  title={t("pages.dashboard.kpiSalesToday")}
-                  value={formatAED(trends.salesToday)}
-                  icon={<Wallet className="h-4 w-4" />}
-                />
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-xl border bg-card p-4">
-                  <h3 className="mb-3 text-sm font-semibold">{t("pages.dashboard.topProductsTitle")}</h3>
-                  {trends.topProductsThisMonth.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t("common.noData")}</p>
-                  ) : (
-                    <ol className="space-y-2 text-sm">
-                      {trends.topProductsThisMonth.map((p, i) => (
-                        <li key={i} className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5 last:border-0">
-                          <span className="flex items-center gap-2">
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                              {i + 1}
-                            </span>
-                            <span className="font-medium">{p.name}</span>
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {p.qty} {t("common.pieces")} · <span className="font-mono">{formatAED(p.totalFils)}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-                <div className="rounded-xl border bg-card p-4">
-                  <h3 className="mb-3 text-sm font-semibold">{t("pages.dashboard.topWorkersTitle")}</h3>
-                  {trends.topWorkersThisWeek.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t("common.noData")}</p>
-                  ) : (
-                    <ol className="space-y-2 text-sm">
-                      {trends.topWorkersThisWeek.map((w, i) => (
-                        <li key={i} className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5 last:border-0">
-                          <span className="flex items-center gap-2">
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                              {i + 1}
-                            </span>
-                            <span className="font-medium">{w.name}</span>
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {w.qty} {t("common.stages")} · <span className="font-mono">{formatAED(w.wageFils)}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-              </div>
-            </section>
-          ) : null}
+            </div>
+          </section>
 
           <section>
             <h2 className="mb-4 text-sm font-semibold text-foreground">
               {isWorker ? t("pages.dashboard.sectionInventory") : t("pages.dashboard.sectionInventoryDebt")}
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {!isWorker ? (
-                <StatCard
-                  title={t("pages.dashboard.customerBalancesCard")}
-                  value={formatAED(data.customersOutstandingFils)}
-                  icon={<Wallet className="h-4 w-4" />}
-                  to="/reports"
-                />
-              ) : null}
-              <StatCard
-                title={t("pages.dashboard.lowStockCard")}
-                value={String(data.lowStockFabricRolls)}
-                icon={<Boxes className="h-4 w-4" />}
-              />
-            </div>
-          </section>
-
-          <section>
-            <h2 className="mb-4 text-sm font-semibold text-foreground">{t("pages.dashboard.sectionTailoring")}</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Overdue lives in "needs action" now — these are the steady-state counts. */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 title={t("pages.dashboard.openJobsCard")}
                 value={String(data.jobOrdersOpenCount)}
                 icon={<Clock className="h-4 w-4" />}
+                to="/workshop/board"
               />
               <StatCard
                 title={t("pages.dashboard.readyJobsCard")}
                 value={String(data.jobOrdersReadyCount)}
                 icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
+                to="/invoices?readyForDelivery=true"
               />
               <StatCard
-                title={t("pages.dashboard.overdueJobsCard")}
-                value={String(data.jobOrdersOverdueCount)}
-                icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
+                title={t("pages.dashboard.lowStockCard")}
+                value={String(data.lowStockFabricRolls)}
+                icon={<Boxes className="h-4 w-4" />}
+                to="/fabrics"
               />
+              {!isWorker ? (
+                <StatCard
+                  title={t("pages.dashboard.customerBalancesCard")}
+                  value={formatAED(data.customersOutstandingFils)}
+                  icon={<Wallet className="h-4 w-4" />}
+                  to="/customers"
+                />
+              ) : null}
             </div>
           </section>
+
+          {/* Trends are a "sit down and read" view — collapsed so the daily glance stays short. */}
+          {!isWorker && trends ? (
+            <details className="group rounded-xl border bg-card">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold hover:bg-muted/40">
+                <span>{t("pages.dashboard.sectionTrends")}</span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+              </summary>
+
+              <div className="space-y-4 border-t px-4 py-4">
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">{t("pages.dashboard.last7Days")}</p>
+                    <span className="text-xs text-muted-foreground">
+                      {t("pages.dashboard.totalLabel")} {formatAED(trends.salesLast7Days.reduce((s, x) => s + x, 0))}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-center text-primary">
+                    <Sparkline values={trends.salesLast7Days} width={280} height={50} fillColor="currentColor" />
+                  </div>
+                  <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+                    {trends.salesLast7Days.map((_, i) => {
+                      const d = new Date();
+                      d.setDate(d.getDate() - (6 - i));
+                      return <span key={i}>{d.toLocaleDateString(dateLocale, { weekday: "narrow" })}</span>;
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <StatCard
+                    title={t("pages.dashboard.kpiOnTimeRate")}
+                    value={`${trends.onTimeDeliveryRate30d}%`}
+                    icon={<CheckCircle2 className="h-4 w-4" />}
+                    className={
+                      trends.onTimeDeliveryRate30d >= 90
+                        ? "border-green-400"
+                        : trends.onTimeDeliveryRate30d >= 70
+                          ? "border-yellow-400"
+                          : "border-red-400"
+                    }
+                  />
+                  <StatCard
+                    title={t("pages.dashboard.kpiDeliveries30d")}
+                    value={String(trends.deliveredJobsLast30Days)}
+                    icon={<Clock className="h-4 w-4" />}
+                  />
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border bg-background p-4">
+                    <h3 className="mb-3 text-sm font-semibold">{t("pages.dashboard.topProductsTitle")}</h3>
+                    {trends.topProductsThisMonth.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t("common.noData")}</p>
+                    ) : (
+                      <ol className="space-y-2 text-sm">
+                        {trends.topProductsThisMonth.map((p, i) => (
+                          <li key={i} className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5 last:border-0">
+                            <span className="flex items-center gap-2">
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                {i + 1}
+                              </span>
+                              <span className="font-medium">{p.name}</span>
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {p.qty} {t("common.pieces")} · <span className="font-mono">{formatAED(p.totalFils)}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                  <div className="rounded-xl border bg-background p-4">
+                    <h3 className="mb-3 text-sm font-semibold">{t("pages.dashboard.topWorkersTitle")}</h3>
+                    {trends.topWorkersThisWeek.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t("common.noData")}</p>
+                    ) : (
+                      <ol className="space-y-2 text-sm">
+                        {trends.topWorkersThisWeek.map((w, i) => (
+                          <li key={i} className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5 last:border-0">
+                            <span className="flex items-center gap-2">
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                {i + 1}
+                              </span>
+                              <span className="font-medium">{w.name}</span>
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {w.qty} {t("common.stages")} · <span className="font-mono">{formatAED(w.wageFils)}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </details>
+          ) : null}
 
           <div className="flex flex-wrap gap-2 border-t pt-6 text-sm">
             <Button variant="outline" size="sm" asChild>

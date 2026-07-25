@@ -1201,6 +1201,9 @@
     "convertFailed": "تعذّر التحويل.",
     "unclaimedSuggestion": "هذه القطعة مر عليها {{days}} يوم — يُنصح بتحويلها إلى جاهز.",
     "convertedToReadyTitle": "تم تحويلها إلى جاهز",
+    "revertConversionBtn": "تراجع عن التحويل",
+    "revertConversionConfirm": "التراجع عن هذا التحويل؟ سيُحذف الصنف الجاهز الذي أُنشئ من هذه القطعة من المخزون وتعود القطعة إلى الورشة. يُرفض التراجع إذا كان الصنف قد بيع.",
+    "revertConversionFailed": "تعذّر التراجع عن التحويل.",
     "readyProductNoLabel": "رقم المنتج الجاهز:",
     "convertedDateLabel": "تاريخ التحويل:",
     "lineTotalLabel": "إجمالي السطر",
@@ -1262,7 +1265,22 @@
       "btnFinancialMovement": "الحركة المالية",
       "btnAllReports": "جميع التقارير",
       "deltaNew": "▲ جديد",
-      "deltaNoChange": "≈ بدون تغيير"
+      "deltaNoChange": "≈ بدون تغيير",
+      "attention": {
+        "title": "يحتاج تدخّل الآن",
+        "allClear": "لا يوجد شيء متأخر أو معلّق اليوم.",
+        "overdueJobs": "قطع تجاوزت موعد التسليم",
+        "oldestOverdue_zero": "أقدم تأخير: أقل من يوم",
+        "oldestOverdue_one": "أقدم تأخير: يوم واحد",
+        "oldestOverdue_two": "أقدم تأخير: يومان",
+        "oldestOverdue_few": "أقدم تأخير: {{count}} أيام",
+        "oldestOverdue_many": "أقدم تأخير: {{count}} يوماً",
+        "oldestOverdue_other": "أقدم تأخير: {{count}} يوم",
+        "dueToday": "قطع موعد تسليمها اليوم",
+        "readyUncontacted": "فواتير جاهزة ولم تُبلَّغ العميلة",
+        "lowStock": "أقمشة تحت الحد الأدنى",
+        "overCredit": "عميلات تجاوزن حد الائتمان"
+      }
     },
     "invoices": {
       "title": "الفواتير",

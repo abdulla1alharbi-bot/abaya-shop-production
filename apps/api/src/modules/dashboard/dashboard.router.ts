@@ -4,19 +4,26 @@ import { prisma } from "../../config/db.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { invoiceReadyForDeliveryWhere } from "../../utils/invoiceFulfillment.js";
+import { invoiceReadyForDeliveryWhere, invoiceTailoringReadyWhere } from "../../utils/invoiceFulfillment.js";
 import {
   isWorkerRequest,
   redactDashboardStatsForWorker,
   redactPendingTailoringItem,
 } from "../../utils/workerFinancialRedaction.js";
 import { notify } from "../../utils/notify.js";
-import { alertUncontactedReadyInvoices } from "../../utils/invoiceReadyNotify.js";
+import {
+  NOT_NOTIFIED_ALERT_AFTER_MS,
+  alertUncontactedReadyInvoices,
+} from "../../utils/invoiceReadyNotify.js";
+import {
+  oldestOverdueDays,
+  pendingCustomerJobsWhere,
+  summarizePendingJobs,
+} from "../../utils/jobUrgency.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
 
-const FINISHED_STAGES = ["READY", "DELIVERED", "CONVERTED_TO_READY"] as const;
 const COMPLETED_WAGE_JOB_STAGES = ["READY", "DELIVERED"] as const;
 
 /** Calendar midnight in local server TZ — compare due instants to this for “before today”. */
@@ -48,14 +55,7 @@ dashboardRouter.get(
     const now = new Date();
 
     const jobs = await prisma.jobOrder.findMany({
-      where: {
-        invoiceId: { not: null },
-        stage: { notIn: [...FINISHED_STAGES] },
-        invoice: {
-          isVoid: false,
-          deliveredAt: null,
-        },
-      },
+      where: pendingCustomerJobsWhere(),
       include: {
         invoice: {
           select: {
@@ -130,21 +130,16 @@ dashboardRouter.get(
       return a.jobNo - b.jobNo;
     });
 
-    let overdueCount = 0;
-    let dueTodayCount = 0;
-    let inProgressCount = 0;
-    for (const it of items) {
-      if (it.urgency === "overdue") overdueCount += 1;
-      else if (it.urgency === "due_today") dueTodayCount += 1;
-      else inProgressCount += 1;
-    }
+    // Counted in SQL over *all* pending jobs — `items` is capped at 200 rows, so
+    // summing the rendered rows would silently under-report on a busy day.
+    const summary = await summarizePendingJobs(
+      prisma,
+      startOfLocalDay(now),
+      endExclusiveNextLocalDay(now),
+    );
 
     const payload = {
-      summary: {
-        overdueCount,
-        dueTodayCount,
-        inProgressCount,
-      },
+      summary,
       items: isWorkerRequest(req)
         ? items.map((it) => redactPendingTailoringItem(it as unknown as Record<string, unknown>))
         : items,
@@ -179,7 +174,7 @@ dashboardRouter.get(
       jobOrdersTotal,
       jobOrdersOpen,
       jobOrdersReady,
-      jobOrdersOverdue,
+      pendingSummary,
       jobOrdersDeliveredMonth,
       invoicesMonth,
       expensesMonth,
@@ -199,12 +194,7 @@ dashboardRouter.get(
       prisma.jobOrder.count(),
       prisma.jobOrder.count({ where: { stage: { notIn: ["DELIVERED", "CONVERTED_TO_READY"] } } }),
       prisma.jobOrder.count({ where: { stage: "READY" } }),
-      prisma.jobOrder.count({
-        where: {
-          dueDate: { lt: startOfToday },
-          stage: { notIn: ["DELIVERED", "CONVERTED_TO_READY"] },
-        },
-      }),
+      summarizePendingJobs(prisma, startOfToday, endOfTodayExclusive),
       prisma.jobOrder.count({
         where: {
           stage: "DELIVERED",
@@ -310,7 +300,8 @@ dashboardRouter.get(
       jobOrdersCount: jobOrdersTotal,
       jobOrdersOpenCount: jobOrdersOpen,
       jobOrdersReadyCount: jobOrdersReady,
-      jobOrdersOverdueCount: jobOrdersOverdue,
+      jobOrdersOverdueCount: pendingSummary.overdueCount,
+      jobOrdersDueTodayCount: pendingSummary.dueTodayCount,
       jobOrdersDeliveredThisMonthCount: jobOrdersDeliveredMonth,
       salesMonthFils,
       expensesMonthFils,
@@ -338,6 +329,123 @@ dashboardRouter.get(
 );
 
 /**
+ * The "needs action now" feed: only the things somebody has to *do* something
+ * about today, each with the count and money at stake so the owner can triage
+ * without opening four screens. Empty array = nothing on fire.
+ */
+dashboardRouter.get(
+  "/attention",
+  requirePermission("dashboard.view"),
+  asyncHandler(async (req, res) => {
+    const now = new Date();
+    const startOfToday = startOfLocalDay(now);
+    const endOfTodayExclusive = endExclusiveNextLocalDay(now);
+    const worker = isWorkerRequest(req);
+    const readyCutoff = new Date(now.getTime() - NOT_NOTIFIED_ALERT_AFTER_MS);
+
+    /** Ready for over a day with nobody logged as having called the customer. */
+    const uncontactedWhere = {
+      ...invoiceTailoringReadyWhere(),
+      readyAt: { not: null, lte: readyCutoff },
+      customerNotices: { none: {} },
+    };
+
+    const [
+      pending,
+      oldestLateDays,
+      uncontactedCount,
+      uncontactedValue,
+      lowStockRolls,
+      overCreditRows,
+    ] = await Promise.all([
+      summarizePendingJobs(prisma, startOfToday, endOfTodayExclusive),
+      oldestOverdueDays(prisma, startOfToday),
+      prisma.invoice.count({ where: uncontactedWhere }),
+      worker
+        ? Promise.resolve(null)
+        : prisma.invoice.aggregate({ where: uncontactedWhere, _sum: { totalFils: true } }),
+      prisma.fabricRoll.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, rollCode: true, availableMeters: true, lowStockAt: true },
+      }),
+      worker
+        ? Promise.resolve([])
+        : prisma.$queryRaw<{ c: number; excess: number | null }[]>(
+            Prisma.sql`SELECT COUNT(*)::int AS c, SUM("balanceFils" - "creditLimitFils")::int AS excess
+                       FROM "Customer"
+                       WHERE "creditLimitFils" > 0 AND "balanceFils" > "creditLimitFils"`,
+          ),
+    ]);
+
+    const lowStock = lowStockRolls.filter((r) => r.availableMeters <= r.lowStockAt);
+    const overCredit = overCreditRows[0];
+
+    type AttentionItem = {
+      id: string;
+      severity: "critical" | "warning";
+      count: number;
+      /** Money at stake, when there is any. Withheld from workers. */
+      amountFils?: number;
+      /** Extra context for the label, e.g. days late or the fabric names. */
+      detail?: string;
+      link: string;
+    };
+
+    const items: AttentionItem[] = [];
+
+    if (pending.overdueCount > 0) {
+      items.push({
+        id: "overdueJobs",
+        severity: "critical",
+        count: pending.overdueCount,
+        detail: String(oldestLateDays),
+        link: "/invoices",
+      });
+    }
+    if (pending.dueTodayCount > 0) {
+      items.push({
+        id: "dueToday",
+        severity: "warning",
+        count: pending.dueTodayCount,
+        link: "/invoices",
+      });
+    }
+    if (uncontactedCount > 0) {
+      items.push({
+        id: "readyUncontacted",
+        severity: "critical",
+        count: uncontactedCount,
+        ...(uncontactedValue ? { amountFils: uncontactedValue._sum.totalFils ?? 0 } : {}),
+        link: "/invoices?readyNotNotified=true",
+      });
+    }
+    if (lowStock.length > 0) {
+      items.push({
+        id: "lowStock",
+        severity: "warning",
+        count: lowStock.length,
+        detail: lowStock
+          .slice(0, 3)
+          .map((r) => r.name)
+          .join("، "),
+        link: "/fabrics",
+      });
+    }
+    if (!worker && overCredit && overCredit.c > 0) {
+      items.push({
+        id: "overCredit",
+        severity: "warning",
+        count: Number(overCredit.c),
+        amountFils: Number(overCredit.excess ?? 0),
+        link: "/customers",
+      });
+    }
+
+    res.status(200).json({ success: true, data: { items } });
+  }),
+);
+
+/**
  * Lightweight live counts for sidebar nav badges. Auth-only (no extra
  * permission) — the frontend renders each badge only on nav items the user
  * can already see.
@@ -357,15 +465,10 @@ dashboardRouter.get(
     const zeroRows: { c: number }[] = [{ c: 0 }];
 
     const [workshopDueToday, invoicesUnpaid, fabricsLow, customersOver] = await Promise.all([
-      // Workshop jobs whose due date is today and still need work
+      // Workshop jobs due today and still needing work — same effective due date
+      // (invoice delivery date first) the dashboard counts with.
       can("jobProcess.view")
-        ? prisma.jobOrder.count({
-            where: {
-              stage: { notIn: [...FINISHED_STAGES, "CANCELLED"] },
-              deliveredAt: null,
-              dueDate: { gte: startToday, lt: endToday },
-            },
-          })
+        ? summarizePendingJobs(prisma, startToday, endToday).then((s) => s.dueTodayCount)
         : Promise.resolve(0),
       // Non-void invoices with an outstanding balance
       can("invoices.view")
@@ -499,14 +602,12 @@ dashboardRouter.get(
       .sort((a, b) => b.wageFils - a.wageFils)
       .slice(0, 5);
 
-    // Overdue jobs (non-finished, past due)
-    const overdueJobsCount = await prisma.jobOrder.count({
-      where: {
-        stage: { notIn: [...FINISHED_STAGES, "CANCELLED"] },
-        dueDate: { lt: startOfToday },
-        deliveredAt: null,
-      },
-    });
+    // Same overdue definition the rest of the dashboard uses — see utils/jobUrgency.
+    const { overdueCount: overdueJobsCount } = await summarizePendingJobs(
+      prisma,
+      startOfToday,
+      endOfToday,
+    );
 
     res.status(200).json({
       success: true,
