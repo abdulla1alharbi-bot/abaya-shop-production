@@ -38,14 +38,20 @@ export function pendingCustomerJobsWhere(): Prisma.JobOrderWhereInput {
  */
 const EFFECTIVE_DUE = Prisma.sql`COALESCE(i."deliveryDate", j."dueDate")`;
 
-const PENDING_JOBS_FROM = Prisma.sql`
+/** Split from the WHERE so row queries can add their own joins before it. */
+const PENDING_JOBS_TABLES = Prisma.sql`
   FROM "JobOrder" j
   JOIN "Invoice" i ON i."id" = j."invoiceId"
+`;
+
+const PENDING_JOBS_WHERE = Prisma.sql`
   WHERE j."stage" NOT IN (${Prisma.join([...JOB_INACTIVE_STAGES])})
     AND j."deliveredAt" IS NULL
     AND i."isVoid" = false
     AND i."deliveredAt" IS NULL
 `;
+
+const PENDING_JOBS_FROM = Prisma.sql`${PENDING_JOBS_TABLES} ${PENDING_JOBS_WHERE}`;
 
 export interface PendingJobsSummary {
   overdueCount: number;
@@ -77,6 +83,77 @@ export async function summarizePendingJobs(
     dueTodayCount: Number(row?.due_today ?? 0),
     inProgressCount: Number(row?.future ?? 0),
   };
+}
+
+export type UrgencyBucket = "overdue" | "due_today";
+
+export interface PendingJobRow {
+  jobId: string;
+  stage: string;
+  productStyle: string;
+  pieceDescription: string | null;
+  effectiveDue: Date;
+  invoiceId: string;
+  invoiceNo: number;
+  invoiceBalanceFils: number;
+  customerName: string;
+  customerMobile: string;
+}
+
+/**
+ * Pending jobs in one urgency bucket, filtered and ordered by the SAME effective
+ * due date the counts use.
+ *
+ * Doing this as findMany({take}) + a JS filter is a trap: the row cap applies
+ * before the filter, so with hundreds of overdue jobs sorting first, the
+ * due-today bucket came back empty even though the badge said 7.
+ */
+export async function findPendingJobsByUrgency(
+  db: PrismaClient,
+  bucket: UrgencyBucket,
+  startOfToday: Date,
+  endOfTodayExclusive: Date,
+  limit: number,
+): Promise<PendingJobRow[]> {
+  const bucketWhere =
+    bucket === "overdue"
+      ? Prisma.sql`AND ${EFFECTIVE_DUE} < ${startOfToday}`
+      : Prisma.sql`AND ${EFFECTIVE_DUE} >= ${startOfToday} AND ${EFFECTIVE_DUE} < ${endOfTodayExclusive}`;
+
+  const rows = await db.$queryRaw<
+    {
+      jobId: string;
+      stage: string;
+      productStyle: string;
+      pieceDescription: string | null;
+      effectiveDue: Date;
+      invoiceId: string;
+      invoiceNo: number;
+      invoiceBalanceFils: number;
+      customerName: string;
+      customerMobile: string;
+    }[]
+  >(Prisma.sql`
+    SELECT
+      j."id"            AS "jobId",
+      j."stage"         AS "stage",
+      j."productStyle"  AS "productStyle",
+      ii."description"  AS "pieceDescription",
+      ${EFFECTIVE_DUE}  AS "effectiveDue",
+      i."id"            AS "invoiceId",
+      i."invoiceNo"     AS "invoiceNo",
+      i."balanceFils"   AS "invoiceBalanceFils",
+      c."name"          AS "customerName",
+      c."mobile"        AS "customerMobile"
+    ${PENDING_JOBS_TABLES}
+    JOIN "Customer" c ON c."id" = j."customerId"
+    LEFT JOIN "InvoiceItem" ii ON ii."id" = j."invoiceItemId"
+    ${PENDING_JOBS_WHERE}
+      ${bucketWhere}
+    ORDER BY ${EFFECTIVE_DUE} ASC, i."invoiceNo" ASC
+    LIMIT ${limit}
+  `);
+  return rows;
 }
 
 /** How many days late the oldest pending job is — 0 when nothing is late. */

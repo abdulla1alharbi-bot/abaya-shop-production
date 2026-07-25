@@ -16,6 +16,7 @@ import {
   alertUncontactedReadyInvoices,
 } from "../../utils/invoiceReadyNotify.js";
 import {
+  findPendingJobsByUrgency,
   oldestOverdueDays,
   pendingCustomerJobsWhere,
   summarizePendingJobs,
@@ -657,38 +658,21 @@ dashboardRouter.get(
     let rows: Row[] = [];
 
     if (itemId === "overdueJobs" || itemId === "dueToday") {
-      const jobs = await prisma.jobOrder.findMany({
-        where: pendingCustomerJobsWhere(),
-        include: {
-          invoice: { select: { id: true, invoiceNo: true, deliveryDate: true, balanceFils: true } },
-          customer: { select: { name: true, mobile: true } },
-          invoiceItem: { select: { description: true } },
-        },
-        orderBy: { dueDate: "asc" },
-        take: 400,
-      });
-      const wantOverdue = itemId === "overdueJobs";
-      rows = jobs
-        .flatMap((j) => {
-          const inv = j.invoice;
-          if (!inv) return [];
-          const due = inv.deliveryDate ?? j.dueDate;
-          const isOverdue = due < startOfToday;
-          const isToday = due >= startOfToday && due < endOfTodayExclusive;
-          if (wantOverdue ? !isOverdue : !isToday) return [];
-          const piece = j.invoiceItem?.description?.trim() || j.productStyle;
-          return [
-            {
-              id: j.id,
-              title: `#${inv.invoiceNo} — ${j.customer.name}`,
-              subtitle: `${piece} · ${j.stage}`,
-              amountFils: worker ? null : inv.balanceFils,
-              meta: due.toISOString(),
-              link: `/invoices/${inv.id}`,
-            },
-          ];
-        })
-        .slice(0, TAKE);
+      const jobs = await findPendingJobsByUrgency(
+        prisma,
+        itemId === "overdueJobs" ? "overdue" : "due_today",
+        startOfToday,
+        endOfTodayExclusive,
+        TAKE,
+      );
+      rows = jobs.map((j) => ({
+        id: j.jobId,
+        title: `#${j.invoiceNo} — ${j.customerName}`,
+        subtitle: `${j.pieceDescription?.trim() || j.productStyle} · ${j.stage}`,
+        amountFils: worker ? null : j.invoiceBalanceFils,
+        meta: new Date(j.effectiveDue).toISOString(),
+        link: `/invoices/${j.invoiceId}`,
+      }));
     } else if (itemId === "readyUncontacted") {
       const cutoff = new Date(now.getTime() - NOT_NOTIFIED_ALERT_AFTER_MS);
       const invoices = await prisma.invoice.findMany({
