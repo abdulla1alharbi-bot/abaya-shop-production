@@ -11,9 +11,22 @@ interface StatCardProps {
   subtle?: boolean;
   /** When set, the whole card is a link (e.g. dashboard drill-down). */
   to?: string;
+  /** When set, the card is a button that opens a dialog. Takes precedence over `to`. */
+  onClick?: () => void;
+  /** Small line under the value — e.g. "3 pieces" or a breakdown hint. */
+  footnote?: ReactNode;
 }
 
-export function StatCard({ title, value, icon, className, subtle = true, to }: StatCardProps) {
+export function StatCard({
+  title,
+  value,
+  icon,
+  className,
+  subtle = true,
+  to,
+  onClick,
+  footnote,
+}: StatCardProps) {
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -25,8 +38,30 @@ export function StatCard({ title, value, icon, className, subtle = true, to }: S
         ) : null}
       </div>
       <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight md:text-3xl">{value}</p>
+      {footnote ? <div className="mt-1.5 text-xs text-muted-foreground">{footnote}</div> : null}
     </>
   );
+
+  const interactiveClass =
+    "transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-haspopup="dialog"
+        className={cn(
+          "rounded-xl border bg-card px-5 py-4 text-start",
+          subtle ? "shadow-none" : "shadow-sm",
+          className,
+          interactiveClass,
+        )}
+      >
+        {inner}
+      </button>
+    );
+  }
 
   const shellClass = cn(
     "rounded-xl border bg-card px-5 py-4",
@@ -36,13 +71,7 @@ export function StatCard({ title, value, icon, className, subtle = true, to }: S
 
   if (to) {
     return (
-      <Link
-        to={to}
-        className={cn(
-          shellClass,
-          "block transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        )}
-      >
+      <Link to={to} className={cn(shellClass, "block", interactiveClass)}>
         {inner}
       </Link>
     );

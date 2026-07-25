@@ -161,6 +161,190 @@ function endExclusiveNextLocalDay(d: Date): Date {
   return new Date(s.getFullYear(), s.getMonth(), s.getDate() + 1);
 }
 
+/**
+ * Line-by-line backing for every money figure on today's dashboard strip, so a
+ * card can answer "what IS this number?" without sending the owner to another
+ * screen.
+ *
+ * It also separates two things the old strip conflated: cash that arrived today
+ * (`collections` — may be settling last week's invoice) and what today's selling
+ * actually earned (`invoicedToday` — of which most may still be unpaid). An
+ * AED 700 abaya sold today against a AED 100 deposit is 100 of collections and
+ * 700 of invoiced work, with 600 still to come.
+ */
+dashboardRouter.get(
+  "/today",
+  requirePermission("dashboard.view"),
+  asyncHandler(async (req, res) => {
+    if (isWorkerRequest(req)) {
+      res.status(403).json({ success: false, error: "Financial breakdown not available" });
+      return;
+    }
+
+    const now = new Date();
+    const startOfToday = startOfLocalDay(now);
+    const endOfTodayExclusive = endExclusiveNextLocalDay(now);
+    const todayRange = { gte: startOfToday, lt: endOfTodayExclusive };
+
+    const [payments, invoicesToday, expenses, wageStages] = await Promise.all([
+      prisma.payment.findMany({
+        where: { createdAt: todayRange, invoice: { isVoid: false } },
+        select: {
+          id: true,
+          amountFils: true,
+          method: true,
+          createdAt: true,
+          invoice: {
+            select: { id: true, invoiceNo: true, customer: { select: { name: true } } },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.invoice.findMany({
+        where: { isVoid: false, createdAt: todayRange },
+        select: {
+          id: true,
+          invoiceNo: true,
+          totalFils: true,
+          paidFils: true,
+          balanceFils: true,
+          createdAt: true,
+          customer: { select: { name: true } },
+          items: {
+            select: {
+              qty: true,
+              totalFils: true,
+              description: true,
+              // Presence of a job order is what makes a line "tailoring" —
+              // everything else is ready-made stock off the shelf.
+              jobOrder: { select: { id: true } },
+              product: { select: { name: true, nameAr: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.expense.findMany({
+        where: { date: todayRange },
+        select: {
+          id: true,
+          amountFils: true,
+          description: true,
+          date: true,
+          category: { select: { name: true } },
+        },
+        orderBy: { date: "desc" },
+      }),
+      prisma.jobOrderWorkStage.findMany({
+        where: {
+          isCompleted: true,
+          jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
+          OR: [
+            { completedAt: todayRange },
+            { completedAt: null, productionEntry: { date: todayRange } },
+          ],
+        },
+        select: {
+          id: true,
+          stageKey: true,
+          wageFils: true,
+          completedAt: true,
+          workerNameSnapshot: true,
+          worker: { select: { name: true } },
+          jobOrder: { select: { jobNo: true, productStyle: true } },
+        },
+        orderBy: { completedAt: "desc" },
+      }),
+    ]);
+
+    let tailoringFils = 0;
+    let tailoringPieces = 0;
+    let readyMadeFils = 0;
+    let readyMadePieces = 0;
+    for (const inv of invoicesToday) {
+      for (const item of inv.items) {
+        if (item.jobOrder) {
+          tailoringFils += item.totalFils;
+          tailoringPieces += item.qty;
+        } else {
+          readyMadeFils += item.totalFils;
+          readyMadePieces += item.qty;
+        }
+      }
+    }
+
+    const sum = <T>(rows: T[], pick: (row: T) => number) => rows.reduce((a, r) => a + pick(r), 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        collections: {
+          totalFils: sum(payments, (p) => p.amountFils),
+          items: payments.map((p) => ({
+            id: p.id,
+            amountFils: p.amountFils,
+            method: p.method,
+            at: p.createdAt.toISOString(),
+            invoiceId: p.invoice.id,
+            invoiceNo: p.invoice.invoiceNo,
+            customerName: p.invoice.customer?.name ?? null,
+          })),
+        },
+        invoicedToday: {
+          totalFils: sum(invoicesToday, (i) => i.totalFils),
+          paidFils: sum(invoicesToday, (i) => i.paidFils),
+          /** Still owed on work sold today — the figure the strip never showed. */
+          balanceFils: sum(invoicesToday, (i) => i.balanceFils),
+          invoiceCount: invoicesToday.length,
+          tailoring: { totalFils: tailoringFils, pieces: tailoringPieces },
+          readyMade: { totalFils: readyMadeFils, pieces: readyMadePieces },
+          items: invoicesToday.map((i) => ({
+            id: i.id,
+            invoiceNo: i.invoiceNo,
+            customerName: i.customer?.name ?? null,
+            totalFils: i.totalFils,
+            paidFils: i.paidFils,
+            balanceFils: i.balanceFils,
+            at: i.createdAt.toISOString(),
+            tailoringFils: sum(
+              i.items.filter((it) => it.jobOrder),
+              (it) => it.totalFils,
+            ),
+            pieces: i.items.map((it) => ({
+              label: it.description?.trim() || it.product?.nameAr || it.product?.name || "—",
+              qty: it.qty,
+              totalFils: it.totalFils,
+              isTailoring: Boolean(it.jobOrder),
+            })),
+          })),
+        },
+        expenses: {
+          totalFils: sum(expenses, (e) => e.amountFils),
+          items: expenses.map((e) => ({
+            id: e.id,
+            amountFils: e.amountFils,
+            description: e.description,
+            category: e.category?.name ?? null,
+            at: e.date.toISOString(),
+          })),
+        },
+        wages: {
+          totalFils: sum(wageStages, (w) => w.wageFils),
+          items: wageStages.map((w) => ({
+            id: w.id,
+            amountFils: w.wageFils,
+            stageKey: w.stageKey,
+            workerName: w.worker?.name ?? w.workerNameSnapshot ?? "—",
+            jobNo: w.jobOrder?.jobNo ?? null,
+            productStyle: w.jobOrder?.productStyle ?? null,
+            at: w.completedAt ? w.completedAt.toISOString() : null,
+          })),
+        },
+      },
+    });
+  }),
+);
+
 dashboardRouter.get(
   "/stats",
   requirePermission("dashboard.view"),
@@ -442,6 +626,183 @@ dashboardRouter.get(
     }
 
     res.status(200).json({ success: true, data: { items } });
+  }),
+);
+
+/**
+ * Rows behind one attention item, fetched only when its dialog opens. Kept out
+ * of `/attention` itself so the dashboard's first paint stays a count query.
+ *
+ * Every branch returns the same row shape so the dialog renders one way.
+ */
+dashboardRouter.get(
+  "/attention/:itemId/rows",
+  requirePermission("dashboard.view"),
+  asyncHandler(async (req, res) => {
+    const { itemId } = req.params;
+    const worker = isWorkerRequest(req);
+    const now = new Date();
+    const startOfToday = startOfLocalDay(now);
+    const endOfTodayExclusive = endExclusiveNextLocalDay(now);
+    const TAKE = 100;
+
+    type Row = {
+      id: string;
+      title: string;
+      subtitle: string | null;
+      amountFils: number | null;
+      meta: string | null;
+      link: string;
+    };
+    let rows: Row[] = [];
+
+    if (itemId === "overdueJobs" || itemId === "dueToday") {
+      const jobs = await prisma.jobOrder.findMany({
+        where: pendingCustomerJobsWhere(),
+        include: {
+          invoice: { select: { id: true, invoiceNo: true, deliveryDate: true, balanceFils: true } },
+          customer: { select: { name: true, mobile: true } },
+          invoiceItem: { select: { description: true } },
+        },
+        orderBy: { dueDate: "asc" },
+        take: 400,
+      });
+      const wantOverdue = itemId === "overdueJobs";
+      rows = jobs
+        .flatMap((j) => {
+          const inv = j.invoice;
+          if (!inv) return [];
+          const due = inv.deliveryDate ?? j.dueDate;
+          const isOverdue = due < startOfToday;
+          const isToday = due >= startOfToday && due < endOfTodayExclusive;
+          if (wantOverdue ? !isOverdue : !isToday) return [];
+          const piece = j.invoiceItem?.description?.trim() || j.productStyle;
+          return [
+            {
+              id: j.id,
+              title: `#${inv.invoiceNo} — ${j.customer.name}`,
+              subtitle: `${piece} · ${j.stage}`,
+              amountFils: worker ? null : inv.balanceFils,
+              meta: due.toISOString(),
+              link: `/invoices/${inv.id}`,
+            },
+          ];
+        })
+        .slice(0, TAKE);
+    } else if (itemId === "readyUncontacted") {
+      const cutoff = new Date(now.getTime() - NOT_NOTIFIED_ALERT_AFTER_MS);
+      const invoices = await prisma.invoice.findMany({
+        where: {
+          ...invoiceTailoringReadyWhere(),
+          readyAt: { not: null, lte: cutoff },
+          customerNotices: { none: {} },
+        },
+        select: {
+          id: true,
+          invoiceNo: true,
+          totalFils: true,
+          readyAt: true,
+          customer: { select: { name: true, mobile: true } },
+        },
+        orderBy: { readyAt: "asc" },
+        take: TAKE,
+      });
+      rows = invoices.map((i) => ({
+        id: i.id,
+        title: `#${i.invoiceNo} — ${i.customer?.name ?? "—"}`,
+        subtitle: i.customer?.mobile ?? null,
+        amountFils: worker ? null : i.totalFils,
+        meta: i.readyAt ? i.readyAt.toISOString() : null,
+        link: `/invoices/${i.id}`,
+      }));
+    } else if (itemId === "lowStock") {
+      const all = await prisma.fabricRoll.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          rollCode: true,
+          color: true,
+          availableMeters: true,
+          lowStockAt: true,
+        },
+      });
+      rows = all
+        .filter((r) => r.availableMeters <= r.lowStockAt)
+        .sort((a, b) => a.availableMeters - b.availableMeters)
+        .slice(0, TAKE)
+        .map((r) => ({
+          id: r.id,
+          title: `${r.name} (${r.rollCode})`,
+          subtitle: r.color,
+          amountFils: null,
+          // Metres, not money — the dialog renders this branch as a quantity.
+          meta: `${r.availableMeters.toFixed(2)}/${r.lowStockAt.toFixed(2)}`,
+          link: `/fabrics/${r.id}/edit`,
+        }));
+    } else if (itemId === "openJobs" || itemId === "readyJobs") {
+      // Steady-state workshop counts from the "Balances & Inventory" strip.
+      const jobs = await prisma.jobOrder.findMany({
+        where:
+          itemId === "readyJobs"
+            ? { stage: "READY" }
+            : { stage: { notIn: ["DELIVERED", "CONVERTED_TO_READY"] } },
+        select: {
+          id: true,
+          jobNo: true,
+          stage: true,
+          productStyle: true,
+          dueDate: true,
+          customer: { select: { name: true } },
+          invoice: { select: { id: true, invoiceNo: true, balanceFils: true } },
+        },
+        orderBy: { dueDate: "asc" },
+        take: TAKE,
+      });
+      rows = jobs.map((j) => ({
+        id: j.id,
+        title: j.invoice ? `#${j.invoice.invoiceNo} — ${j.customer.name}` : `#${j.jobNo} — ${j.customer.name}`,
+        subtitle: `${j.productStyle} · ${j.stage}`,
+        amountFils: worker ? null : (j.invoice?.balanceFils ?? null),
+        meta: j.dueDate.toISOString(),
+        link: j.invoice ? `/invoices/${j.invoice.id}` : `/job-orders/${j.id}`,
+      }));
+    } else if (itemId === "customerBalances" && !worker) {
+      const customers = await prisma.customer.findMany({
+        where: { balanceFils: { not: 0 } },
+        select: { id: true, name: true, mobile: true, balanceFils: true },
+        orderBy: { balanceFils: "desc" },
+        take: TAKE,
+      });
+      rows = customers.map((c) => ({
+        id: c.id,
+        title: c.name,
+        subtitle: c.mobile,
+        amountFils: c.balanceFils,
+        meta: null,
+        link: `/customers/${c.id}`,
+      }));
+    } else if (itemId === "overCredit" && !worker) {
+      const overs = await prisma.$queryRaw<
+        { id: string; name: string; mobile: string; excess: number }[]
+      >(
+        Prisma.sql`SELECT "id", "name", "mobile", ("balanceFils" - "creditLimitFils")::int AS excess
+                   FROM "Customer"
+                   WHERE "creditLimitFils" > 0 AND "balanceFils" > "creditLimitFils"
+                   ORDER BY excess DESC
+                   LIMIT ${TAKE}`,
+      );
+      rows = overs.map((c) => ({
+        id: c.id,
+        title: c.name,
+        subtitle: c.mobile,
+        amountFils: Number(c.excess),
+        meta: null,
+        link: `/customers/${c.id}`,
+      }));
+    }
+
+    res.status(200).json({ success: true, data: { items: rows } });
   }),
 );
 

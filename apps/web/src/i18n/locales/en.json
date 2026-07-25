@@ -1276,6 +1276,31 @@
         "readyUncontacted": "Ready invoices — customer never contacted",
         "lowStock": "Fabrics below the low-stock threshold",
         "overCredit": "Customers over their credit limit"
+      },
+      "tapForBreakdown": "Tap for the breakdown",
+      "tailoringTodayCard": "Today's Tailoring (Work Sold)",
+      "tailoringTodayFootnote": "{{pieces}} pieces · today's invoices total {{total}}",
+      "owedFromTodayCard": "Still Owed on Today's Invoices",
+      "owedFromTodayFootnote": "Collected so far: {{paid}}",
+      "openFullPage": "Open full page",
+      "drilldown": {
+        "collectionsTitle": "Today's Collections",
+        "collectionsDesc": "Every payment received today — these may settle older invoices, not today's sales.",
+        "collectionsTotal": "Total received today",
+        "invoicedTitle": "Today's Invoices",
+        "invoicedDesc": "What was actually sold today: tailoring and ready-made, paid and still owed.",
+        "invoicedTotal": "Total sold today",
+        "tailoringToday": "Tailoring",
+        "readyMadeToday": "Ready-made",
+        "stillOwed": "Still owed on today's invoices",
+        "paidSoFar": "Paid: {{amount}}",
+        "remaining": "Remaining",
+        "expensesTitle": "Today's Expenses",
+        "expensesDesc": "Expenses recorded with today's date.",
+        "wagesTitle": "Workshop Wages Today",
+        "wagesDesc": "Workshop stages completed today and the wage due for each.",
+        "attentionDesc": "Tap any row to open it.",
+        "metersLeft": "{{value}} m left"
       }
     },
     "invoices": {

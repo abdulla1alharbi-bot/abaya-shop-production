@@ -1280,6 +1280,31 @@
         "readyUncontacted": "فواتير جاهزة ولم تُبلَّغ العميلة",
         "lowStock": "أقمشة تحت الحد الأدنى",
         "overCredit": "عميلات تجاوزن حد الائتمان"
+      },
+      "tapForBreakdown": "اضغط لعرض التفاصيل",
+      "tailoringTodayCard": "تفصيل اليوم (قيمة الشغل)",
+      "tailoringTodayFootnote": "{{pieces}} قطعة · إجمالي فواتير اليوم {{total}}",
+      "owedFromTodayCard": "المتبقي من فواتير اليوم",
+      "owedFromTodayFootnote": "المُحصَّل منها: {{paid}}",
+      "openFullPage": "فتح الصفحة كاملة",
+      "drilldown": {
+        "collectionsTitle": "تحصيلات اليوم",
+        "collectionsDesc": "كل دفعة استُلمت اليوم — قد تكون على فواتير قديمة، لا على بيع اليوم.",
+        "collectionsTotal": "إجمالي المستلم اليوم",
+        "invoicedTitle": "فواتير اليوم",
+        "invoicedDesc": "ما بِيع اليوم فعلاً: التفصيل والجاهز، والمدفوع منه والمتبقي.",
+        "invoicedTotal": "إجمالي ما بِيع اليوم",
+        "tailoringToday": "تفصيل",
+        "readyMadeToday": "جاهز",
+        "stillOwed": "متبقٍ على فواتير اليوم",
+        "paidSoFar": "المدفوع: {{amount}}",
+        "remaining": "متبقٍ",
+        "expensesTitle": "مصروفات اليوم",
+        "expensesDesc": "المصروفات المسجّلة بتاريخ اليوم.",
+        "wagesTitle": "أجور الورشة اليوم",
+        "wagesDesc": "مراحل الورشة التي اكتملت اليوم والأجر المستحق عن كل واحدة.",
+        "attentionDesc": "اضغط أي سطر لفتحه.",
+        "metersLeft": "متبقٍ {{value}} م"
       }
     },
     "invoices": {

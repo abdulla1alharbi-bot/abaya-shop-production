@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -7,11 +8,18 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Scissors,
   ShoppingCart,
   TrendingDown,
   Wallet,
 } from "lucide-react";
 import { DashboardInvoiceQueueCards } from "@/components/dashboard/DashboardInvoiceQueueCards";
+import {
+  DashboardTodayModals,
+  useTodayBreakdown,
+  type TodayModal,
+} from "@/components/dashboard/DashboardTodayModals";
+import { DashboardRowsDialog } from "@/components/dashboard/DashboardRowsDialog";
 import { NeedsAttentionSection } from "@/components/dashboard/NeedsAttentionSection";
 import { PendingTailoringSection } from "@/components/dashboard/PendingTailoringSection";
 import { Sparkline } from "@/components/dashboard/Sparkline";
@@ -57,6 +65,13 @@ export function DashboardPage() {
   const isWorker = useIsWorker();
   const { t } = useTranslation();
   const { lang } = useLangStore();
+  const [todayModal, setTodayModal] = useState<TodayModal>(null);
+  const [rowsCard, setRowsCard] = useState<{ id: string; href: string; totalFils?: number } | null>(
+    null,
+  );
+
+  /** Same query the drill-down dialogs read, so opening one costs no extra request. */
+  const { data: today } = useTodayBreakdown(!isWorker);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard", "stats"],
@@ -120,78 +135,122 @@ export function DashboardPage() {
 
       <GlobalInvoiceSearch className="max-w-xl" />
 
+      <DashboardTodayModals modal={todayModal} onClose={() => setTodayModal(null)} />
+      <DashboardRowsDialog
+        rowsId={rowsCard?.id ?? null}
+        title={rowsCard ? t(`pages.dashboard.${rowsCard.id}Card`) : ""}
+        totalFils={rowsCard?.totalFils}
+        fullPageHref={rowsCard?.href}
+        onClose={() => setRowsCard(null)}
+      />
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loadingStats")}</p>
       ) : isError || !data ? (
         <p className="text-sm text-destructive">{t("common.errorStats")}</p>
       ) : (
         <>
-          {/* Today's cash — the four numbers the owner opens the app for. */}
+          {/* Today's money. Every card opens its own line-by-line breakdown. */}
           {!isWorker ? (
             <section>
               <h2 className="mb-4 text-sm font-semibold text-foreground">{t("pages.dashboard.sectionFinancials")}</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border-2 border-primary/40 bg-primary/5 px-5 py-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-tight text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={() => setTodayModal("collections")}
+                  aria-haspopup="dialog"
+                  className="rounded-xl border-2 border-primary/40 bg-primary/5 px-5 py-4 text-start transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-medium leading-tight text-muted-foreground">
                       {t("pages.dashboard.salesTodayCard")}
-                    </p>
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/70 text-primary">
+                    </span>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/70 text-primary">
                       <Wallet className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight md:text-3xl">
+                    </span>
+                  </span>
+                  <span className="mt-3 block text-2xl font-bold tabular-nums tracking-tight md:text-3xl">
                     {formatAED(data.paymentsTodayFils)}
-                  </p>
+                  </span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    {t("pages.dashboard.tapForBreakdown")}
+                  </span>
                   {trends ? (
-                    <div className="mt-3 space-y-1 border-t border-primary/20 pt-2">
+                    <span className="mt-2 block space-y-1 border-t border-primary/20 pt-2">
                       {(() => {
                         const dy = deltaArrow(trends.salesToday, trends.salesYesterday);
                         const dw = deltaArrow(trends.salesToday, trends.salesSameDayLastWeek);
                         return (
                           <>
-                            <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="flex items-center justify-between gap-2 text-xs">
                               <span className="text-muted-foreground">
                                 {t("pages.dashboard.yesterdayLabel")} {formatAED(trends.salesYesterday)}
                               </span>
                               <span className={`font-semibold ${dy.cls}`}>{dy.label}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-2 text-xs">
+                            </span>
+                            <span className="flex items-center justify-between gap-2 text-xs">
                               <span className="text-muted-foreground">
                                 {t("pages.dashboard.sameLastWeekLabel")} {formatAED(trends.salesSameDayLastWeek)}
                               </span>
                               <span className={`font-semibold ${dw.cls}`}>{dw.label}</span>
-                            </div>
+                            </span>
                           </>
                         );
                       })()}
-                    </div>
+                    </span>
                   ) : null}
-                </div>
+                </button>
                 <StatCard
                   title={t("pages.dashboard.expensesTodayCard")}
                   value={formatAED(data.expensesTodayFils)}
                   icon={<TrendingDown className="h-4 w-4" />}
-                  to="/accounts/expenses"
+                  onClick={() => setTodayModal("expenses")}
                 />
                 <StatCard
                   title={t("pages.dashboard.wagesTodayCard")}
                   value={formatAED(data.wagesTodayFils)}
                   icon={<ShoppingCart className="h-4 w-4" />}
-                  to="/payroll"
+                  onClick={() => setTodayModal("wages")}
                 />
                 <StatCard
                   title={t("pages.dashboard.netTodayCard")}
                   value={formatAED(data.netTodayFils)}
                   icon={<ArrowRightLeft className="h-4 w-4" />}
                   className={data.netTodayFils >= 0 ? "border-primary/25" : "border-destructive/30 bg-destructive/5"}
-                  to="/accounts"
+                  onClick={() => setTodayModal("collections")}
                 />
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t("pages.dashboard.salesTodayNote", { amount: formatAED(data.salesTodayFils) })}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{t("pages.dashboard.sectionFinancialsNote")}</p>
+
+              {/* Cash received today answers "what came in", not "what did we sell".
+                  An AED 700 abaya against a AED 100 deposit is invisible up there. */}
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <StatCard
+                  title={t("pages.dashboard.tailoringTodayCard")}
+                  value={formatAED(today?.invoicedToday.tailoring.totalFils ?? 0)}
+                  icon={<Scissors className="h-4 w-4" />}
+                  onClick={() => setTodayModal("invoiced")}
+                  footnote={t("pages.dashboard.tailoringTodayFootnote", {
+                    pieces: today?.invoicedToday.tailoring.pieces ?? 0,
+                    total: formatAED(today?.invoicedToday.totalFils ?? data.salesTodayFils),
+                  })}
+                />
+                <StatCard
+                  title={t("pages.dashboard.owedFromTodayCard")}
+                  value={formatAED(today?.invoicedToday.balanceFils ?? 0)}
+                  icon={<Wallet className="h-4 w-4" />}
+                  onClick={() => setTodayModal("invoiced")}
+                  className={
+                    (today?.invoicedToday.balanceFils ?? 0) > 0
+                      ? "border-amber-300 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20"
+                      : ""
+                  }
+                  footnote={t("pages.dashboard.owedFromTodayFootnote", {
+                    paid: formatAED(today?.invoicedToday.paidFils ?? 0),
+                  })}
+                />
+              </div>
+
+              <p className="mt-2 text-xs text-muted-foreground">{t("pages.dashboard.sectionFinancialsNote")}</p>
             </section>
           ) : null}
 
@@ -226,26 +285,34 @@ export function DashboardPage() {
                 title={t("pages.dashboard.openJobsCard")}
                 value={String(data.jobOrdersOpenCount)}
                 icon={<Clock className="h-4 w-4" />}
-                to="/workshop/board"
+                onClick={() => setRowsCard({ id: "openJobs", href: "/workshop/board" })}
               />
               <StatCard
                 title={t("pages.dashboard.readyJobsCard")}
                 value={String(data.jobOrdersReadyCount)}
                 icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
-                to="/invoices?readyForDelivery=true"
+                onClick={() =>
+                  setRowsCard({ id: "readyJobs", href: "/invoices?readyForDelivery=true" })
+                }
               />
               <StatCard
                 title={t("pages.dashboard.lowStockCard")}
                 value={String(data.lowStockFabricRolls)}
                 icon={<Boxes className="h-4 w-4" />}
-                to="/fabrics"
+                onClick={() => setRowsCard({ id: "lowStock", href: "/fabrics" })}
               />
               {!isWorker ? (
                 <StatCard
                   title={t("pages.dashboard.customerBalancesCard")}
                   value={formatAED(data.customersOutstandingFils)}
                   icon={<Wallet className="h-4 w-4" />}
-                  to="/customers"
+                  onClick={() =>
+                    setRowsCard({
+                      id: "customerBalances",
+                      href: "/customers",
+                      totalFils: data.customersOutstandingFils,
+                    })
+                  }
                 />
               ) : null}
             </div>

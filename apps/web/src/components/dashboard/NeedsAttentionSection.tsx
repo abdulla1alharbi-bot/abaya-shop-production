@@ -1,8 +1,9 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Boxes, CheckCircle2, ChevronLeft, Clock, PhoneCall, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { DashboardRowsDialog } from "@/components/dashboard/DashboardRowsDialog";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ function rank(item: AttentionItem): number {
 
 export function NeedsAttentionSection() {
   const { t } = useTranslation();
+  const [openItem, setOpenItem] = useState<AttentionItem | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard", "attention"],
@@ -61,6 +63,14 @@ export function NeedsAttentionSection() {
 
   return (
     <section>
+      <DashboardRowsDialog
+        rowsId={openItem?.id ?? null}
+        title={openItem ? t(`pages.dashboard.attention.${openItem.id}`) : ""}
+        totalFils={openItem?.amountFils}
+        fullPageHref={openItem?.link}
+        onClose={() => setOpenItem(null)}
+      />
+
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
         <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />
         {t("pages.dashboard.attention.title")}
@@ -71,9 +81,11 @@ export function NeedsAttentionSection() {
           const critical = item.severity === "critical";
           return (
             <li key={item.id}>
-              <Link
-                to={item.link}
-                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              <button
+                type="button"
+                onClick={() => setOpenItem(item)}
+                aria-haspopup="dialog"
+                className="flex w-full items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <span
                   className={cn(
@@ -100,7 +112,7 @@ export function NeedsAttentionSection() {
                     <span className="mt-0.5 block truncate text-xs text-muted-foreground">{item.detail}</span>
                   ) : null}
                   {typeof item.amountFils === "number" && item.amountFils > 0 ? (
-                    <span className="mt-0.5 block text-xs font-mono text-muted-foreground">
+                    <span className="mt-0.5 block font-mono text-xs text-muted-foreground">
                       {formatAED(item.amountFils)}
                     </span>
                   ) : null}
@@ -108,15 +120,13 @@ export function NeedsAttentionSection() {
                 <span
                   className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
-                    critical
-                      ? "bg-red-600 text-white"
-                      : "bg-amber-500 text-white dark:bg-amber-600",
+                    critical ? "bg-red-600 text-white" : "bg-amber-500 text-white dark:bg-amber-600",
                   )}
                 >
                   {item.count}
                 </span>
-                <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground rtl:rotate-0 ltr:rotate-180" aria-hidden />
-              </Link>
+                <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground ltr:rotate-180" aria-hidden />
+              </button>
             </li>
           );
         })}
