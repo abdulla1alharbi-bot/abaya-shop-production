@@ -387,7 +387,7 @@ model Invoice {
   @@index([readyAt])
 }
 
-/// One row per time a staff member told the customer her order is ready.
+/// One row per time a staff member contacted the customer about an invoice.
 /// Repeat rows are expected — unclaimed pieces need several reminders before
 /// they may be converted to ready stock, and this is the proof they were made.
 model InvoiceCustomerNotice {
@@ -396,9 +396,15 @@ model InvoiceCustomerNotice {
   invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  /// READY = "your order is ready to collect" · BALANCE = "you still owe us".
+  /// Kept apart on purpose: every "was the customer told?" alert means READY only,
+  /// so logging a payment chase must never mark an order as announced.
+  /// Defaults to READY — every row that existed before this split was one.
+  kind      String   @default("READY")
   createdAt DateTime @default(now())
 
   @@index([invoiceId])
+  @@index([invoiceId, kind])
 }
 
 model InvoiceItem {

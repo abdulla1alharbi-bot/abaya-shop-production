@@ -18,6 +18,7 @@ import { WorkersPage } from "@/pages/workers/WorkersPage";
 import { PayrollPage } from "@/pages/workers/PayrollPage";
 import { CustomersPage } from "@/pages/customers/CustomersPage";
 import { InvoicesPage } from "@/pages/invoices/InvoicesPage";
+import { CustomerMessagesPage } from "@/pages/invoices/CustomerMessagesPage";
 import { AccountsPage } from "@/pages/accounts/AccountsPage";
 import { ExpensesPage } from "@/pages/accounts/ExpensesPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
@@ -131,6 +132,15 @@ export default function App() {
             }
           />
           <Route path="/workshop" element={<Navigate to="/invoices" replace />} />
+          {/* Static segment — must not be swallowed by /invoices/:id below. */}
+          <Route
+            path="/invoices/messages"
+            element={
+              <RequirePermission permission="invoices.view">
+                <CustomerMessagesPage />
+              </RequirePermission>
+            }
+          />
           <Route
             path="/invoices/:id/process"
             element={

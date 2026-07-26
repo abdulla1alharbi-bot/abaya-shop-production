@@ -31,7 +31,8 @@
       "settings": "Shop Settings",
       "users": "Users & Permissions",
       "audit": "Audit Log",
-      "fabricsMgmt": "Fabric Stock"
+      "fabricsMgmt": "Fabric Stock",
+      "customerMessages": "Today's messages"
     }
   },
   "topbar": {
@@ -1420,6 +1421,33 @@
       "title": "Page Not Found",
       "message": "The link you opened is incorrect or the page has been deleted.",
       "btnHome": "Go to Dashboard"
+    },
+    "customerMessages": {
+      "title": "Today's messages",
+      "desc": "Everyone who needs a message right now: an order finished but not collected, or money still owed. Contacting is logged, so the row leaves the list.",
+      "quietWindow": "Don't repeat within",
+      "quietWindowDays_one": "1 day",
+      "quietWindowDays_other": "{{count}} days",
+      "tabReady": "Ready to collect",
+      "tabBalance": "Money owed",
+      "summaryCount": "Messages to send",
+      "summaryReadyValue": "Value sitting uncollected",
+      "summaryBalanceValue": "Total outstanding",
+      "sendWhatsApp": "Send WhatsApp",
+      "logCalled": "Contacted by phone",
+      "waitingDays_one": "Waiting 1 day",
+      "waitingDays_other": "Waiting {{count}} days",
+      "dueDays_one": "Owed for 1 day",
+      "dueDays_other": "Owed for {{count}} days",
+      "balanceChip": "Balance {{amount}}",
+      "pieces_one": "1 piece",
+      "pieces_other": "{{count}} pieces",
+      "contactedBefore_one": "Contacted once · {{date}} ({{by}})",
+      "contactedBefore_other": "Contacted {{count}} times · last {{date}} ({{by}})",
+      "allDone": "Nothing to send",
+      "allDoneReady": "Every finished order has had its customer told.",
+      "allDoneBalance": "No outstanding balance needs chasing right now.",
+      "truncated": "Showing the oldest {{shown}} of {{total}} — work through these, then reload for the rest."
     }
   },
   "measurements": {

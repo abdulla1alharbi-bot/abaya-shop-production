@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
-import { getDefaultBranchId, getVatRatePercent } from "../../config/shop.js";
+import { getCustomerFacingShopName, getDefaultBranchId, getVatRatePercent } from "../../config/shop.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireAllPermissions, requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
@@ -24,6 +24,14 @@ import {
   invoiceTailoringReadyWhere,
 } from "../../utils/invoiceFulfillment.js";
 import { reserveFabricForMaterial, restoreAllDeductedMaterialsForJob } from "../job-orders/fabricInventoryOnCutting.js";
+import {
+  DEFAULT_REMINDER_DAYS,
+  MAX_REMINDER_DAYS,
+  NOTICE_KINDS,
+  NOTICE_KIND_READY,
+  buildCustomerMessageQueue,
+  noReadyNoticeWhere,
+} from "../../utils/customerMessageQueue.js";
 import {
   isWorkerRequest,
   redactByCustomerMobileForWorker,
@@ -119,7 +127,10 @@ async function fetchInvoiceDetailWithMeta(invoiceId: string) {
         },
       })
     : [];
-  return { ...invoice, fulfillmentStatus, relatedInvoices };
+  // Sellers build WhatsApp messages from this payload but can't read /settings
+  // (settings.view is owner/manager only), so the signature comes down with the invoice.
+  const shopName = await getCustomerFacingShopName(prisma);
+  return { ...invoice, fulfillmentStatus, relatedInvoices, shopName };
 }
 
 export const invoicesRouter = Router();
@@ -180,7 +191,7 @@ invoicesRouter.get(
       filterParts.push(invoiceReadyForDeliveryWhere());
     }
     if (readyNotNotified) {
-      filterParts.push(invoiceTailoringReadyWhere(), { customerNotices: { none: {} } });
+      filterParts.push(invoiceTailoringReadyWhere(), noReadyNoticeWhere());
     }
     if (searchWhere) {
       filterParts.push(searchWhere);
@@ -204,7 +215,8 @@ invoicesRouter.get(
           customer: { select: { id: true, name: true, mobile: true, code: true } },
           branch: { select: { id: true, name: true } },
           jobOrders: { select: { id: true, stage: true } },
-          _count: { select: { customerNotices: true } },
+          // READY only — a payment chase is not "the customer was told her order is ready".
+          _count: { select: { customerNotices: { where: { kind: NOTICE_KIND_READY } } } },
         },
       }),
       balanceDue
@@ -263,6 +275,29 @@ invoicesRouter.get(
           })
         : payload,
     });
+  }),
+);
+
+/**
+ * Today's message queue: who is owed a WhatsApp right now, and why.
+ *
+ * Two groups — orders finished but not collected, and money owed on goods the
+ * customer already has. Both hide anyone contacted for that same reason within the
+ * last `days` days, so working the list empties it instead of nagging the same
+ * customer twice. Like /lookup, must stay above GET /:id or it gets shadowed.
+ *
+ * `invoices.view` only: the rows carry balances and phone numbers, which the
+ * redaction layer keeps away from workshop roles.
+ */
+invoicesRouter.get(
+  "/message-queue",
+  requirePermission("invoices.view"),
+  asyncHandler(async (req, res) => {
+    const raw = queryParamString(req.query as Record<string, unknown>, "days");
+    const parsed = raw != null && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : DEFAULT_REMINDER_DAYS;
+    const days = Math.min(MAX_REMINDER_DAYS, Math.max(0, parsed));
+    const data = await buildCustomerMessageQueue(prisma, days);
+    res.status(200).json({ success: true, data });
   }),
 );
 
@@ -1621,18 +1656,27 @@ invoicesRouter.post(
 );
 
 /**
- * Record that a staff member told the customer her order is ready. The system never
- * messages anyone — this only logs that a human did, so uncontacted ready invoices
- * can be surfaced and repeat reminders can be evidenced later.
+ * Record that a staff member contacted the customer. The system never messages
+ * anyone — this only logs that a human did, so uncontacted invoices can be surfaced
+ * and repeat reminders can be evidenced later.
+ *
+ * `kind` defaults to READY so the pre-existing callers (and every row written before
+ * the two reasons were split) keep meaning "her order is ready".
  */
+const customerNoticeBody = z.object({
+  kind: z.enum(NOTICE_KINDS).default(NOTICE_KIND_READY),
+});
+
 invoicesRouter.post(
   "/:id/customer-notice",
   requirePermission("invoices.view", "jobProcess.view"),
+  validateBody(customerNoticeBody),
   asyncHandler(async (req, res) => {
     const invoiceId = req.params.id;
     if (!invoiceId) throw new AppError(400, "Missing invoice id", "VALIDATION_ERROR");
     const userId = req.user?.id;
     if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
+    const { kind } = req.body as z.infer<typeof customerNoticeBody>;
 
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -1641,7 +1685,7 @@ invoicesRouter.post(
     if (!invoice) throw new AppError(404, "Invoice not found", "NOT_FOUND");
     if (invoice.isVoid) throw new AppError(400, "الفاتورة ملغاة", "INVALID_STATE");
 
-    await prisma.invoiceCustomerNotice.create({ data: { invoiceId: invoice.id, userId } });
+    await prisma.invoiceCustomerNotice.create({ data: { invoiceId: invoice.id, userId, kind } });
 
     const data = await fetchInvoiceDetailWithMeta(invoice.id);
     res.status(201).json({ success: true, data });

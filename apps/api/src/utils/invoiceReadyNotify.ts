@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { computeInvoiceFulfillment } from "./invoiceFulfillment.js";
+import { noReadyNoticeWhere } from "./customerMessageQueue.js";
 import { notify } from "./notify.js";
 
 export const INVOICE_READY_TYPE = "INVOICE_READY";
@@ -71,7 +72,7 @@ export async function alertUncontactedReadyInvoices(db: PrismaClient): Promise<v
       isVoid: false,
       deliveredAt: null,
       readyAt: { not: null, lte: cutoff },
-      customerNotices: { none: {} },
+      ...noReadyNoticeWhere(),
     },
     select: {
       id: true,

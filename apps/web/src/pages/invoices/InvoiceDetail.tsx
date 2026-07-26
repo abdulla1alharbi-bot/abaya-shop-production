@@ -258,10 +258,15 @@ export function InvoiceDetail() {
     },
   });
 
-  /** Logs that a human contacted the customer. Fired alongside the WhatsApp link and by the manual button. */
+  /**
+   * Logs that a human contacted the customer. Fired alongside the WhatsApp link and by
+   * the manual button. `kind` keeps "your order is ready" apart from "you still owe us"
+   * so chasing a debt never marks the order as announced — and so the "Today's messages"
+   * queue drops whichever row was just handled.
+   */
   const recordCustomerNotice = useMutation({
-    mutationFn: async () => {
-      await api.post(`/invoices/${id}/customer-notice`, {});
+    mutationFn: async (kind: "READY" | "BALANCE") => {
+      await api.post(`/invoices/${id}/customer-notice`, { kind });
     },
     onSuccess: () => invalidate(),
   });
@@ -314,6 +319,8 @@ export function InvoiceDetail() {
   }>) ?? [];
   const jobOrders = (data.jobOrders as JobOrderRow[]) ?? [];
   const relatedInvoices = (data.relatedInvoices as RelatedInv[]) ?? [];
+  /** From the API, not /settings — sellers who send these messages lack settings.view. */
+  const shopName = (data.shopName as string | null | undefined) ?? undefined;
   const customerNotices = (data.customerNotices as CustomerNotice[]) ?? [];
   const lastNotice = customerNotices[0] ?? null;
   const fulfillmentStatus = String(data.fulfillmentStatus ?? "NO_TAILORING");
@@ -519,11 +526,17 @@ export function InvoiceDetail() {
               <a
                 href={buildWhatsAppLink(
                   customer.mobile,
-                  orderReadyMessage(customer.name, invoiceNo, jobOrders.length),
+                  // Same wording the "Today's messages" screen sends, so a customer
+                  // never gets two differently-phrased notices for one order.
+                  orderReadyMessage(invoiceNo, jobOrders.length, {
+                    ...(shopName ? { shopName } : {}),
+                    ...(balanceFils > 0 ? { balanceAed: formatAED(balanceFils) } : {}),
+                    isReminder: Boolean(lastNotice),
+                  }),
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => recordCustomerNotice.mutate()}
+                onClick={() => recordCustomerNotice.mutate("READY")}
               >
                 <MessageCircle className="me-2 h-5 w-5" />
                 {t("invoiceDetail.whatsappReadyNotify")}
@@ -538,7 +551,7 @@ export function InvoiceDetail() {
               size="lg"
               className="h-14 rounded-xl"
               disabled={recordCustomerNotice.isPending}
-              onClick={() => recordCustomerNotice.mutate()}
+              onClick={() => recordCustomerNotice.mutate("READY")}
             >
               <CheckCheck className="me-2 h-5 w-5" />
               {lastNotice
@@ -558,10 +571,15 @@ export function InvoiceDetail() {
               <a
                 href={buildWhatsAppLink(
                   customer.mobile,
-                  paymentReminderMessage(customer.name, invoiceNo, formatAED(balanceFils)),
+                  paymentReminderMessage(invoiceNo, formatAED(balanceFils), {
+                    ...(shopName ? { shopName } : {}),
+                  }),
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
+                // Logged as BALANCE so the message queue stops re-listing a customer
+                // the seller has just chased from here.
+                onClick={() => recordCustomerNotice.mutate("BALANCE")}
               >
                 <MessageCircle className="me-2 h-5 w-5" />
                 {t("invoiceDetail.whatsappPaymentReminder")}

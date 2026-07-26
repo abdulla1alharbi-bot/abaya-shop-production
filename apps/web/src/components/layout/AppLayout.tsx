@@ -13,6 +13,7 @@ const titleKeys: Record<string, string> = {
   "/production/samples": "nav.items.productionSamples",
   "/production/samples/performance": "nav.items.productionSamplesPerformance",
   "/invoices": "nav.items.invoices",
+  "/invoices/messages": "nav.items.customerMessages",
   "/ready-made": "nav.items.readyMade",
   "/ready-made/conversions": "nav.items.readyMadeConversions",
   "/fabrics": "nav.items.fabricsMgmt",

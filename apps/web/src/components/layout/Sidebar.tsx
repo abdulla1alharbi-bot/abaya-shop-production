@@ -7,6 +7,7 @@ import {
   Factory,
   FileText,
   Home,
+  MessageCircle,
   Package,
   Receipt,
   Scissors,
@@ -33,6 +34,7 @@ type NavBadges = {
   invoicesUnpaid: number;
   fabricsLowStock: number;
   customersOverCredit: number;
+  customerMessages: number;
 };
 
 type NavBadgeKey = keyof NavBadges;
@@ -112,6 +114,14 @@ const navGroups: Array<{ id: string; titleKey: string; items: NavEntry[] }> = [
         permission: "invoices.view",
         badgeKey: "invoicesUnpaid",
         badgeTone: "warning",
+      },
+      {
+        to: "/invoices/messages",
+        labelKey: "nav.items.customerMessages",
+        icon: MessageCircle,
+        permission: "invoices.view",
+        badgeKey: "customerMessages",
+        badgeTone: "danger",
       },
       {
         to: "/customers",

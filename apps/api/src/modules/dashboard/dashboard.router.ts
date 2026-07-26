@@ -15,6 +15,7 @@ import {
   NOT_NOTIFIED_ALERT_AFTER_MS,
   alertUncontactedReadyInvoices,
 } from "../../utils/invoiceReadyNotify.js";
+import { countCustomerMessageQueue, noReadyNoticeWhere } from "../../utils/customerMessageQueue.js";
 import {
   findPendingJobsByUrgency,
   oldestOverdueDays,
@@ -532,7 +533,7 @@ dashboardRouter.get(
     const uncontactedWhere = {
       ...invoiceTailoringReadyWhere(),
       readyAt: { not: null, lte: readyCutoff },
-      customerNotices: { none: {} },
+      ...noReadyNoticeWhere(),
     };
 
     const [
@@ -601,7 +602,8 @@ dashboardRouter.get(
         severity: "critical",
         count: uncontactedCount,
         ...(uncontactedValue ? { amountFils: uncontactedValue._sum.totalFils ?? 0 } : {}),
-        link: "/invoices?readyNotNotified=true",
+        // Straight to the screen that can actually clear it, not just list it.
+        link: "/invoices/messages",
       });
     }
     if (lowStock.length > 0) {
@@ -679,7 +681,7 @@ dashboardRouter.get(
         where: {
           ...invoiceTailoringReadyWhere(),
           readyAt: { not: null, lte: cutoff },
-          customerNotices: { none: {} },
+          ...noReadyNoticeWhere(),
         },
         select: {
           id: true,
@@ -809,7 +811,7 @@ dashboardRouter.get(
     const endToday = endExclusiveNextLocalDay(now);
     const zeroRows: { c: number }[] = [{ c: 0 }];
 
-    const [workshopDueToday, invoicesUnpaid, fabricsLow, customersOver] = await Promise.all([
+    const [workshopDueToday, invoicesUnpaid, fabricsLow, customersOver, messageQueue] = await Promise.all([
       // Workshop jobs due today and still needing work — same effective due date
       // (invoice delivery date first) the dashboard counts with.
       can("jobProcess.view")
@@ -831,6 +833,8 @@ dashboardRouter.get(
             Prisma.sql`SELECT COUNT(*)::int AS c FROM "Customer" WHERE "creditLimitFils" > 0 AND "balanceFils" > "creditLimitFils"`,
           )
         : Promise.resolve(zeroRows),
+      // Customers owed a message today (order ready, or money still due)
+      can("invoices.view") ? countCustomerMessageQueue(prisma) : Promise.resolve(0),
     ]);
 
     res.status(200).json({
@@ -840,6 +844,7 @@ dashboardRouter.get(
         invoicesUnpaid,
         fabricsLowStock: Number(fabricsLow[0]?.c ?? 0),
         customersOverCredit: Number(customersOver[0]?.c ?? 0),
+        customerMessages: messageQueue,
       },
     });
   }),
