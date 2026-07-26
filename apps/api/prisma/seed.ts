@@ -175,10 +175,14 @@ async function main(): Promise<void> {
     { key: "default_finishing_wage_fils", value: "500" },
   ];
 
+  // Seed values are DEFAULTS for a fresh install, not the truth. The entrypoint runs
+  // this on every container start, so updating here would silently revert whatever the
+  // owner configured in Settings — shop name, VAT rate, timezone, wage defaults — on
+  // every deploy. Same rule the owner password already follows: create, never overwrite.
   for (const s of settings) {
     await prisma.setting.upsert({
       where: { key: s.key },
-      update: { value: s.value },
+      update: {},
       create: { key: s.key, value: s.value },
     });
   }
