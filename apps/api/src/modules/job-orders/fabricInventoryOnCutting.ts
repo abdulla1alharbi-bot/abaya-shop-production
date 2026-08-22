@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { AppError } from "../../middleware/error.middleware.js";
+import { syncRollStatus } from "../../utils/fabricRollStatus.js";
 
 /**
  * Fabric stock rules (tailoring / job materials)
@@ -102,13 +103,14 @@ async function applyDeductionToRoll(
   if (meters <= 1e-9) return;
   await assertEnoughAvailable(tx, rollId, meters);
   const roll = (await tx.fabricRoll.findUnique({ where: { id: rollId } }))!;
-  await tx.fabricRoll.update({
+  const afterUse = await tx.fabricRoll.update({
     where: { id: roll.id },
     data: {
       usedMeters: { increment: meters },
       availableMeters: { decrement: meters },
     },
   });
+  await syncRollStatus(tx, afterUse);
   await tx.fabricTransaction.create({
     data: {
       rollId: roll.id,
@@ -142,13 +144,14 @@ async function applyRestoreToRoll(
       "INVALID_STOCK",
     );
   }
-  await tx.fabricRoll.update({
+  const afterRestore = await tx.fabricRoll.update({
     where: { id: roll.id },
     data: {
       usedMeters: { decrement: meters },
       availableMeters: { increment: meters },
     },
   });
+  await syncRollStatus(tx, afterRestore);
   await tx.fabricTransaction.create({
     data: {
       rollId: roll.id,
@@ -221,13 +224,14 @@ export async function recordCuttingWaste(
   const meters = Math.min(params.wasteMeters, Math.max(0, roll.availableMeters));
   if (meters <= 1e-9) return;
 
-  await tx.fabricRoll.update({
+  const afterWaste = await tx.fabricRoll.update({
     where: { id: roll.id },
     data: {
       usedMeters: { increment: meters },
       availableMeters: { decrement: meters },
     },
   });
+  await syncRollStatus(tx, afterWaste);
   await tx.fabricTransaction.create({
     data: {
       rollId: roll.id,

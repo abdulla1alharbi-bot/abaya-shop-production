@@ -304,7 +304,10 @@ model FabricRoll {
   availableMeters Float
   costPerMeter    Int
   lowStockAt      Float        @default(5)
-  status          String       @default("FULL") // StockStatus
+  /// FULL | LOW | EMPTY — derived from availableMeters vs lowStockAt and kept in
+  /// step by `syncRollStatus` on every stock movement. Was stamped once at
+  /// creation and never updated, so it used to say FULL for an empty roll.
+  status          String       @default("FULL")
   isActive        Boolean      @default(true)
   /// FABRIC | LACE
   category        String       @default("FABRIC")

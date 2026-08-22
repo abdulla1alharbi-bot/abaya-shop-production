@@ -6,6 +6,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { rollStatusFor, syncRollStatus } from "../../utils/fabricRollStatus.js";
 import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
@@ -96,7 +97,7 @@ fabricRollsRouter.post(
         availableMeters: total,
         costPerMeter: body.costPerMeter,
         lowStockAt: body.lowStockAt ?? 5,
-        status: "FULL",
+        status: rollStatusFor(total, body.lowStockAt ?? 5),
         isActive: body.isActive ?? true,
         category: body.category ?? "FABRIC",
         imageUrl: body.imageUrl ?? null,
@@ -185,6 +186,7 @@ fabricRollsRouter.post(
           availableMeters: { increment: body.meters },
         },
       });
+      await syncRollStatus(tx, u);
       await tx.fabricTransaction.create({
         data: {
           rollId: roll.id,
@@ -247,6 +249,7 @@ fabricRollsRouter.post(
           availableMeters: { decrement: body.meters },
         },
       });
+      await syncRollStatus(tx, u);
       await tx.fabricTransaction.create({
         data: {
           rollId: roll.id,
