@@ -17,6 +17,11 @@ export const JOB_STAGES = [
   "SEWING",
   "EMBROIDERY",
   "FINISHING",
+  /**
+   * RETIRED — nothing routes here any more; finishing the last pipeline stage goes
+   * straight to READY. Kept as a valid value so historical jobs and their stage logs
+   * still render. See `nextStageAfterComplete`.
+   */
   "INSPECTION",
   "READY",
   "DELIVERED",

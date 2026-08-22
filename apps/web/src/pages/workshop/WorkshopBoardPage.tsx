@@ -11,8 +11,14 @@ import { api } from "@/lib/api";
 import { useLangStore } from "@/store/langStore";
 
 /** Pipeline stages the workshop actively works on (left → right = order of work). */
-const BOARD_STAGES = ["NEW", "CUTTING", "SEWING", "EMBROIDERY", "FINISHING", "INSPECTION", "READY"] as const;
-const BOARD_STAGE_SET = new Set<string>(BOARD_STAGES as readonly string[]);
+const BOARD_STAGES = ["NEW", "CUTTING", "SEWING", "EMBROIDERY", "FINISHING", "READY"] as const;
+/**
+ * The retired QA gate. No new job can reach it, but historical rows might still sit
+ * there, and a column that silently swallows jobs is worse than a stale one — so it
+ * is still tracked, and rendered only while something is actually in it.
+ */
+const RETIRED_STAGE = "INSPECTION";
+const BOARD_STAGE_SET = new Set<string>([...BOARD_STAGES, RETIRED_STAGE]);
 
 type WorkStageRow = {
   stageKey: string;
@@ -84,22 +90,29 @@ export function WorkshopBoardPage() {
 
   const stats = useMemo(() => {
     let overdue = 0;
-    let inspection = 0;
     let ready = 0;
     for (const j of active) {
       if (isOverdue(j)) overdue += 1;
-      if (j.stage === "INSPECTION") inspection += 1;
       if (j.stage === "READY") ready += 1;
     }
-    return { total: active.length, overdue, inspection, ready };
+    return { total: active.length, overdue, ready };
   }, [active]);
 
   const byStage = useMemo(() => {
     const map = new Map<string, JobRow[]>();
-    for (const key of BOARD_STAGES) map.set(key, []);
+    for (const key of [...BOARD_STAGES, RETIRED_STAGE]) map.set(key, []);
     for (const j of filtered) map.get(j.stage)?.push(j);
     return map;
   }, [filtered]);
+
+  /** Retired column appears only while it still holds something. */
+  const visibleStages = useMemo(
+    () =>
+      (byStage.get(RETIRED_STAGE)?.length ?? 0) > 0
+        ? [...BOARD_STAGES, RETIRED_STAGE]
+        : [...BOARD_STAGES],
+    [byStage],
+  );
 
   return (
     <div className="space-y-6">
@@ -111,19 +124,13 @@ export function WorkshopBoardPage() {
         <p className="text-sm text-destructive">{t("workshop.errorLoading")}</p>
       ) : (
         <>
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard title={t("workshop.totalActive")} value={String(stats.total)} icon={<Activity className="h-4 w-4" />} />
             <StatCard
               title={t("workshop.overdue")}
               value={String(stats.overdue)}
               icon={<AlertTriangle className="h-4 w-4" />}
               className={stats.overdue > 0 ? "border-red-400 bg-red-50/40 dark:bg-red-950/20" : ""}
-            />
-            <StatCard
-              title={t("workshop.qualityCheck")}
-              value={String(stats.inspection)}
-              icon={<Search className="h-4 w-4" />}
-              className="border-purple-400"
             />
             <StatCard
               title={t("workshop.readyDelivery")}
@@ -149,7 +156,7 @@ export function WorkshopBoardPage() {
             </p>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-3">
-              {BOARD_STAGES.map((stageKey) => {
+              {visibleStages.map((stageKey) => {
                 const jobs = byStage.get(stageKey) ?? [];
                 return (
                   <div key={stageKey} className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-muted/20">

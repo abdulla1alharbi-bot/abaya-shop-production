@@ -65,10 +65,23 @@ export function orderedPipelineKeys(
   return [...workStages].sort((a, b) => a.sortOrder - b.sortOrder).map((s) => s.stageKey);
 }
 
-/** Next job `stage` after completing `stageKey` (last pipeline step → INSPECTION for QA gate). */
+/**
+ * Next job `stage` after completing `stageKey`. The last pipeline step goes straight
+ * to READY.
+ *
+ * There used to be an INSPECTION gate here, and it was where finished work went to
+ * die: 125 pieces sat in it with every stage complete and every wage paid, invisible
+ * to the customer because an invoice is only "ready for delivery" once all its jobs
+ * are READY. Nobody was performing the inspection, so the gate did not improve
+ * quality — it just withheld finished abayas from the people who had paid for them.
+ * The owner removed it deliberately: work finished is work ready.
+ *
+ * INSPECTION remains a valid stage value so historical jobs and stage logs still
+ * render, but nothing routes into it any more.
+ */
 export function nextStageAfterComplete(stageKey: string, orderedKeys: string[]): string {
   const i = orderedKeys.indexOf(stageKey);
-  if (i < 0 || i >= orderedKeys.length - 1) return "INSPECTION";
+  if (i < 0 || i >= orderedKeys.length - 1) return "READY";
   return orderedKeys[i + 1]!;
 }
 
