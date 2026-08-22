@@ -1531,6 +1531,8 @@
     "noPaymentPermission": "You don't have permission to record payments on this invoice.",
     "fullyPaid": "Fully paid.",
     "paymentHistory": "Payment history",
+    "deletePayment": "Delete payment",
+    "confirmDeletePayment": "Delete this payment? The amount goes back onto the customer’s balance and the deletion is written to the audit log.",
     "expectedDelivery": "Expected delivery",
     "saveDate": "Save date",
     "delivery": "Delivery",

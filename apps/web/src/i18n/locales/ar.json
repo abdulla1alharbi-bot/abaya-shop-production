@@ -1555,6 +1555,8 @@
     "noPaymentPermission": "لا تملك صلاحية تسجيل دفعات على هذه الفاتورة.",
     "fullyPaid": "مدفوعة بالكامل.",
     "paymentHistory": "سجل الدفعات",
+    "deletePayment": "حذف الدفعة",
+    "confirmDeletePayment": "حذف هذه الدفعة؟ سيعود المبلغ إلى ذمة العميل ويُسجَّل الحذف في سجل التدقيق.",
     "expectedDelivery": "موعد التسليم المتوقع",
     "saveDate": "حفظ التاريخ",
     "delivery": "التسليم",

@@ -19,6 +19,13 @@ export const ALL_PERMISSIONS = [
   "invoices.create",
   "invoices.edit",
   "invoices.payment",
+  /**
+   * Delete a payment recorded by mistake. Deliberately separate from
+   * `invoices.payment`: taking money is an everyday counter action, while
+   * un-recording it moves the drawer total and the customer balance, so it needs
+   * a supervisor. Sellers and the accountant do not get it by default.
+   */
+  "invoices.paymentDelete",
   "invoices.deliver",
   "invoices.print",
   "invoices.creditOverride",
@@ -123,6 +130,7 @@ export const ROLE_DEFAULTS: Record<AppRole, readonly string[]> = {
     "invoices.create",
     "invoices.edit",
     "invoices.payment",
+    "invoices.paymentDelete",
     "invoices.deliver",
     "invoices.print",
     "invoices.creditOverride",
@@ -170,6 +178,7 @@ export const ROLE_DEFAULTS: Record<AppRole, readonly string[]> = {
     "invoices.create",
     "invoices.edit",
     "invoices.payment",
+    "invoices.paymentDelete",
     "invoices.deliver",
     "invoices.print",
     "invoices.creditOverride",
@@ -324,6 +333,7 @@ export const PERMISSION_GROUPS_AR: Record<string, string> = {
   "invoices.create": "الفواتير — إنشاء",
   "invoices.edit": "الفواتير — تعديل",
   "invoices.payment": "الفواتير — تحصيل",
+  "invoices.paymentDelete": "الفواتير — حذف دفعة خاطئة (إداري)",
   "invoices.deliver": "الفواتير — تسليم",
   "invoices.print": "الفواتير — طباعة",
   "invoices.creditOverride": "الفواتير — تجاوز حد الائتمان (إداري)",

@@ -1469,6 +1469,115 @@ invoicesRouter.post(
   }),
 );
 
+/**
+ * Un-record a payment that was entered wrong — a mistyped amount, the wrong
+ * invoice, a double tap on "collect".
+ *
+ * There is no edit endpoint on purpose: an amount silently changing under an
+ * audit trail is worse than a delete followed by a fresh entry, and the pair
+ * reads honestly in the log.
+ *
+ * paidFils is recomputed from the surviving payment rows rather than subtracted,
+ * so it stays consistent with the overpayment rule in POST /payments: cash
+ * rounding above the invoice total stays on the Payment row (collections reports
+ * keep the true amount handed over) but was never counted as settled, so deleting
+ * such a row must not hand the customer a credit.
+ */
+invoicesRouter.delete(
+  "/:id/payments/:paymentId",
+  requirePermission("invoices.paymentDelete"),
+  asyncHandler(async (req, res) => {
+    const invoiceId = req.params.id;
+    const paymentId = req.params.paymentId;
+    if (!invoiceId || !paymentId) throw new AppError(400, "Missing invoice or payment id", "VALIDATION_ERROR");
+    const userId = req.user?.id ?? "system";
+
+    await prisma.$transaction(async (tx) => {
+      const inv = await tx.invoice.findUnique({ where: { id: invoiceId } });
+      if (!inv) throw new AppError(404, "Invoice not found", "NOT_FOUND");
+      if (inv.isVoid) throw new AppError(400, "الفاتورة ملغاة — لا يمكن تعديل دفعاتها", "INVOICE_VOID");
+
+      const payment = await tx.payment.findUnique({ where: { id: paymentId } });
+      if (!payment || payment.invoiceId !== invoiceId) {
+        throw new AppError(404, "Payment not found on this invoice", "NOT_FOUND");
+      }
+
+      // deleteMany, not delete: two supervisors hitting the same row must not 500.
+      const removed = await tx.payment.deleteMany({ where: { id: paymentId, invoiceId } });
+      if (removed.count === 0) throw new AppError(404, "Payment already removed", "NOT_FOUND");
+
+      const remaining = await tx.payment.aggregate({
+        where: { invoiceId },
+        _sum: { amountFils: true },
+      });
+      const newPaid = Math.min(remaining._sum.amountFils ?? 0, inv.totalFils);
+      const newBalance = inv.totalFils - newPaid;
+      const settledReversed = inv.paidFils - newPaid;
+
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { paidFils: newPaid, balanceFils: newBalance },
+      });
+
+      // The customer owes again exactly what this payment had settled — which is
+      // zero when the deleted row was nothing but rounding change.
+      if (inv.customerId && settledReversed !== 0) {
+        await tx.customer.update({
+          where: { id: inv.customerId },
+          data: { balanceFils: { increment: settledReversed } },
+        });
+      }
+
+      await syncInvoiceJobsFinancials(tx, invoiceId);
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "PAYMENT_DELETED",
+          entity: "Invoice",
+          entityId: invoiceId,
+          oldValue: JSON.stringify({
+            paidFils: inv.paidFils,
+            balanceFils: inv.balanceFils,
+            payment: {
+              id: payment.id,
+              method: payment.method,
+              amountFils: payment.amountFils,
+              reference: payment.reference,
+              createdAt: payment.createdAt,
+            },
+          }),
+          newValue: JSON.stringify({
+            paidFils: newPaid,
+            balanceFils: newBalance,
+            invoiceNo: inv.invoiceNo,
+            settledReversedFils: settledReversed,
+          }),
+        },
+      });
+
+      // Un-recording money is exactly the kind of correction the owner should see.
+      const actor = req.user?.name ?? "مستخدم";
+      const amount = (payment.amountFils / 100).toFixed(2);
+      for (const role of ["OWNER", "MANAGER"]) {
+        await tx.notification.create({
+          data: {
+            targetRole: role,
+            type: "PAYMENT_DELETED",
+            title: "حذف دفعة من فاتورة",
+            message: `فاتورة #${inv.invoiceNo} — حذف ${actor} دفعة بقيمة ${amount}`,
+            link: `/invoices/${invoiceId}`,
+          },
+        });
+      }
+    });
+
+    const data = await fetchInvoiceDetailWithMeta(invoiceId);
+    if (!data) throw new AppError(404, "Invoice not found", "NOT_FOUND");
+    res.status(200).json({ success: true, data });
+  }),
+);
+
 const patchInvoiceBody = z.object({
   deliveryDate: z.string().datetime().optional().nullable(),
 });

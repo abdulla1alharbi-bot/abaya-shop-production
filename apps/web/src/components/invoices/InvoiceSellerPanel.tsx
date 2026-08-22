@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ export function InvoiceSellerPanel({
 }: Props) {
   const { t } = useTranslation();
   const { can } = usePermissions();
+  const canDeletePayment = can("invoices.paymentDelete");
   const queryClient = useQueryClient();
   const [payAmount, setPayAmount] = useState("");
   const [dueLocal, setDueLocal] = useState(() => {
@@ -63,6 +65,19 @@ export function InvoiceSellerPanel({
     },
     onSuccess: () => {
       setPayAmount("");
+      onUpdated();
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["customers"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["job-orders"] });
+    },
+  });
+
+  const deletePayment = useMutation({
+    mutationFn: async (paymentId: string) => {
+      await api.delete(`/invoices/${invoiceId}/payments/${paymentId}`);
+    },
+    onSuccess: () => {
       onUpdated();
       void queryClient.invalidateQueries({ queryKey: ["invoices"] });
       void queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -148,11 +163,29 @@ export function InvoiceSellerPanel({
           <h4 className="mb-2 text-sm font-semibold text-muted-foreground">{t("invoices.paymentHistory")}</h4>
           <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg border text-sm">
             {payments.map((p) => (
-              <li key={p.id} className="flex justify-between gap-2 border-b px-3 py-2 last:border-0">
+              <li key={p.id} className="flex items-center justify-between gap-2 border-b px-3 py-2 last:border-0">
                 <span className="text-muted-foreground">
                   {p.method} · {new Date(p.createdAt).toLocaleString()}
                 </span>
-                <span className="font-mono font-medium">{formatAED(p.amountFils)}</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-mono font-medium">{formatAED(p.amountFils)}</span>
+                  {canDeletePayment ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                      title={t("invoices.deletePayment")}
+                      aria-label={t("invoices.deletePayment")}
+                      disabled={deletePayment.isPending}
+                      onClick={() => {
+                        if (window.confirm(t("invoices.confirmDeletePayment"))) deletePayment.mutate(p.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </span>
               </li>
             ))}
           </ul>
