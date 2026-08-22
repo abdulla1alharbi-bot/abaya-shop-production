@@ -38,6 +38,22 @@ export function pendingCustomerJobsWhere(): Prisma.JobOrderWhereInput {
  */
 const EFFECTIVE_DUE = Prisma.sql`COALESCE(i."deliveryDate", j."dueDate")`;
 
+/**
+ * A day boundary that means the same thing on every database server.
+ *
+ * `deliveryDate`/`dueDate` are `timestamp` columns — naive, holding UTC instants.
+ * Binding a JS `Date` against one makes Postgres convert using the SESSION's
+ * timezone, so an identical query returned a different overdue set on a UTC server
+ * than on a +04 one: a piece due at exactly midnight today counted as late. Sending
+ * the instant as text and pinning the conversion to UTC removes the session from
+ * the comparison entirely.
+ *
+ * Every date boundary compared against those columns must go through this.
+ */
+export function dueBoundary(at: Date): Prisma.Sql {
+  return Prisma.sql`(${at.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
+}
+
 /** Split from the WHERE so row queries can add their own joins before it. */
 const PENDING_JOBS_TABLES = Prisma.sql`
   FROM "JobOrder" j
@@ -70,11 +86,11 @@ export async function summarizePendingJobs(
 ): Promise<PendingJobsSummary> {
   const rows = await db.$queryRaw<{ overdue: number; due_today: number; future: number }[]>(Prisma.sql`
     SELECT
-      COUNT(*) FILTER (WHERE ${EFFECTIVE_DUE} < ${startOfToday})::int AS overdue,
+      COUNT(*) FILTER (WHERE ${EFFECTIVE_DUE} < ${dueBoundary(startOfToday)})::int AS overdue,
       COUNT(*) FILTER (
-        WHERE ${EFFECTIVE_DUE} >= ${startOfToday} AND ${EFFECTIVE_DUE} < ${endOfTodayExclusive}
+        WHERE ${EFFECTIVE_DUE} >= ${dueBoundary(startOfToday)} AND ${EFFECTIVE_DUE} < ${dueBoundary(endOfTodayExclusive)}
       )::int AS due_today,
-      COUNT(*) FILTER (WHERE ${EFFECTIVE_DUE} >= ${endOfTodayExclusive})::int AS future
+      COUNT(*) FILTER (WHERE ${EFFECTIVE_DUE} >= ${dueBoundary(endOfTodayExclusive)})::int AS future
     ${PENDING_JOBS_FROM}
   `);
   const row = rows[0];
@@ -117,8 +133,8 @@ export async function findPendingJobsByUrgency(
 ): Promise<PendingJobRow[]> {
   const bucketWhere =
     bucket === "overdue"
-      ? Prisma.sql`AND ${EFFECTIVE_DUE} < ${startOfToday}`
-      : Prisma.sql`AND ${EFFECTIVE_DUE} >= ${startOfToday} AND ${EFFECTIVE_DUE} < ${endOfTodayExclusive}`;
+      ? Prisma.sql`AND ${EFFECTIVE_DUE} < ${dueBoundary(startOfToday)}`
+      : Prisma.sql`AND ${EFFECTIVE_DUE} >= ${dueBoundary(startOfToday)} AND ${EFFECTIVE_DUE} < ${dueBoundary(endOfTodayExclusive)}`;
 
   const rows = await db.$queryRaw<
     {
@@ -156,12 +172,20 @@ export async function findPendingJobsByUrgency(
   return rows;
 }
 
+/**
+ * A due date before this is a mistyped year, not a late piece. One such row
+ * (year 0006) made the dashboard announce "oldest delay: 43857 days", which is
+ * both alarming and useless — it hid the real worst case behind a typo.
+ */
+export const IMPOSSIBLE_DUE_BEFORE = new Date("2020-01-01T00:00:00.000Z");
+
 /** How many days late the oldest pending job is — 0 when nothing is late. */
 export async function oldestOverdueDays(db: PrismaClient, startOfToday: Date): Promise<number> {
   const rows = await db.$queryRaw<{ due: Date | null }[]>(Prisma.sql`
     SELECT MIN(${EFFECTIVE_DUE}) AS due
     ${PENDING_JOBS_FROM}
-      AND ${EFFECTIVE_DUE} < ${startOfToday}
+      AND ${EFFECTIVE_DUE} < ${dueBoundary(startOfToday)}
+      AND ${EFFECTIVE_DUE} >= ${dueBoundary(IMPOSSIBLE_DUE_BEFORE)}
   `);
   const due = rows[0]?.due;
   if (!due) return 0;

@@ -22,6 +22,8 @@ import {
   pendingCustomerJobsWhere,
   summarizePendingJobs,
 } from "../../utils/jobUrgency.js";
+import { findOverdueJobs, summarizeOverdueBacklog } from "../../utils/overdueBacklog.js";
+import { parsePageLimit, queryParamString } from "../../utils/queryParams.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
@@ -585,7 +587,7 @@ dashboardRouter.get(
         severity: "critical",
         count: pending.overdueCount,
         detail: String(oldestLateDays),
-        link: "/invoices",
+        link: "/workshop/overdue",
       });
     }
     if (pending.dueTodayCount > 0) {
@@ -629,6 +631,58 @@ dashboardRouter.get(
     }
 
     res.status(200).json({ success: true, data: { items } });
+  }),
+);
+
+/**
+ * Why the overdue pile is overdue, grouped. A count alone cannot be acted on:
+ * "756 pieces have no recorded work" and "125 are waiting on quality check" are
+ * different problems, and the owner can only chase one of them at a time.
+ */
+dashboardRouter.get(
+  "/overdue/summary",
+  requirePermission("dashboard.view"),
+  asyncHandler(async (req, res) => {
+    const summary = await summarizeOverdueBacklog(prisma, startOfLocalDay(new Date()));
+    if (isWorkerRequest(req)) {
+      // Workers see the operational shape of the backlog, never its value.
+      const strip = (g: typeof summary.byReason) => g.map((x) => ({ ...x, valueFils: 0, unpaidFils: 0 }));
+      res.status(200).json({
+        success: true,
+        data: {
+          ...summary,
+          valueFils: 0,
+          unpaidFils: 0,
+          prepaidFils: 0,
+          byReason: strip(summary.byReason),
+          byStage: strip(summary.byStage),
+          byAge: strip(summary.byAge),
+        },
+      });
+      return;
+    }
+    res.status(200).json({ success: true, data: summary });
+  }),
+);
+
+/** The full backlog, paginated and filterable — not the old silent top-100. */
+dashboardRouter.get(
+  "/overdue/rows",
+  requirePermission("dashboard.view"),
+  asyncHandler(async (req, res) => {
+    const { page, limit } = parsePageLimit(req.query, { defaultLimit: 50, maxLimit: 200 });
+    const result = await findOverdueJobs(prisma, startOfLocalDay(new Date()), {
+      reason: queryParamString(req.query, "reason"),
+      stage: queryParamString(req.query, "stage"),
+      search: queryParamString(req.query, "search"),
+      page,
+      limit,
+      hideMoney: isWorkerRequest(req),
+    });
+    res.status(200).json({
+      success: true,
+      data: { items: result.items, page, limit, total: result.total },
+    });
   }),
 );
 
