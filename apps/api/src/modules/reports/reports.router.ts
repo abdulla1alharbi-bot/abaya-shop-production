@@ -6,9 +6,13 @@ import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { computeInvoiceFulfillment } from "../../utils/invoiceFulfillment.js";
 import { parseDateRangeOrDefault, parseOptionalDate, queryParamString } from "../../utils/queryParams.js";
+import { dailyReportRouter } from "./daily-report.router.js";
 
 export const reportsRouter = Router();
 reportsRouter.use(authMiddleware);
+
+// End-of-day owner report: figures, email preview, schedule, send-now.
+reportsRouter.use("/daily-report", dailyReportRouter);
 const COMPLETED_WAGE_JOB_STAGES = ["READY", "DELIVERED"] as const;
 
 reportsRouter.get(

@@ -39,6 +39,15 @@ services:
       # Set to "true" once the site is served over HTTPS (adds Secure flag to auth cookies).
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      # Outbound email for the nightly owner report. Leave SMTP_HOST empty to
+      # disable sending entirely; the app then shows "email not set up" in Settings.
+      # WHO gets the report and WHEN is edited in the app, not here.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       # Persist uploaded model images across container rebuilds/redeploys.
       # Served by the API at /uploads (see app.ts); written to /app/uploads/models.

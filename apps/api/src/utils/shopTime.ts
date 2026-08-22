@@ -67,3 +67,72 @@ export function monthRangeUtc(
   const to = new Date(nextStart.getTime() - 1);
   return { from, to };
 }
+
+/** `YYYY-MM-DD` — the calendar day key used to label a report period. */
+export type DateKey = string;
+
+const DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export function parseDateKey(key: string): { year: number; month: number; day: number } | null {
+  const m = DATE_KEY_RE.exec(key.trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  // Reject 2026-02-30 and friends: round-tripping through Date normalises them.
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return null;
+  return { year, month, day };
+}
+
+/**
+ * The UTC instants bounding one calendar day as seen in `timeZone`.
+ * `from` is inclusive, `to` is EXCLUSIVE (unlike `monthRangeUtc`, whose `to` is the
+ * last millisecond) — half-open ranges are what Prisma `gte`/`lt` filters want.
+ */
+export function dayRangeUtc(
+  dateKey: DateKey,
+  timeZone: string = DEFAULT_TIMEZONE,
+): { from: Date; to: Date } {
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) throw new Error(`Invalid date key: ${dateKey}`);
+  const from = zonedWallClockToUtc(timeZone, parsed.year, parsed.month, parsed.day);
+  const next = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day + 1));
+  const to = zonedWallClockToUtc(
+    timeZone,
+    next.getUTCFullYear(),
+    next.getUTCMonth() + 1,
+    next.getUTCDate(),
+  );
+  return { from, to };
+}
+
+/**
+ * The shop's own wall clock at `at`. The server runs in UTC, so "is it 22:45 yet?"
+ * can only be answered against the shop's timezone, never the process's.
+ */
+export function shopWallClock(
+  timeZone: string = DEFAULT_TIMEZONE,
+  at: Date = new Date(),
+): { dateKey: DateKey; hour: number; minute: number; minutesSinceMidnight: number } {
+  const shifted = new Date(at.getTime() + tzOffsetMs(timeZone, at));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hour = shifted.getUTCHours();
+  const minute = shifted.getUTCMinutes();
+  return {
+    dateKey: `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())}`,
+    hour,
+    minute,
+    minutesSinceMidnight: hour * 60 + minute,
+  };
+}
+
+/** `dateKey` shifted by whole days, staying in `YYYY-MM-DD` form. */
+export function shiftDateKey(dateKey: DateKey, days: number): DateKey {
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) throw new Error(`Invalid date key: ${dateKey}`);
+  const d = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day + days));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}

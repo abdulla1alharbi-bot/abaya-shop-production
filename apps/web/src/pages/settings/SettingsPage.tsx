@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { DailyReportCard } from "@/components/settings/DailyReportCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -203,6 +204,7 @@ export function SettingsPage() {
         ) : null}
         </fieldset>
       </form>
+      <DailyReportCard />
       {can("settings.manage") ? <BranchesCard /> : null}
     </div>
   );

@@ -33,6 +33,7 @@ import { uploadRouter } from "./modules/upload/upload.router.js";
 import { shiftsRouter } from "./modules/shifts/shifts.router.js";
 import { notificationsRouter } from "./modules/notifications/notifications.router.js";
 import { ensureSystemDefaults } from "./bootstrap/ensureSystemDefaults.js";
+import { startDailyReportScheduler } from "./bootstrap/dailyReportScheduler.js";
 import { logger } from "./utils/logger.js";
 
 const app = express();
@@ -138,4 +139,8 @@ httpServer.listen(PORT, () => {
       error: err instanceof Error ? err.message : String(err),
     });
   });
+
+  // Emails the owner's end-of-day report at the shop-local time they configured.
+  // No-ops until it is switched on in Settings, so it is safe to always start.
+  startDailyReportScheduler();
 });
