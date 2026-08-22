@@ -899,7 +899,17 @@
     "colDefaultFabric": "Default fabric",
     "colDeliveryDays": "Delivery days",
     "colStatus": "Status",
-    "colActions": "Actions"
+    "colActions": "Actions",
+    "searchPlaceholder": "Search by code or name…",
+    "searchAria": "Search models",
+    "clearSearch": "Clear search",
+    "sortLabel": "Sort",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortDefault": "Default order",
+    "sortNameAsc": "Name (A → Z)",
+    "noSearchResults": "No model matches “{{query}}”.",
+    "resultCount": "{{count}} of {{total}}"
   },
   "fabrics": {
     "title": "Fabric Stock",

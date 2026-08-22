@@ -219,6 +219,11 @@ model AbayaModel {
   isActive    Boolean   @default(true)
   hasActiveDisplaySample Boolean @default(false)
   latestDisplaySampleAt DateTime?
+  /// When the model was added to the catalog — drives "newest first" in the admin
+  /// list. Backfilled for pre-existing rows from the cuid timestamp embedded in
+  /// `id` (see prisma/backfill-abaya-model-created-at.ts), because a plain default
+  /// would have stamped all 81 existing models with the same migration instant.
+  createdAt   DateTime  @default(now())
   jobOrders   JobOrder[] @relation("JobAbayaModel")
   productionBatches ProductionBatch[]
   sampleReadyProducts Product[] @relation("SampleReadyModel")

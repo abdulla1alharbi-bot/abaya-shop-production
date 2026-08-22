@@ -899,7 +899,17 @@
     "colDefaultFabric": "القماش الافتراضي",
     "colDeliveryDays": "أيام التسليم",
     "colStatus": "الحالة",
-    "colActions": "إجراءات"
+    "colActions": "إجراءات",
+    "searchPlaceholder": "ابحث بالرقم أو الاسم…",
+    "searchAria": "بحث عن موديل",
+    "clearSearch": "مسح البحث",
+    "sortLabel": "الترتيب",
+    "sortNewest": "الأحدث أولاً",
+    "sortOldest": "الأقدم أولاً",
+    "sortDefault": "الترتيب الافتراضي",
+    "sortNameAsc": "الاسم (أ ← ي)",
+    "noSearchResults": "لا يوجد موديل يطابق «{{query}}».",
+    "resultCount": "{{count}} من {{total}}"
   },
   "fabrics": {
     "title": "مخزون القماش",

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Image, LayoutGrid, Table2 } from "lucide-react";
+import { Image, LayoutGrid, Search, Table2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,7 @@ type AbayaModelRow = {
   description: string | null;
   imageUrl: string | null;
   workflowStagesJson: string | null;
+  createdAt: string;
   defaultPriceFils: number;
   defaultFabricRollId: string | null;
   defaultFabricMeters: number | null;
@@ -92,6 +93,46 @@ function filterByTab(rows: AbayaModelRow[], tab: CatalogTabId): AbayaModelRow[] 
   if (tab === "MODEL") return rows.filter((r) => r.abayaType.code === "MODEL");
   if (tab === "EMBROIDERY") return rows.filter((r) => r.abayaType.code === "EMBROIDERY");
   return rows.filter((r) => r.abayaType.code !== "MODEL" && r.abayaType.code !== "EMBROIDERY");
+}
+
+type SortMode = "newest" | "oldest" | "default" | "name";
+
+/**
+ * Search and sort run in the browser: the whole catalog (under a hundred rows) is
+ * already loaded for the tab counts, so filtering locally is instant and costs no
+ * request. Move this server-side if the catalog ever outgrows a single page.
+ */
+function searchModels(rows: AbayaModelRow[], query: string): AbayaModelRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(
+    (r) =>
+      r.code.toLowerCase().includes(q) ||
+      r.name.toLowerCase().includes(q) ||
+      (r.description?.toLowerCase().includes(q) ?? false) ||
+      r.abayaType.labelAr.toLowerCase().includes(q),
+  );
+}
+
+function sortModels(rows: AbayaModelRow[], mode: SortMode): AbayaModelRow[] {
+  const copy = [...rows];
+  if (mode === "newest" || mode === "oldest") {
+    const dir = mode === "newest" ? -1 : 1;
+    // Ties (models added in the same second, or before createdAt was backfilled)
+    // fall back to code so the order is at least stable between renders.
+    return copy.sort(
+      (a, b) =>
+        dir * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) ||
+        a.code.localeCompare(b.code, "en", { numeric: true }),
+    );
+  }
+  if (mode === "name") {
+    return copy.sort((a, b) => a.name.localeCompare(b.name, "ar"));
+  }
+  // The catalog's own curated order, matching what the POS shows the seller.
+  return copy.sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code, "en", { numeric: true }),
+  );
 }
 
 function defaultAbayaTypeIdForTab(tab: CatalogTabId, types: AbayaCatalogType[]): string {
@@ -224,6 +265,8 @@ export function AbayaModelsPage() {
   const canDeactivateModel = can("models.delete");
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<CatalogTabId>("MODEL");
+  const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AbayaModelRow | null>(null);
@@ -314,8 +357,13 @@ export function AbayaModelsPage() {
 
   const typeOptions = catalog?.types ?? [];
 
-  const rows = listData ?? [];
-  const filteredRows = useMemo(() => filterByTab(rows, activeTab), [rows, activeTab]);
+  // Memoised so the derived search/sort passes below don't recompute every render.
+  const rows = useMemo(() => listData ?? [], [listData]);
+  const tabRows = useMemo(() => filterByTab(rows, activeTab), [rows, activeTab]);
+  const filteredRows = useMemo(
+    () => sortModels(searchModels(tabRows, search), sortMode),
+    [tabRows, search, sortMode],
+  );
 
   const tabCounts = useMemo(() => {
     return {
@@ -528,6 +576,53 @@ export function AbayaModelsPage() {
         ))}
       </div>
 
+      {/* Search + sort. Filters within the active tab, so the tab counts stay honest. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
+          <Search
+            className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground ltr:left-3 rtl:right-3"
+            aria-hidden
+          />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("models.searchPlaceholder")}
+            aria-label={t("models.searchAria")}
+            className="ltr:pl-9 ltr:pr-8 rtl:pr-9 rtl:pl-8"
+          />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label={t("models.clearSearch")}
+              className="absolute top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground ltr:right-1 rtl:left-1"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">{t("models.sortLabel")}</span>
+          <select
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+          >
+            <option value="newest">{t("models.sortNewest")}</option>
+            <option value="oldest">{t("models.sortOldest")}</option>
+            <option value="name">{t("models.sortNameAsc")}</option>
+            <option value="default">{t("models.sortDefault")}</option>
+          </select>
+        </label>
+
+        {search ? (
+          <span className="text-xs text-muted-foreground">
+            {t("models.resultCount", { count: filteredRows.length, total: tabRows.length })}
+          </span>
+        ) : null}
+      </div>
+
       {deactivateMutation.isError ? (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {getApiErrorMessage(deactivateMutation.error, t("models.errorDeactivate"))}
@@ -538,8 +633,15 @@ export function AbayaModelsPage() {
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       ) : filteredRows.length === 0 ? (
         <p className="rounded-lg border border-dashed bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground">
-          {t("models.emptyTab")}
-          {canCreate ? ` ${t("models.emptyTabHint", { label: addLabel })}` : ""}
+          {/* An empty tab and a search with no hits look identical otherwise. */}
+          {search.trim() ? (
+            t("models.noSearchResults", { query: search.trim() })
+          ) : (
+            <>
+              {t("models.emptyTab")}
+              {canCreate ? ` ${t("models.emptyTabHint", { label: addLabel })}` : ""}
+            </>
+          )}
         </p>
       ) : viewMode === "cards" ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
