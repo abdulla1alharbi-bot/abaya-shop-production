@@ -44,6 +44,7 @@ model User {
   approvedShifts CashierShift[] @relation("ShiftApprover")
   customerNotes CustomerNote[]
   notifications Notification[]
+  notificationReads NotificationRead[]
   voidedInvoices Invoice[] @relation("InvoiceVoidedBy")
   invoiceReturns InvoiceReturn[] @relation("InvoiceReturnCreatedBy")
   customerNotices InvoiceCustomerNotice[]
@@ -845,9 +846,27 @@ model Notification {
   title      String
   message    String
   link       String?
+  /// Read state for notifications addressed to ONE user (userId set). For
+  /// role-addressed rows this stays false and `reads` is the source of truth:
+  /// several people share the row, so a single flag would let the first reader
+  /// hide it from everyone else holding that role.
   isRead     Boolean  @default(false)
+  reads      NotificationRead[]
   createdAt  DateTime @default(now())
 
   @@index([userId, isRead])
   @@index([targetRole, isRead])
+}
+
+/// Who has read a role-addressed notification. One row per (notification, user).
+model NotificationRead {
+  id             String       @id @default(cuid())
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@unique([notificationId, userId])
+  @@index([userId])
 }
