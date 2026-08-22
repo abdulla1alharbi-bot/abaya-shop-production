@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -653,9 +654,11 @@ function RetailPriceInput({
   const [draft, setDraft] = useState(() => (line.unitFils / 100).toFixed(2));
   const [focused, setFocused] = useState(false);
 
-  useEffect(() => {
+  // While the field is focused the typed text is authoritative; on blur, and on
+  // any price change from elsewhere, it snaps back to the committed value.
+  useWhenChanged(`${line.unitFils}|${focused}`, () => {
     if (!focused) setDraft((line.unitFils / 100).toFixed(2));
-  }, [line.unitFils, focused]);
+  });
 
   return (
     <Input

@@ -60,7 +60,7 @@ export function ProductGrid() {
       { id: "ALL" as const, label: t("pos.allCategories") },
       ...list.map((c) => ({ id: c.id, label: c.nameAr?.trim() || c.name })),
     ];
-  }, [categories]);
+  }, [categories, t]);
 
   const orderedProducts = useMemo(() => {
     // In-stock items first, out-of-stock (empty) last; order preserved within each group.

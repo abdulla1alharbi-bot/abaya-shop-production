@@ -85,8 +85,8 @@ export function FabricRollsPage() {
       setReason("");
       setError("");
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.message;
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg === "Not enough available meters" ? t("fabrics.errorExceedsAvailable") : t("fabrics.errorSave"));
     },
   });

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { useSearchParams } from "react-router-dom";
 import { Package, Scissors } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -23,15 +24,18 @@ export function POSPage() {
   const [mode, setMode] = useState<PosMode>(() => (canRetail ? "retail" : "tailoring"));
   const posCustomerId = useCartStore((s) => s.posCustomerId);
 
-  useEffect(() => {
-    if (mode === "retail" && !canRetail && canTailoring) setMode("tailoring");
-    if (mode === "tailoring" && !canTailoring && canRetail) setMode("retail");
-  }, [mode, canRetail, canTailoring]);
+  // Keep the visible tab on something this user is allowed to open.
+  const allowed = mode === "retail" ? canRetail : canTailoring;
+  if (!allowed) {
+    if (mode === "retail" && canTailoring) setMode("tailoring");
+    else if (mode === "tailoring" && canRetail) setMode("retail");
+  }
 
-  useEffect(() => {
-    const wanted = searchParams.get("mode");
+  // ?mode=tailoring is honoured when the link is followed, not on every render —
+  // otherwise switching tabs by hand would be undone while the param lingers.
+  useWhenChanged(searchParams.get("mode"), (wanted) => {
     if (wanted === "tailoring" && canTailoring) setMode("tailoring");
-  }, [searchParams, canTailoring]);
+  });
 
   return (
     <div className="flex min-h-0 flex-col gap-4 pb-[min(28vh,220px)] lg:pb-0">

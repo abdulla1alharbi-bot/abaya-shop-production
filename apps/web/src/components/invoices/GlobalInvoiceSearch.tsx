@@ -20,6 +20,7 @@ import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 
 const SEARCH_DEBOUNCE_MS = 500;
 const MIN_SEARCH_CHARS = 3;
@@ -101,9 +102,9 @@ function GlobalInvoiceQuickViewModal({
     enabled: open && Boolean(invoiceId),
   });
 
-  useEffect(() => {
-    if (!open) setSellerOpen(false);
-  }, [open]);
+  useWhenChanged(open, (isOpen) => {
+    if (!isOpen) setSellerOpen(false);
+  });
 
   const invalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["invoices", "search"] });
@@ -292,7 +293,7 @@ function GlobalInvoiceQuickViewModal({
               deliveryDate={data.deliveryDate as string | null | undefined}
               deliveredAt={(data.deliveredAt as string | null | undefined) ?? null}
               canDeliver={
-                !Boolean(data.isVoid) &&
+                !data.isVoid &&
                 !(data.deliveredAt as string | null | undefined) &&
                 (String(data.fulfillmentStatus ?? "") === "READY_FOR_DELIVERY" ||
                   String(data.fulfillmentStatus ?? "") === "NO_TAILORING")
@@ -452,7 +453,7 @@ function SearchInvoiceDetailsPanel({
               deliveryDate={data.deliveryDate as string | null | undefined}
               deliveredAt={(data.deliveredAt as string | null | undefined) ?? null}
               canDeliver={
-                !Boolean(data.isVoid) &&
+                !data.isVoid &&
                 !(data.deliveredAt as string | null | undefined) &&
                 (String(data.fulfillmentStatus ?? "") === "READY_FOR_DELIVERY" ||
                   String(data.fulfillmentStatus ?? "") === "NO_TAILORING")
@@ -484,9 +485,9 @@ function SearchResultsModal({
   const paymentStatus = usePaymentStatus();
   const moneyBadge = useMoneyBadge();
 
-  useEffect(() => {
-    if (!open) setExpandedId(null);
-  }, [open]);
+  useWhenChanged(open, (isOpen) => {
+    if (!isOpen) setExpandedId(null);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -652,15 +653,13 @@ export function GlobalInvoiceSearch({ className }: { className?: string }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [openDropdown]);
 
-  useEffect(() => {
-    if (!query.trim()) {
-      setOpenDropdown(false);
-      return;
-    }
-    if (query.trim().length >= MIN_SEARCH_CHARS) {
-      setOpenDropdown(true);
-    }
-  }, [query]);
+  // The dropdown follows what has been typed, so it must be open on the same
+  // frame the text appears — an effect would open it one paint late.
+  useWhenChanged(query, (next) => {
+    const trimmed = next.trim();
+    if (!trimmed) setOpenDropdown(false);
+    else if (trimmed.length >= MIN_SEARCH_CHARS) setOpenDropdown(true);
+  });
 
   if (!canSearch) return null;
 

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { fromLocalDatetimeValue, toLocalDatetimeValue } from "@/lib/datetimeLocal";
 import { isAxiosError } from "axios";
 import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
@@ -60,18 +61,6 @@ function apiErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return "Request failed";
-}
-
-export function toLocalDatetimeValue(iso: string | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-export function fromLocalDatetimeValue(local: string): string | undefined {
-  if (!local.trim()) return undefined;
-  return new Date(local).toISOString();
 }
 
 type Props = {
@@ -195,7 +184,7 @@ export function WorkshopTaskSheet({
     if (!currentRow) return null;
     const before = sortedStages.filter((r) => r.sortOrder < currentRow.sortOrder && r.workerId);
     return before.length ? before[before.length - 1]! : null;
-  }, [sortedStages, currentRow?.id, currentRow?.sortOrder]);
+  }, [sortedStages, currentRow]);
   const prevStageWorkerId = prevStageWithWorker?.workerId ?? "";
   const prevStageWorkerName = prevStageWithWorker?.worker?.name ?? "";
 
@@ -206,8 +195,13 @@ export function WorkshopTaskSheet({
   /** Optional fabric waste (meters) captured when completing the CUTTING stage. */
   const [draftWasteMeters, setDraftWasteMeters] = useState("");
 
+  // Kept as an effect on purpose. Prefilling the completion time reads the wall
+  // clock, which is an external system: doing it during render would make the
+  // render impure and hand back a different value on every re-render. The rest of
+  // the reset has to stay with it so the whole draft is seeded in one go.
   useEffect(() => {
     if (!currentRow) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see note above
     setDraftWasteMeters("");
     if (currentRow.status === "PENDING") {
       setDraftWorker(prevStageWorkerId);

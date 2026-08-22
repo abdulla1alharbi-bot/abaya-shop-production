@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, CalendarClock, ClipboardList, Eye, Scissors } from "lucide-react";
 import { JOB_STAGE_LABELS } from "@abaya-shop/shared";
@@ -144,13 +145,14 @@ export function PendingTailoringSection() {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  useEffect(() => {
-    if (listModalOpen) {
+  // Reopening the list starts from a clean filter, on the first painted frame.
+  useWhenChanged(listModalOpen, (open) => {
+    if (open) {
       setRowFilter("all");
       setSearchInput("");
       setDebouncedSearch("");
     }
-  }, [listModalOpen]);
+  });
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput), 250);

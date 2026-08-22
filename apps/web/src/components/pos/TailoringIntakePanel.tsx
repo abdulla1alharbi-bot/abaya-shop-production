@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Save, Scissors, ShoppingBag } from "lucide-react";
@@ -80,18 +81,22 @@ export function TailoringIntakePanel() {
     refetchOnWindowFocus: false,
   });
 
-  useEffect(() => {
-    if (!posCustomerId) {
+  // Clearing the customer clears the "measurements loaded" note with it.
+  useWhenChanged(posCustomerId, (id) => {
+    if (!id) {
       loadedBodySnapshotRef.current = "";
       setMeasurementNotice(null);
     }
-  }, [posCustomerId]);
+  });
 
   useLayoutEffect(() => {
     if (!posCustomerId || !measHint) return;
     applyPosMeasurementHint(measHint);
     const d = useCartStore.getState().tailoringDraft;
     loadedBodySnapshotRef.current = bodySnapshot(d);
+    // Has to stay in the effect: the line above pushes the hint into the cart
+    // store (an external system) and this note reports what that write did.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMeasurementNotice(hintHasNumericBody(measHint) ? "loaded" : null);
   }, [posCustomerId, measHint, applyPosMeasurementHint]);
 

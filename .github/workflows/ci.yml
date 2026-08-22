@@ -38,4 +38,8 @@ jobs:
       - run: pnpm exec prisma generate --schema=apps/api/prisma/schema.prisma
       - run: pnpm --filter @abaya-shop/shared run build
       - run: pnpm --filter @abaya-shop/api run typecheck
+      # Lint runs before the build so a hook-rule violation fails the PR rather
+      # than shipping: tsc does not catch them, and they are how a "Rendered
+      # fewer hooks than expected" crash reaches production.
+      - run: pnpm --filter @abaya-shop/web run lint
       - run: pnpm --filter @abaya-shop/web run build

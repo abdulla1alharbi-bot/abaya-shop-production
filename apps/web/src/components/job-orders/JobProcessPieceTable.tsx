@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { isAxiosError } from "axios";
 import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
@@ -10,11 +11,8 @@ import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Input } from "@/components/ui/input";
-import {
-  fromLocalDatetimeValue,
-  toLocalDatetimeValue,
-  type WorkshopWorkStageRow,
-} from "./WorkshopTaskSheet";
+import { type WorkshopWorkStageRow } from "./WorkshopTaskSheet";
+import { fromLocalDatetimeValue, toLocalDatetimeValue } from "@/lib/datetimeLocal";
 import { stageKindClasses, workStageRowKind } from "@/lib/invoiceTailoringUi";
 
 type Props = {
@@ -105,15 +103,17 @@ export function JobProcessPieceTable({
     },
   });
 
-  useEffect(() => {
+  // Server-side worker assignments win over the local picker whenever the rows
+  // reload, but an unsaved pick on a still-unassigned stage is kept.
+  useWhenChanged(workStages, (rows) => {
     setWorkerByStage((prev) => {
       const next = { ...prev };
-      for (const r of workStages) {
+      for (const r of rows) {
         if (r.workerId) next[r.stageKey] = r.workerId;
       }
       return next;
     });
-  }, [workStages]);
+  });
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["job-order", jobId] });
@@ -180,10 +180,11 @@ export function JobProcessPieceTable({
     Record<string, { workerId: string; wageAed: string; notes: string; completedLocal: string }>
   >({});
 
-  useEffect(() => {
+  // Admin correction fields reseed from the server rows on every reload.
+  useWhenChanged(workStages, (rows) => {
     if (!isJobProcessAdmin) return;
     const next: Record<string, { workerId: string; wageAed: string; notes: string; completedLocal: string }> = {};
-    for (const r of workStages) {
+    for (const r of rows) {
       next[r.stageKey] = {
         workerId: r.workerId ?? "",
         wageAed: String((r.wageFils ?? 0) / 100),
@@ -192,7 +193,7 @@ export function JobProcessPieceTable({
       };
     }
     setAdminDrafts(next);
-  }, [workStages, isJobProcessAdmin]);
+  });
 
   const saveAdminRow = useMutation({
     mutationFn: async ({

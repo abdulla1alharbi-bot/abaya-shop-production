@@ -14,11 +14,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { DashboardInvoiceQueueCards } from "@/components/dashboard/DashboardInvoiceQueueCards";
-import {
-  DashboardTodayModals,
-  useTodayBreakdown,
-  type TodayModal,
-} from "@/components/dashboard/DashboardTodayModals";
+import { DashboardTodayModals } from "@/components/dashboard/DashboardTodayModals";
+import { useTodayBreakdown, type TodayModal } from "@/hooks/useTodayBreakdown";
 import { DashboardRowsDialog } from "@/components/dashboard/DashboardRowsDialog";
 import { NeedsAttentionSection } from "@/components/dashboard/NeedsAttentionSection";
 import { PendingTailoringSection } from "@/components/dashboard/PendingTailoringSection";

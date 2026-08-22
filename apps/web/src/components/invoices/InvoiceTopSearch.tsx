@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
@@ -21,9 +22,10 @@ export function InvoiceTopSearch({ currentInvoiceNo }: Props) {
     inputRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    if (currentInvoiceNo != null) setValue(String(currentInvoiceNo));
-  }, [currentInvoiceNo]);
+  // Navigating to another invoice refills the box with its number.
+  useWhenChanged(currentInvoiceNo, (next) => {
+    if (next != null) setValue(String(next));
+  });
 
   const lookup = useMutation({
     mutationFn: async (no: string) => {

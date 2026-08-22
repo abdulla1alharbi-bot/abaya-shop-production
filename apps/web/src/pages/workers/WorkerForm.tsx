@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -28,18 +29,20 @@ export function WorkerForm() {
     enabled: !isNew && Boolean(id),
   });
 
-  useEffect(() => {
-    if (!existing?.specializations) {
+  // Specializations arrive as a JSON string on the worker record; reseed the
+  // checkboxes whenever that record loads or reloads.
+  useWhenChanged(existing, (row) => {
+    if (!row?.specializations) {
       setSpecs([]);
       return;
     }
     try {
-      const p = JSON.parse(String(existing.specializations));
-      setSpecs(Array.isArray(p) ? p : []);
+      const parsed = JSON.parse(String(row.specializations)) as unknown;
+      setSpecs(Array.isArray(parsed) ? (parsed as string[]) : []);
     } catch {
       setSpecs([]);
     }
-  }, [existing]);
+  });
 
   const { data: defaultRates } = useQuery({
     queryKey: ["piece-rates", "defaults"],

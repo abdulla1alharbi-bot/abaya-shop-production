@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { JOB_STAGE_LABELS } from "@abaya-shop/shared";
 import {
@@ -41,6 +41,7 @@ import { exportRowsAsCsv, filsToAmount } from "@/lib/exportCsv";
 import { cn } from "@/lib/utils";
 import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { useTranslation } from "react-i18next";
 
 function rangeKey(r: ReportDateRange): string {
@@ -141,45 +142,47 @@ export function ReportsPage() {
   const [fwDraft, setFwDraft] = useState(defaults);
   const [fwApplied, setFwApplied] = useState(defaults);
 
-  useEffect(() => {
-    if (!cashFlowOpen) {
+  // Each report panel keeps a draft range that is seeded from the applied range
+  // the moment the panel opens, and expanded rows collapse when it closes.
+  // Adjusting during render (not in an effect) means the panel is already
+  // showing the right range on its first painted frame — see useWhenChanged.
+  useWhenChanged(wagesOpen, (open) => {
+    if (open) setWagesDraft(wagesApplied);
+  });
+  useWhenChanged(salesOpen, (open) => {
+    if (open) setSalesDraft(salesApplied);
+  });
+  useWhenChanged(invoicesOpen, (open) => {
+    if (open) setInvDraft(invApplied);
+  });
+  useWhenChanged(balancesOpen, (open) => {
+    if (open) setBalDraft(balApplied);
+  });
+  useWhenChanged(tailoringOpen, (open) => {
+    if (open) setTailDraft(tailApplied);
+  });
+  useWhenChanged(mostRequestedOpen, (open) => {
+    if (open) setMostDraft(mostApplied);
+  });
+  useWhenChanged(cashFlowOpen, (open) => {
+    if (open) {
+      setCashDraft(cashApplied);
+    } else {
       setCashFlowShowDetails(false);
       setCashFlowIncomeDetailed(false);
       setCashFlowWagesDetailed(false);
     }
-  }, [cashFlowOpen]);
-
-  useEffect(() => {
-    if (wagesOpen) setWagesDraft(wagesApplied);
-  }, [wagesOpen, wagesApplied]);
-  useEffect(() => {
-    if (salesOpen) setSalesDraft(salesApplied);
-  }, [salesOpen, salesApplied]);
-  useEffect(() => {
-    if (invoicesOpen) setInvDraft(invApplied);
-  }, [invoicesOpen, invApplied]);
-  useEffect(() => {
-    if (balancesOpen) setBalDraft(balApplied);
-  }, [balancesOpen, balApplied]);
-  useEffect(() => {
-    if (tailoringOpen) setTailDraft(tailApplied);
-  }, [tailoringOpen, tailApplied]);
-  useEffect(() => {
-    if (mostRequestedOpen) setMostDraft(mostApplied);
-  }, [mostRequestedOpen, mostApplied]);
-  useEffect(() => {
-    if (cashFlowOpen) setCashDraft(cashApplied);
-  }, [cashFlowOpen, cashApplied]);
-  useEffect(() => {
-    if (profitLossOpen) setPlDraft(plApplied);
+  });
+  useWhenChanged(profitLossOpen, (open) => {
+    if (open) setPlDraft(plApplied);
     else setPlExpensesExpanded(false);
-  }, [profitLossOpen, plApplied]);
-  useEffect(() => {
-    if (modelProfitOpen) setMpDraft(mpApplied);
-  }, [modelProfitOpen, mpApplied]);
-  useEffect(() => {
-    if (wastageOpen) setFwDraft(fwApplied);
-  }, [wastageOpen, fwApplied]);
+  });
+  useWhenChanged(modelProfitOpen, (open) => {
+    if (open) setMpDraft(mpApplied);
+  });
+  useWhenChanged(wastageOpen, (open) => {
+    if (open) setFwDraft(fwApplied);
+  });
 
   const wagesParams = reportRangeToApiParams(wagesApplied.from, wagesApplied.to);
 

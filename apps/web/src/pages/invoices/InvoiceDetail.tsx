@@ -164,6 +164,10 @@ function operationalPieceStatus(
 
 export function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
+  // Piece age is measured against the moment the screen opened, not Date.now()
+  // read inside the row loop: reading the clock mid-render is impure, and a value
+  // that can change between two renders of the same list is a bug waiting to happen.
+  const [openedAt] = useState(() => Date.now());
   const location = useLocation();
   const queryClient = useQueryClient();
   const [sellerOpen, setSellerOpen] = useState(false);
@@ -358,11 +362,15 @@ export function InvoiceDetail() {
   }));
 
   const pieceSummary = jobOrders.length > 0 ? summarizeInvoicePieces(jobOrders, deliveryDate) : null;
-  let pieceCounter = 0;
-  const tailoringWithPieceIndex = tailoringCards.map(({ item, job }) => {
-    if (job) pieceCounter += 1;
-    return { item, job, pieceIndex: job ? pieceCounter : 0 };
-  });
+  const tailoringWithPieceIndex = tailoringCards.map(({ item, job }, i) => ({
+    item,
+    job,
+    // 1-based position among the lines that actually have a job order; lines
+    // without one get 0. Counted per line rather than with a running mutable
+    // counter, which the compiler cannot prove stays put across renders. One
+    // invoice holds a handful of pieces, so the repeated scan costs nothing.
+    pieceIndex: job ? tailoringCards.slice(0, i + 1).filter((c) => c.job).length : 0,
+  }));
   const quickViewJob = quickViewJobId ? jobOrders.find((j) => j.id === quickViewJobId) : null;
   const quickViewItem = quickViewJob?.invoiceItem?.id
     ? items.find((it) => String(it.id) === String(quickViewJob.invoiceItem!.id))
@@ -708,7 +716,7 @@ export function InvoiceDetail() {
             const stageRows = job ? stageWorkersList(job.workStages ?? []) : [];
             const createdAt = job?.createdAt ? new Date(job.createdAt) : null;
             const ageDays = createdAt
-              ? Math.floor((Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000))
+              ? Math.floor((openedAt - createdAt.getTime()) / (24 * 60 * 60 * 1000))
               : 0;
             const opStatus = job ? operationalPieceStatus(job, UNCLAIMED_DAYS, t) : null;
             const shouldSuggestUnclaimed =

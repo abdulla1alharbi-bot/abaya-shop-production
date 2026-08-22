@@ -1,81 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { jobStageLabel } from "@abaya-shop/shared";
 import { DashboardDrilldownDialog, DrilldownState } from "@/components/dashboard/DashboardDrilldownDialog";
-import { api } from "@/lib/api";
+import { useTodayBreakdown, type TodayModal } from "@/hooks/useTodayBreakdown";
 import { formatAED } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useLangStore } from "@/store/langStore";
-
-export type TodayBreakdown = {
-  collections: {
-    totalFils: number;
-    items: Array<{
-      id: string;
-      amountFils: number;
-      method: string;
-      at: string;
-      invoiceId: string;
-      invoiceNo: number;
-      customerName: string | null;
-    }>;
-  };
-  invoicedToday: {
-    totalFils: number;
-    paidFils: number;
-    balanceFils: number;
-    invoiceCount: number;
-    tailoring: { totalFils: number; pieces: number };
-    readyMade: { totalFils: number; pieces: number };
-    items: Array<{
-      id: string;
-      invoiceNo: number;
-      customerName: string | null;
-      totalFils: number;
-      paidFils: number;
-      balanceFils: number;
-      at: string;
-      tailoringFils: number;
-      pieces: Array<{ label: string; qty: number; totalFils: number; isTailoring: boolean }>;
-    }>;
-  };
-  expenses: {
-    totalFils: number;
-    items: Array<{
-      id: string;
-      amountFils: number;
-      description: string;
-      category: string | null;
-      at: string;
-    }>;
-  };
-  wages: {
-    totalFils: number;
-    items: Array<{
-      id: string;
-      amountFils: number;
-      stageKey: string;
-      workerName: string;
-      jobNo: number | null;
-      productStyle: string | null;
-      at: string | null;
-    }>;
-  };
-};
-
-export type TodayModal = "collections" | "invoiced" | "expenses" | "wages" | null;
-
-/** One request backs all four money drill-downs; only fetched once a card is opened. */
-export function useTodayBreakdown(enabled: boolean) {
-  return useQuery({
-    queryKey: ["dashboard", "today"],
-    queryFn: async () => {
-      const res = await api.get<{ success: boolean; data: TodayBreakdown }>("/dashboard/today");
-      return res.data.data;
-    },
-    enabled,
-  });
-}
 
 function useTimeFormatter() {
   const { lang } = useLangStore();
