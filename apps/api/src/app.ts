@@ -40,6 +40,24 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:5173";
 
+/**
+ * How many reverse proxies sit in front of this process.
+ *
+ * Off by default, and that default matters: with `trust proxy` enabled, Express
+ * believes the client-supplied `X-Forwarded-For` header, so anyone could spoof a
+ * fresh IP per request and walk straight through the login rate limiter. Today
+ * the API is published directly, so the socket address is the truth.
+ *
+ * The moment TLS is terminated in front of it — nginx, Caddy, a load balancer —
+ * set TRUST_PROXY to the number of hops (normally "1"). Without it every request
+ * appears to come from the proxy, so all staff share one rate-limit bucket and
+ * twenty bad passwords lock out the whole shop for fifteen minutes.
+ */
+const TRUST_PROXY = Number(process.env.TRUST_PROXY ?? 0);
+if (Number.isFinite(TRUST_PROXY) && TRUST_PROXY > 0) {
+  app.set("trust proxy", TRUST_PROXY);
+}
+
 app.use(
   helmet({
     // API serves JSON + /uploads images consumed by the separate web origin.
@@ -127,8 +145,16 @@ httpServer.listen(PORT, () => {
 
   if (process.env.NODE_ENV === "production" && process.env.SECURE_COOKIES !== "true") {
     logger.warn(
-      "SECURE_COOKIES is not 'true': refresh-token cookies are sent without the Secure flag. " +
-        "Fine for plain-HTTP deployments, but set SECURE_COOKIES=true once the site is behind HTTPS.",
+      "SECURE_COOKIES is not 'true': refresh-token cookies, staff passwords and every " +
+        "customer record cross the network in clear text. Put TLS in front of this and set " +
+        "SECURE_COOKIES=true (and TRUST_PROXY=1).",
+    );
+  }
+
+  if (process.env.NODE_ENV === "production" && FRONTEND_URL.startsWith("https://") && TRUST_PROXY < 1) {
+    logger.warn(
+      "FRONTEND_URL is https but TRUST_PROXY is 0: req.ip will be the proxy for every request, " +
+        "so all users share one login rate-limit bucket. Set TRUST_PROXY to the number of proxies.",
     );
   }
 

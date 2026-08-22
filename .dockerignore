@@ -1,0 +1,57 @@
+# Build context for BOTH images (docker-compose sets `context: .` for api and web,
+# and both Dockerfiles run `COPY . .`). Without this file that COPY swept the whole
+# working tree into the image: apps/api/.env with the live JWT secrets and database
+# password, apps/api/prisma/dev.db (a real SQLite copy of the shop data), and the
+# full .git history. Image layers keep whatever they were built with, so deleting a
+# file afterwards does not remove it.
+#
+# Adding a path here is safe only if nothing in either Dockerfile needs it. Both
+# install dependencies and compile from source inside the image, so node_modules,
+# dist and lockfile-adjacent build output are all rebuilt rather than copied.
+
+# ── secrets ────────────────────────────────────────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/id_rsa*
+**/id_ed25519*
+
+# ── database copies and dumps ──────────────────────────────────────────────
+# The API talks to Postgres; no database file belongs in the image at all.
+**/*.db
+**/*.db-journal
+**/*.sqlite
+**/*.sqlite3
+**/*.dump
+**/*.sql.gz
+**/backups
+**/*.bak
+**/*.bak.*
+
+# ── version control and tooling ────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+.github
+.claude
+.vscode
+.idea
+
+# ── installed / generated, rebuilt inside the image ────────────────────────
+**/node_modules
+**/dist
+**/build
+**/.turbo
+**/*.tsbuildinfo
+coverage
+
+# ── runtime data that belongs in a volume, not a layer ─────────────────────
+apps/api/uploads
+
+# ── noise ──────────────────────────────────────────────────────────────────
+**/*.log
+**/npm-debug.log*
+.DS_Store
+Thumbs.db
