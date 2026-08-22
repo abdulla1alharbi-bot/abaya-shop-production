@@ -21,7 +21,12 @@ export function POSPage() {
   const canRetail = can("pos.readyMade");
   const canTailoring = can("pos.tailoring");
   const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<PosMode>(() => (canRetail ? "retail" : "tailoring"));
+  // ?mode=tailoring has to be honoured on the very first render — the dashboard
+  // and invoice screens link straight into the tailoring tab.
+  const [mode, setMode] = useState<PosMode>(() => {
+    if (searchParams.get("mode") === "tailoring" && canTailoring) return "tailoring";
+    return canRetail ? "retail" : "tailoring";
+  });
   const posCustomerId = useCartStore((s) => s.posCustomerId);
 
   // Keep the visible tab on something this user is allowed to open.
@@ -31,8 +36,8 @@ export function POSPage() {
     else if (mode === "tailoring" && canRetail) setMode("retail");
   }
 
-  // ?mode=tailoring is honoured when the link is followed, not on every render —
-  // otherwise switching tabs by hand would be undone while the param lingers.
+  // Later changes to the param (navigating to the link while already on /pos)
+  // switch the tab too, but a tab the user picked by hand is never undone.
   useWhenChanged(searchParams.get("mode"), (wanted) => {
     if (wanted === "tailoring" && canTailoring) setMode("tailoring");
   });
