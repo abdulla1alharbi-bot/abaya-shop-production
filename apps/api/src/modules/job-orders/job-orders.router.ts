@@ -18,7 +18,7 @@ import {
   initialPipelineStage,
   nextStageAfterComplete,
   orderedPipelineKeys,
-  parseWageDefaults,
+  loadWageDefaults,
   resolvePipelineStageKeysFromModelJson,
   wageForPipelineStage,
 } from "./jobStageHelpers.js";
@@ -302,9 +302,7 @@ jobOrdersRouter.post(
 
     const balanceFils = body.totalFils - body.paidFils;
 
-    const settingsRows = await prisma.setting.findMany();
-    const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-    const wageDefaults = parseWageDefaults(settingsMap);
+    const wageDefaults = await loadWageDefaults(prisma);
 
     const job = await prisma.$transaction(async (tx) => {
       // Inside the transaction so the advisory lock serializes concurrent creations.
@@ -507,9 +505,7 @@ jobOrdersRouter.post(
     const perms = req.user?.permissions ?? [];
     const canEditWage = perms.includes("jobProcess.editWage") || perms.includes("jobProcess.adminEdit");
 
-    const settingsRows = await prisma.setting.findMany();
-    const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-    const wageDefaults = parseWageDefaults(settingsMap);
+    const wageDefaults = await loadWageDefaults(prisma);
 
     const job = await prisma.jobOrder.findUnique({
       where: { id: jobId },
@@ -765,9 +761,7 @@ jobOrdersRouter.post(
     const canEditWage = perms.includes("jobProcess.editWage") || perms.includes("jobProcess.adminEdit");
     const clientWageOverride = canEditWage ? body.wageFils : undefined;
 
-    const settingsRows = await prisma.setting.findMany();
-    const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-    const wageDefaults = parseWageDefaults(settingsMap);
+    const wageDefaults = await loadWageDefaults(prisma);
 
     const existing = await prisma.jobOrder.findUnique({
       where: { id: jobId },
@@ -1132,9 +1126,7 @@ jobOrdersRouter.post(
     }
     const body = req.body as z.infer<typeof initPipelineBody>;
 
-    const settingsRows = await prisma.setting.findMany();
-    const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-    const wageDefaults = parseWageDefaults(settingsMap);
+    const wageDefaults = await loadWageDefaults(prisma);
 
     // Resolve the catalog product outside the pipeline transaction:
     //   1) explicit productId from the request (legacy / manual override), else

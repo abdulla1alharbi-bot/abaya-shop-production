@@ -1,4 +1,4 @@
-import type { Prisma, Product } from "@prisma/client";
+import type { Prisma, PrismaClient, Product } from "@prisma/client";
 
 /** Must match `PIPELINE_STAGE_KEYS` in `@abaya-shop/shared` / tailoring UI */
 export const PIPELINE_STAGE_KEYS = ["CUTTING", "SEWING", "EMBROIDERY", "FINISHING"] as const;
@@ -28,6 +28,28 @@ export type StageDefaults = {
   embroidery: number;
   finishing: number;
 };
+
+/** The only four Setting rows the wage defaults need. */
+export const WAGE_DEFAULT_KEYS = [
+  "default_cutting_wage_fils",
+  "default_sewing_wage_fils",
+  "default_embroidery_wage_fils",
+  "default_finishing_wage_fils",
+] as const;
+
+type Db = PrismaClient | Prisma.TransactionClient;
+
+/**
+ * Read the four stage-wage defaults.
+ *
+ * Callers used to run a bare `setting.findMany()` and pull the entire Setting
+ * table on every job-order write — including the stored SMTP password, which has
+ * no business being loaded to price a cutting stage.
+ */
+export async function loadWageDefaults(db: Db): Promise<StageDefaults> {
+  const rows = await db.setting.findMany({ where: { key: { in: [...WAGE_DEFAULT_KEYS] } } });
+  return parseWageDefaults(Object.fromEntries(rows.map((s) => [s.key, s.value])));
+}
 
 export function parseWageDefaults(settings: Record<string, string>): StageDefaults {
   return {

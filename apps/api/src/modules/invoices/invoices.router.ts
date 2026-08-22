@@ -16,7 +16,7 @@ import { allocateByLineShares } from "../../utils/invoiceAllocation.js";
 import { syncInvoiceJobsFinancials } from "../../utils/invoiceJobSync.js";
 import {
   activateJobPipeline,
-  parseWageDefaults,
+  loadWageDefaults,
 } from "../job-orders/jobStageHelpers.js";
 import {
   canMarkInvoiceDelivered,
@@ -888,10 +888,7 @@ invoicesRouter.post(
         throw new AppError(500, "Invoice items out of sync", "CONFIG");
       }
 
-      const settingsRows = await tx.setting.findMany();
-      const wageDefaults = parseWageDefaults(
-        Object.fromEntries(settingsRows.map((s) => [s.key, s.value])),
-      );
+      const wageDefaults = await loadWageDefaults(tx);
 
       for (let k = 0; k < body.items.length; k++) {
         const it = body.items[k]!;
@@ -1262,10 +1259,7 @@ invoicesRouter.post(
           totalFils,
           paidFils,
         );
-        const settingsRows = await tx.setting.findMany();
-        const wageDefaults = parseWageDefaults(
-          Object.fromEntries(settingsRows.map((s) => [s.key, s.value])),
-        );
+        const wageDefaults = await loadWageDefaults(tx);
         for (let k = 0; k < tailoring.length; k++) {
           const it = tailoring[k]!;
           const invItem = tailoringItemRows[k]!;

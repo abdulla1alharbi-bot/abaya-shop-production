@@ -12,7 +12,7 @@ import { nextJobNo } from "../../utils/counters.js";
 import {
   createPipelineRowsForJob,
   initialPipelineStage,
-  parseWageDefaults,
+  loadWageDefaults,
   resolvePipelineStageKeysFromModelJson,
 } from "../job-orders/jobStageHelpers.js";
 import { reserveFabricForMaterial } from "../job-orders/fabricInventoryOnCutting.js";
@@ -99,9 +99,7 @@ async function createProductionBatch(args: {
   }
 
   const customerId = await ensureInternalCustomerId();
-  const settingsRows = await prisma.setting.findMany();
-  const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-  const wageDefaults = parseWageDefaults(settingsMap);
+  const wageDefaults = await loadWageDefaults(prisma);
   const stageKeys = resolvePipelineStageKeysFromModelJson(model.workflowStagesJson);
   const firstStage = initialPipelineStage(stageKeys);
 

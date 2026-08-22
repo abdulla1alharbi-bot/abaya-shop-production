@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../middleware/error.middleware.js";
-import { PIPELINE_STAGE_KEYS, parseWageDefaults, wageForPipelineStage } from "./jobStageHelpers.js";
+import { PIPELINE_STAGE_KEYS, loadWageDefaults, wageForPipelineStage } from "./jobStageHelpers.js";
 import { notify } from "../../utils/notify.js";
 
 export const patchWorkStageBody = z.object({
@@ -163,9 +163,7 @@ export async function patchWorkStageHandler(req: Request, res: Response): Promis
     throw new AppError(403, "تعديل وقت الإنجاز متاح للإدارة فقط", "FORBIDDEN");
   }
 
-  const settingsRows = await prisma.setting.findMany();
-  const settingsMap = Object.fromEntries(settingsRows.map((s) => [s.key, s.value]));
-  const wageDefaults = parseWageDefaults(settingsMap);
+  const wageDefaults = await loadWageDefaults(prisma);
 
   const stageDefaultWage = wageForPipelineStage(stageKey, job.product, wageDefaults);
   const STAGE_LABELS_AR: Record<string, string> = {

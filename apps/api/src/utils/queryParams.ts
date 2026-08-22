@@ -1,3 +1,5 @@
+import { AppError } from "../middleware/error.middleware.js";
+
 /**
  * Read Express `req.query` values flexibly (string | string[] | undefined).
  * Never throws; missing or invalid values yield defaults or undefined.
@@ -59,10 +61,31 @@ export function parseOptionalDate(q: Record<string, unknown>, key: string): Date
 }
 
 /** Default: first day of current month 00:00 → last day 23:59:59 */
+/**
+ * Widest reporting window a single request may ask for.
+ *
+ * Report queries load their rows with `include`s and no `take`, so the cost grows
+ * with the range. Two years covers year-on-year comparison; past that, a typo in
+ * the date box (a due date in year 0006 already exists in this data) would pull
+ * the whole table into memory on a small VPS.
+ */
+const MAX_RANGE_DAYS = 730;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export function parseDateRangeOrDefault(q: Record<string, unknown>): { from: Date; to: Date } {
   const fromOpt = parseOptionalDate(q, "from");
   const toOpt = parseOptionalDate(q, "to");
   if (fromOpt && toOpt) {
+    if (toOpt.getTime() < fromOpt.getTime()) {
+      throw new AppError(400, "تاريخ النهاية قبل تاريخ البداية", "INVALID_RANGE");
+    }
+    if (toOpt.getTime() - fromOpt.getTime() > MAX_RANGE_DAYS * DAY_MS) {
+      throw new AppError(
+        400,
+        `المدة المطلوبة أطول من الحد المسموح (${MAX_RANGE_DAYS} يوماً) — قسّمها إلى فترات أقصر`,
+        "RANGE_TOO_LONG",
+      );
+    }
     return { from: fromOpt, to: toOpt };
   }
   const now = new Date();

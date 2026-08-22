@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { syncLinkedProductForAbayaModelId } from "../src/utils/abayaModelProductSync.js";
+import { syncLinkedProductsForAllModels } from "../src/utils/abayaModelProductSync.js";
 
 const prisma = new PrismaClient();
 
@@ -442,10 +442,8 @@ async function main(): Promise<void> {
     }
   }
 
-  const allAbayaModels = await prisma.abayaModel.findMany({ select: { id: true } });
-  for (const row of allAbayaModels) {
-    await syncLinkedProductForAbayaModelId(row.id);
-  }
+  const syncedModels = await syncLinkedProductsForAllModels();
+  console.log(`  Linked products synced for ${syncedModels} abaya models.`);
 
   await prisma.customer.upsert({
     where: { mobile: "+971500000001" },

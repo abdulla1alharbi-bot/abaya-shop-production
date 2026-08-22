@@ -58,3 +58,23 @@ export async function syncLinkedProductForAbayaModelId(modelId: string): Promise
     });
   }
 }
+
+/** How many model syncs to have in flight at once. */
+const SYNC_BATCH = 10;
+
+/**
+ * Repair pass over the whole catalogue, used at seed/boot time.
+ *
+ * The seed used to await `syncLinkedProductForAbayaModelId` once per model, and
+ * each of those is three or four round trips — around 300 sequential queries on
+ * every container start, for 81 models that almost never changed. Batching keeps
+ * the exact same work and the same result, just not one query at a time.
+ */
+export async function syncLinkedProductsForAllModels(): Promise<number> {
+  const models = await prisma.abayaModel.findMany({ select: { id: true } });
+  for (let i = 0; i < models.length; i += SYNC_BATCH) {
+    const batch = models.slice(i, i + SYNC_BATCH);
+    await Promise.all(batch.map((m) => syncLinkedProductForAbayaModelId(m.id)));
+  }
+  return models.length;
+}
