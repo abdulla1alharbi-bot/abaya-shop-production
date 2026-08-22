@@ -103,8 +103,16 @@ async function main(): Promise<void> {
     },
     select: { id: true, invoiceNo: true, jobOrders: { select: { stage: true } } },
   });
+  /**
+   * On a real run the jobs above are already READY, so plain `WORKSHOP_DONE` is
+   * right. On a dry run they are still INSPECTION, and counting them as unfinished
+   * made the preview report "0 invoices becoming ready" when the true answer was 51
+   * — a dry run that understates its own effect is worse than none, so the
+   * simulation treats INSPECTION as the READY it is about to become.
+   */
+  const doneStages = DRY_RUN ? [...WORKSHOP_DONE, "INSPECTION"] : WORKSHOP_DONE;
   const nowReady = candidates.filter(
-    (inv) => inv.jobOrders.length > 0 && inv.jobOrders.every((j) => WORKSHOP_DONE.includes(j.stage)),
+    (inv) => inv.jobOrders.length > 0 && inv.jobOrders.every((j) => doneStages.includes(j.stage)),
   );
 
   console.log(`invoices becoming ready for delivery: ${nowReady.length}`);
