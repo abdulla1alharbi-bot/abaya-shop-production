@@ -33,9 +33,6 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
       # Set to "true" once the site is served over HTTPS (adds Secure flag to auth cookies).
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
