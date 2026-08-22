@@ -532,7 +532,7 @@ export function ReportsPage() {
   const csvButton = (disabled: boolean, onClick: () => void) => (
     <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={onClick}>
       <FileSpreadsheet className="me-1 h-4 w-4" />
-      {t("reports.exportCsv", { defaultValue: "تصدير Excel (CSV)" })}
+      {t("reports.exportCsv")}
     </Button>
   );
 
@@ -602,30 +602,24 @@ export function ReportsPage() {
         ) : null}
         {can("reports.financial") ? (
           <ReportHubCard
-            title={t("reports.profitLossTitle", { defaultValue: "قائمة الدخل (ربح وخسارة) / Profit & Loss" })}
-            description={t("reports.profitLossDesc", {
-              defaultValue: "الإيرادات والضريبة والتكاليف وصافي الربح للفترة / Revenue, VAT, costs, and net profit for the period.",
-            })}
+            title={t("reports.profitLossTitle")}
+            description={t("reports.profitLossDesc")}
             icon={<Scale className="h-5 w-5" />}
             onClick={() => setProfitLossOpen(true)}
           />
         ) : null}
         {can("reports.financial") ? (
           <ReportHubCard
-            title={t("reports.modelProfitTitle", { defaultValue: "ربحية الموديلات / Model Profitability" })}
-            description={t("reports.modelProfitDesc", {
-              defaultValue: "الإيراد والتكلفة وهامش الربح لكل موديل / Revenue, cost, and margin per model.",
-            })}
+            title={t("reports.modelProfitTitle")}
+            description={t("reports.modelProfitDesc")}
             icon={<BarChart3 className="h-5 w-5" />}
             onClick={() => setModelProfitOpen(true)}
           />
         ) : null}
         {can("reports.financial") ? (
           <ReportHubCard
-            title={t("reports.fabricWastageTitle", { defaultValue: "هدر القماش / Fabric Wastage" })}
-            description={t("reports.fabricWastageDesc", {
-              defaultValue: "الأمتار المستخدمة والهدر وتكلفته لكل موديل / Used meters, waste, and its cost per model.",
-            })}
+            title={t("reports.fabricWastageTitle")}
+            description={t("reports.fabricWastageDesc")}
             icon={<Recycle className="h-5 w-5" />}
             onClick={() => setWastageOpen(true)}
           />
@@ -1552,13 +1546,10 @@ export function ReportsPage() {
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,860px)] max-w-[860px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[860px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
             <DialogTitle>
-              {t("reports.profitLossDialogTitle", { defaultValue: "قائمة الدخل (ربح وخسارة) / Profit & Loss" })}
+              {t("reports.profitLossDialogTitle")}
             </DialogTitle>
             <DialogDescription>
-              {t("reports.profitLossDialogDesc", {
-                defaultValue:
-                  "الإيرادات ناقص المرتجعات والتكاليف والمصروفات = صافي الربح / Revenue minus returns, costs, and expenses = net profit.",
-              })}
+              {t("reports.profitLossDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -1574,7 +1565,7 @@ export function ReportsPage() {
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="pl-branch" className="text-xs text-muted-foreground">
-                {t("reports.branchFilter", { defaultValue: "الفرع / Branch" })}
+                {t("reports.branchFilter")}
               </Label>
               <select
                 id="pl-branch"
@@ -1582,7 +1573,7 @@ export function ReportsPage() {
                 value={plBranchId}
                 onChange={(e) => setPlBranchId(e.target.value)}
               >
-                <option value="">{t("reports.allBranches", { defaultValue: "كل الفروع / All branches" })}</option>
+                <option value="">{t("reports.allBranches")}</option>
                 {(branchesQuery.data ?? []).map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -1595,23 +1586,27 @@ export function ReportsPage() {
               if (!d) return;
               exportRowsAsCsv(
                 "profit-loss",
-                ["البند / Item", "المبلغ / Amount (AED)"],
+                [t("reports.plItem"), t("reports.plAmount")],
                 [
-                  ["الإيرادات (شامل الضريبة) / Revenue (incl. VAT)", filsToAmount(d.revenueFils)],
-                  ["منها ضريبة القيمة المضافة / of which VAT", filsToAmount(d.vatFils)],
-                  ["الإيرادات (صافي الضريبة) / Revenue (ex. VAT)", filsToAmount(d.revenueExVatFils)],
-                  ["(−) المرتجعات / Returns", filsToAmount(d.returnsFils)],
-                  ["(−) تكلفة القماش / Fabric cost", filsToAmount(d.fabricCogsFils)],
-                  ["منها هدر / of which waste", filsToAmount(d.wasteCostFils)],
-                  ["(−) أجور الورشة / Workshop wages", filsToAmount(d.wagesFils)],
-                  ["(−) المصروفات / Expenses", filsToAmount(d.expensesTotalFils)],
+                  [t("reports.plRevenueInclVat"), filsToAmount(d.revenueFils)],
+                  [t("reports.plOfWhichVat"), filsToAmount(d.vatFils)],
+                  [t("reports.plRevenueExVat"), filsToAmount(d.revenueExVatFils)],
+                  [t("reports.plReturns"), filsToAmount(d.returnsFils)],
+                  [t("reports.plFabricCost"), filsToAmount(d.fabricCogsFils)],
+                  [t("reports.plOfWhichWaste"), filsToAmount(d.wasteCostFils)],
+                  [t("reports.plWages"), filsToAmount(d.wagesFils)],
+                  [t("reports.plExpenses"), filsToAmount(d.expensesTotalFils)],
                   ...d.expensesByCategory.map(
-                    (c) => [`مصروفات: ${c.name}`, filsToAmount(c.totalFils)] as [string, string],
+                    (c) =>
+                      [t("reports.plExpenseCategory", { name: c.name }), filsToAmount(c.totalFils)] as [
+                        string,
+                        string,
+                      ],
                   ),
-                  ["(+) إيرادات أخرى / Other income", filsToAmount(d.otherIncomeFils)],
-                  ["صافي الربح / Net profit", filsToAmount(d.netProfitFils)],
-                  ["المحصّل فعلياً / Actually collected", filsToAmount(d.collectedFils)],
-                  ["عدد الفواتير / Invoice count", d.invoiceCount],
+                  [t("reports.plOtherIncome"), filsToAmount(d.otherIncomeFils)],
+                  [t("reports.plNetProfit"), filsToAmount(d.netProfitFils)],
+                  [t("reports.plCollected"), filsToAmount(d.collectedFils)],
+                  [t("reports.plInvoiceCount"), d.invoiceCount],
                 ],
               );
             })}
@@ -1627,34 +1622,34 @@ export function ReportsPage() {
                   <table className="w-full min-w-[520px] text-sm">
                     <tbody>
                       <tr className="border-b border-border/50">
-                        <td className="px-3 py-2 font-medium">الإيرادات (شامل الضريبة) / Revenue (incl. VAT)</td>
+                        <td className="px-3 py-2 font-medium">{t("reports.plRevenueInclVat")}</td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">
                           {formatAED(profitLossQuery.data.revenueFils)}
                         </td>
                       </tr>
                       <tr className="border-b border-border/50 text-muted-foreground">
-                        <td className="px-3 py-2 ps-7 text-xs">منها ضريبة القيمة المضافة / of which VAT</td>
+                        <td className="px-3 py-2 ps-7 text-xs">{t("reports.plOfWhichVat")}</td>
                         <td className="px-3 py-2 text-end font-mono text-xs tabular-nums">
                           {formatAED(profitLossQuery.data.vatFils)}
                         </td>
                       </tr>
                       <tr className="border-b border-border/50 bg-muted/25 font-semibold">
-                        <td className="px-3 py-2">الإيرادات (صافي الضريبة) / Revenue (ex. VAT)</td>
+                        <td className="px-3 py-2">{t("reports.plRevenueExVat")}</td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">
                           {formatAED(profitLossQuery.data.revenueExVatFils)}
                         </td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="px-3 py-2">(−) المرتجعات / Returns</td>
+                        <td className="px-3 py-2">{t("reports.plReturns")}</td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">
                           {formatAED(profitLossQuery.data.returnsFils)}
                         </td>
                       </tr>
                       <tr className="border-b border-border/50">
                         <td className="px-3 py-2">
-                          (−) تكلفة القماش / Fabric cost
+                          {t("reports.plFabricCost")}
                           <span className="ms-2 text-xs text-muted-foreground">
-                            (منها هدر / of which waste: {formatAED(profitLossQuery.data.wasteCostFils)})
+                            ({t("reports.plOfWhichWaste")}: {formatAED(profitLossQuery.data.wasteCostFils)})
                           </span>
                         </td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">
@@ -1662,7 +1657,7 @@ export function ReportsPage() {
                         </td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="px-3 py-2">(−) أجور الورشة / Workshop wages</td>
+                        <td className="px-3 py-2">{t("reports.plWages")}</td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">
                           {formatAED(profitLossQuery.data.wagesFils)}
                         </td>
@@ -1675,7 +1670,7 @@ export function ReportsPage() {
                             onClick={() => setPlExpensesExpanded((v) => !v)}
                             aria-expanded={plExpensesExpanded}
                           >
-                            (−) المصروفات / Expenses
+                            {t("reports.plExpenses")}
                             {plExpensesExpanded ? (
                               <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                             ) : (
@@ -1705,7 +1700,7 @@ export function ReportsPage() {
                         </tr>
                       ) : null}
                       <tr className="border-b border-border/50">
-                        <td className="px-3 py-2">(+) إيرادات أخرى / Other income</td>
+                        <td className="px-3 py-2">{t("reports.plOtherIncome")}</td>
                         <td className="px-3 py-2 text-end font-mono tabular-nums">
                           {formatAED(profitLossQuery.data.otherIncomeFils)}
                         </td>
@@ -1718,7 +1713,7 @@ export function ReportsPage() {
                             : "bg-red-50/70 dark:bg-red-950/30",
                         )}
                       >
-                        <td className="px-3 py-3 text-base font-bold">صافي الربح / Net Profit</td>
+                        <td className="px-3 py-3 text-base font-bold">{t("reports.plNetProfit")}</td>
                         <td
                           className={cn(
                             "px-3 py-3 text-end font-mono text-base font-bold tabular-nums",
@@ -1736,7 +1731,7 @@ export function ReportsPage() {
                 <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 sm:grid-cols-2">
                   <p className="text-sm">
                     <span className="text-muted-foreground">
-                      المحصّل فعلياً (كاش/شبكة/تحويل) / Actually collected{" "}
+                      {t("reports.plCollectedDetail")}{" "}
                     </span>
                     <span className="font-semibold tabular-nums">
                       {formatAED(profitLossQuery.data.collectedFils)}
@@ -1758,13 +1753,10 @@ export function ReportsPage() {
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,1000px)] max-w-[1000px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1000px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
             <DialogTitle>
-              {t("reports.modelProfitDialogTitle", { defaultValue: "ربحية الموديلات / Model Profitability" })}
+              {t("reports.modelProfitDialogTitle")}
             </DialogTitle>
             <DialogDescription>
-              {t("reports.modelProfitDialogDesc", {
-                defaultValue:
-                  "الإيراد وتكلفة القماش والأجور وهامش الربح لكل موديل — الأفضل هامشاً أولاً / Revenue, fabric cost, wages, and margin per model — best margin first.",
-              })}
+              {t("reports.modelProfitDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -1784,14 +1776,14 @@ export function ReportsPage() {
               exportRowsAsCsv(
                 "model-profitability",
                 [
-                  "الكود / Code",
-                  "الموديل / Model",
-                  "عدد القطع / Jobs",
-                  "الإيراد / Revenue",
-                  "تكلفة القماش / Fabric cost",
-                  "الأجور / Wages",
-                  "هامش الربح / Margin",
-                  "الهامش % / Margin %",
+                  t("reports.colCode"),
+                  t("reports.colModel"),
+                  t("reports.colJobs"),
+                  t("reports.colRevenue"),
+                  t("reports.colFabricCost"),
+                  t("reports.colWages"),
+                  t("reports.colMargin"),
+                  t("reports.colMarginPct"),
                 ],
                 d.rows.map((r) => [
                   r.code,
@@ -1816,13 +1808,13 @@ export function ReportsPage() {
                 <table className="w-full min-w-[820px] text-sm">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="px-3 py-2 text-start">الموديل / Model</th>
-                      <th className="px-3 py-2 text-end">عدد القطع / Jobs</th>
-                      <th className="px-3 py-2 text-end">الإيراد / Revenue</th>
-                      <th className="px-3 py-2 text-end">تكلفة القماش / Fabric</th>
-                      <th className="px-3 py-2 text-end">الأجور / Wages</th>
-                      <th className="px-3 py-2 text-end">هامش الربح / Margin</th>
-                      <th className="px-3 py-2 text-end">الهامش % / Margin %</th>
+                      <th className="px-3 py-2 text-start">{t("reports.colModel")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colJobs")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colRevenue")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colFabricCost")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colWages")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colMargin")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colMarginPct")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1864,13 +1856,10 @@ export function ReportsPage() {
         <DialogContent className="flex max-h-[min(92vh,900px)] w-[min(96vw,960px)] max-w-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
           <DialogHeader className="shrink-0 border-b px-4 py-4 pr-14 text-start sm:px-6 sm:pr-16">
             <DialogTitle>
-              {t("reports.fabricWastageDialogTitle", { defaultValue: "هدر القماش / Fabric Wastage" })}
+              {t("reports.fabricWastageDialogTitle")}
             </DialogTitle>
             <DialogDescription>
-              {t("reports.fabricWastageDialogDesc", {
-                defaultValue:
-                  "الأمتار المستخدمة وأمتار الهدر وتكلفته ونسبته لكل موديل / Used meters, waste meters, cost, and percentage per model.",
-              })}
+              {t("reports.fabricWastageDialogDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
@@ -1890,13 +1879,13 @@ export function ReportsPage() {
               exportRowsAsCsv(
                 "fabric-wastage",
                 [
-                  "الكود / Code",
-                  "الموديل / Model",
-                  "عدد البنود / Lines",
-                  "الأمتار المستخدمة / Used m",
-                  "أمتار الهدر / Waste m",
-                  "تكلفة الهدر / Waste cost",
-                  "نسبة الهدر % / Waste %",
+                  t("reports.colCode"),
+                  t("reports.colModel"),
+                  t("reports.colLines"),
+                  t("reports.colUsedMeters"),
+                  t("reports.colWasteMeters"),
+                  t("reports.colWasteCost"),
+                  t("reports.colWastePct"),
                 ],
                 [
                   ...d.rows.map((r) => [
@@ -1910,7 +1899,7 @@ export function ReportsPage() {
                   ]),
                   [
                     "",
-                    "الإجمالي / Total",
+                    t("reports.colTotal"),
                     "",
                     d.totals.usedMeters.toFixed(2),
                     d.totals.wasteMeters.toFixed(2),
@@ -1931,12 +1920,12 @@ export function ReportsPage() {
                 <table className="w-full min-w-[760px] text-sm">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="px-3 py-2 text-start">الموديل / Model</th>
-                      <th className="px-3 py-2 text-end">عدد البنود / Lines</th>
-                      <th className="px-3 py-2 text-end">الأمتار المستخدمة / Used m</th>
-                      <th className="px-3 py-2 text-end">أمتار الهدر / Waste m</th>
-                      <th className="px-3 py-2 text-end">تكلفة الهدر / Waste cost</th>
-                      <th className="px-3 py-2 text-end">نسبة الهدر % / Waste %</th>
+                      <th className="px-3 py-2 text-start">{t("reports.colModel")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colLines")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colUsedMeters")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colWasteMeters")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colWasteCost")}</th>
+                      <th className="px-3 py-2 text-end">{t("reports.colWastePct")}</th>
                     </tr>
                   </thead>
                   <tbody>
