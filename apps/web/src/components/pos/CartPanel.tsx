@@ -372,12 +372,12 @@ export function CartPanel() {
               {totalDiscountFils > 0 ? (
                 <div className="flex items-center gap-2">
                   <Label htmlFor="pos-discount-reason" className="shrink-0 text-muted-foreground">
-                    سبب الخصم <span className="text-red-500">*</span>
+                    {t("pos.discountReasonLabel")} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="pos-discount-reason"
                     className="h-8 flex-1"
-                    placeholder="مطلوب عند وجود خصم"
+                    placeholder={t("pos.discountReasonPlaceholder")}
                     value={discountReason}
                     onChange={(e) => setDiscountReason(e.target.value)}
                   />

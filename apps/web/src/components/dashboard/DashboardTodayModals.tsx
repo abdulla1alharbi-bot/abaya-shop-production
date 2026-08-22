@@ -203,7 +203,7 @@ export function DashboardTodayModals({
                     {inv.pieces.length > 0 ? (
                       <span>
                         {" · "}
-                        {inv.pieces.map((p) => `${p.label}${p.qty > 1 ? ` ×${p.qty}` : ""}`).join("، ")}
+                        {inv.pieces.map((p) => `${p.label}${p.qty > 1 ? ` ×${p.qty}` : ""}`).join(t("common.listSeparator"))}
                       </span>
                     ) : null}
                   </>
