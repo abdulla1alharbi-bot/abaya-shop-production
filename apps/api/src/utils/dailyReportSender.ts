@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { type DailyReport, buildDailyReport } from "./dailyReport.js";
 import { dailyReportSubject, renderDailyReportHtml, renderDailyReportText } from "./dailyReportEmail.js";
-import { isMailConfigured, sendMail } from "./mailer.js";
+import { sendMail } from "./mailer.js";
 
 export type SendDailyReportResult = {
   dateKey: string;
@@ -19,11 +19,10 @@ export async function sendDailyReport(
   dateKey: string,
   recipients: string[],
 ): Promise<SendDailyReportResult> {
-  if (!isMailConfigured()) throw new Error("SMTP is not configured (set SMTP_HOST and SMTP_FROM)");
   if (recipients.length === 0) throw new Error("No recipients configured");
 
   const report = await buildDailyReport(db, dateKey);
-  await sendMail({
+  await sendMail(db, {
     to: recipients,
     subject: dailyReportSubject(report),
     html: renderDailyReportHtml(report),

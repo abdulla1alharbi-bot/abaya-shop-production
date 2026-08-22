@@ -5,17 +5,34 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { SMTP_KEYS } from "../../utils/mailer.js";
 
 export const settingsRouter = Router();
 settingsRouter.use(authMiddleware);
+
+/**
+ * Settings whose value must never leave the server. This endpoint hands back the
+ * whole table, so anything secret has to be filtered HERE — adding a write-only
+ * setting elsewhere without listing it here silently publishes it to every user
+ * holding `settings.view`, which is most of the staff.
+ */
+const WRITE_ONLY_KEYS = new Set<string>([SMTP_KEYS.pass]);
+
+/** Replaced by a boolean-ish marker so the UI can still show "saved" vs "empty". */
+const REDACTED = "__SET__";
+
+function redact(rows: Array<{ key: string; value: string }>): Record<string, string> {
+  return Object.fromEntries(
+    rows.map((r) => [r.key, WRITE_ONLY_KEYS.has(r.key) ? (r.value ? REDACTED : "") : r.value]),
+  );
+}
 
 settingsRouter.get(
   "/",
   requirePermission("settings.view"),
   asyncHandler(async (_req, res) => {
     const rows = await prisma.setting.findMany({ orderBy: { key: "asc" } });
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    res.status(200).json({ success: true, data: map });
+    res.status(200).json({ success: true, data: redact(rows) });
   }),
 );
 
@@ -37,7 +54,6 @@ settingsRouter.patch(
       ),
     );
     const rows = await prisma.setting.findMany();
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    res.status(200).json({ success: true, data: map });
+    res.status(200).json({ success: true, data: redact(rows) });
   }),
 );

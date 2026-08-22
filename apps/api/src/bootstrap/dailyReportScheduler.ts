@@ -48,7 +48,7 @@ async function tick(): Promise<void> {
     if (config.lastSentDateKey === now.dateKey) return;
     if (now.minutesSinceMidnight < config.minutesSinceMidnight) return;
 
-    const blocker = !isMailConfigured()
+    const blocker = !(await isMailConfigured(prisma))
       ? "SMTP is not configured"
       : config.recipients.length === 0
         ? "no recipients are set"
