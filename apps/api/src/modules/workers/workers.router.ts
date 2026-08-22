@@ -5,6 +5,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parseDateRangeOrDefault, parsePageLimit, parseOptionalDate, queryParamString } from "../../utils/queryParams.js";
@@ -222,7 +223,7 @@ workersRouter.get(
     const where = {
       ...(search
         ? {
-            OR: [{ name: { contains: search } }, { phone: { contains: search } }],
+            OR: [{ name: icontains(search) }, { phone: icontains(search) }],
           }
         : {}),
       ...(activeOnly ? { isActive: true } : {}),

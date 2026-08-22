@@ -6,6 +6,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parseActiveOnlyTrue, parseLowOnlyTrue, parsePageLimit, queryParamString } from "../../utils/queryParams.js";
@@ -30,10 +31,10 @@ fabricRollsRouter.get(
     const searchWhere: Record<string, unknown> = search
       ? {
           OR: [
-            { name: { contains: search } },
-            { rollCode: { contains: search } },
-            { color: { contains: search } },
-            { type: { contains: search } },
+            { name: icontains(search) },
+            { rollCode: icontains(search) },
+            { color: icontains(search) },
+            { type: icontains(search) },
           ],
         }
       : {};

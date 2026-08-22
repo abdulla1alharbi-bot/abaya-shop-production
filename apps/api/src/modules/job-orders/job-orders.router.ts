@@ -6,6 +6,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireAllPermissions, requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parsePageLimit, parseOptionalDate, queryParamString } from "../../utils/queryParams.js";
@@ -97,9 +98,9 @@ jobOrdersRouter.get(
     if (search) {
       and.push({
         OR: [
-          { productStyle: { contains: search } },
-          { customer: { name: { contains: search } } },
-          { customer: { mobile: { contains: search } } },
+          { productStyle: icontains(search) },
+          { customer: { name: icontains(search) } },
+          { customer: { mobile: icontains(search) } },
         ],
       });
     }
@@ -182,8 +183,8 @@ jobOrdersRouter.get(
 
     const where: Prisma.ConversionLogWhereInput = {
       ...(from || to ? { convertedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
-      ...(model ? { model: { contains: model } } : {}),
-      ...(customer ? { customerName: { contains: customer } } : {}),
+      ...(model ? { model: icontains(model) } : {}),
+      ...(customer ? { customerName: icontains(customer) } : {}),
       ...(saleStatus === "sold"
         ? { readyProduct: { invoiceItems: { some: { invoice: { isVoid: false } } } } }
         : saleStatus === "available"

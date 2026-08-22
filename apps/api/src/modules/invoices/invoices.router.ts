@@ -7,6 +7,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireAllPermissions, requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parsePageLimit, queryParamString } from "../../utils/queryParams.js";
@@ -155,7 +156,7 @@ invoicesRouter.get(
     const pagination = { page, limit };
     const { skip, take } = prismaSkipTake(pagination);
 
-    /** Partial invoice number: SQLite CAST(invoiceNo AS TEXT) LIKE '%digits%' */
+    /** Partial invoice number: CAST("invoiceNo" AS VARCHAR) LIKE '%digits%' */
     let invoiceIdsByPartialNo: string[] = [];
     if (search) {
       const digits = search.replace(/\D/g, "");
@@ -171,9 +172,9 @@ invoicesRouter.get(
     const searchWhere: Prisma.InvoiceWhereInput | undefined = search
       ? {
           OR: [
-            { notes: { contains: search } },
-            { customer: { name: { contains: search } } },
-            { customer: { mobile: { contains: search } } },
+            { notes: icontains(search) },
+            { customer: { name: icontains(search) } },
+            { customer: { mobile: icontains(search) } },
             ...(invoiceIdsByPartialNo.length > 0 ? [{ id: { in: invoiceIdsByPartialNo } }] : []),
           ],
         }
@@ -366,9 +367,9 @@ invoicesRouter.get(
 
     const searchWhere: Prisma.InvoiceWhereInput = {
       OR: [
-        { notes: { contains: search } },
-        { customer: { name: { contains: search } } },
-        { customer: { mobile: { contains: search } } },
+        { notes: icontains(search) },
+        { customer: { name: icontains(search) } },
+        { customer: { mobile: icontains(search) } },
         ...(invoiceIdsByPartialNo.length > 0 ? [{ id: { in: invoiceIdsByPartialNo } }] : []),
       ],
     };
@@ -428,7 +429,7 @@ invoicesRouter.get(
       (await prisma.customer.findUnique({ where: { mobile: raw } })) ??
       (digits.length >= 7
         ? await prisma.customer.findFirst({
-            where: { mobile: { contains: digits } },
+            where: { mobile: icontains(digits) },
           })
         : null);
 

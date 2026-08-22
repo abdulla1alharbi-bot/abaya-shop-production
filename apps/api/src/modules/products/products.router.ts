@@ -5,6 +5,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parseActiveOnlyTrue, parsePageLimit, parseRetailOnlyTrue, queryParamString } from "../../utils/queryParams.js";
@@ -40,9 +41,9 @@ productsRouter.get(
     if (categoryId) where.categoryId = categoryId;
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { sku: { contains: search } },
-        { barcode: { contains: search } },
+        { name: icontains(search) },
+        { sku: icontains(search) },
+        { barcode: icontains(search) },
       ];
     }
 
