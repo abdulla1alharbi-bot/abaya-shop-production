@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient, Product } from "@prisma/client";
+import { AppError } from "../../middleware/error.middleware.js";
 
 /** Must match `PIPELINE_STAGE_KEYS` in `@abaya-shop/shared` / tailoring UI */
 export const PIPELINE_STAGE_KEYS = ["CUTTING", "SEWING", "EMBROIDERY", "FINISHING"] as const;
@@ -49,6 +50,37 @@ type Db = PrismaClient | Prisma.TransactionClient;
 export async function loadWageDefaults(db: Db): Promise<StageDefaults> {
   const rows = await db.setting.findMany({ where: { key: { in: [...WAGE_DEFAULT_KEYS] } } });
   return parseWageDefaults(Object.fromEntries(rows.map((s) => [s.key, s.value])));
+}
+
+/** Tolerance for a client clock running slightly ahead of the server. */
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+/**
+ * Resolve the completion time for a work stage, rejecting values that would
+ * misfile a wage.
+ *
+ * The completion time is what decides which payroll month a stage's wage lands
+ * in, and three endpoints accept it from the client. Unbounded, a correction
+ * could push a wage into a month that has already been paid out, or into a
+ * future one where nobody would think to look for it.
+ */
+export function resolveStageCompletedAt(
+  raw: string | undefined,
+  jobCreatedAt: Date,
+  fallback: Date,
+): Date {
+  if (raw === undefined) return fallback;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new AppError(400, "Invalid completedAt", "VALIDATION_ERROR");
+  }
+  if (parsed.getTime() > Date.now() + MAX_CLOCK_SKEW_MS) {
+    throw new AppError(400, "وقت الإنجاز في المستقبل", "COMPLETED_AT_FUTURE");
+  }
+  if (parsed.getTime() < jobCreatedAt.getTime()) {
+    throw new AppError(400, "وقت الإنجاز قبل تاريخ إنشاء الطلب", "COMPLETED_AT_BEFORE_JOB");
+  }
+  return parsed;
 }
 
 export function parseWageDefaults(settings: Record<string, string>): StageDefaults {

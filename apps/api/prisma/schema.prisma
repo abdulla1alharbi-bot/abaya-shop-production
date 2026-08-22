@@ -277,6 +277,9 @@ model Product {
   createdAt    DateTime        @default(now())
 }
 
+/// UNUSED — product images are stored as `Product.catalogImageUrl`. Kept for
+/// the same reason as FabricRecipe above: dropping a table blocks the boot-time
+/// `db push`.
 model ProductImage {
   id         String  @id @default(cuid())
   productId  String
@@ -321,6 +324,10 @@ model FabricRoll {
   productionBatches ProductionBatch[]
 }
 
+/// UNUSED — no code reads or writes this model. Kept rather than dropped
+/// because the deploy runs `prisma db push` without --accept-data-loss, so
+/// removing a table would stop the container from booting. Drop it deliberately,
+/// after a backup, if it is confirmed dead in production too.
 model FabricRecipe {
   id          String     @id @default(cuid())
   productId   String
@@ -477,6 +484,9 @@ model Payment {
   createdAt  DateTime @default(now())
 
   @@index([invoiceId])
+  /// Every collections figure — shift reconciliation, the daily report, the
+  /// financial-activity report — filters payments by date.
+  @@index([createdAt])
 }
 
 // ─── JOB ORDERS (TAILORING) ──────────────────────────────────
@@ -756,6 +766,9 @@ model ProductionEntry {
   rateFils    Int
   totalFils   Int
   date        DateTime @default(now())
+  /// UNUSED. Nothing writes either of these and no query filters on them, so
+  /// every production line counts toward payroll the moment a stage is completed
+  /// — there is no approval step, despite what these columns imply.
   isApproved  Boolean  @default(false)
   approvedBy  String?
   notes       String?
@@ -763,6 +776,8 @@ model ProductionEntry {
 
   @@index([workerId])
   @@index([jobOrderId])
+  /// Payroll and the wages report both slice production by date.
+  @@index([date])
 }
 
 model Payroll {
@@ -806,6 +821,9 @@ model Expense {
   paidBy      String?
   date        DateTime        @default(now())
   createdAt   DateTime        @default(now())
+
+  /// Expenses are always read as "what was spent between these two dates".
+  @@index([date])
 }
 
 model Income {

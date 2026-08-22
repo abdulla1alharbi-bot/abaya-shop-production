@@ -3,7 +3,12 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../middleware/error.middleware.js";
-import { PIPELINE_STAGE_KEYS, loadWageDefaults, wageForPipelineStage } from "./jobStageHelpers.js";
+import {
+  PIPELINE_STAGE_KEYS,
+  loadWageDefaults,
+  resolveStageCompletedAt,
+  wageForPipelineStage,
+} from "./jobStageHelpers.js";
 import { notify } from "../../utils/notify.js";
 
 export const patchWorkStageBody = z.object({
@@ -86,14 +91,11 @@ export async function patchWorkStageHandler(req: Request, res: Response): Promis
     const nextWageFils = body.wageFils !== undefined ? body.wageFils : row.wageFils;
     const mergedNotes = body.notes === undefined ? row.notes : body.notes;
 
-    let nextCompletedAt: Date = row.completedAt ?? new Date();
-    if (body.completedAt !== undefined) {
-      const parsed = new Date(body.completedAt);
-      if (Number.isNaN(parsed.getTime())) {
-        throw new AppError(400, "Invalid completedAt", "VALIDATION_ERROR");
-      }
-      nextCompletedAt = parsed;
-    }
+    const nextCompletedAt = resolveStageCompletedAt(
+      body.completedAt,
+      job.createdAt,
+      row.completedAt ?? new Date(),
+    );
 
     const auditBits: string[] = [];
     if (body.workerId !== undefined && nextWorkerId !== row.workerId) {

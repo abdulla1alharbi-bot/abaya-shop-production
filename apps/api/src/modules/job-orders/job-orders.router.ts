@@ -19,6 +19,7 @@ import {
   nextStageAfterComplete,
   orderedPipelineKeys,
   loadWageDefaults,
+  resolveStageCompletedAt,
   resolvePipelineStageKeysFromModelJson,
   wageForPipelineStage,
 } from "./jobStageHelpers.js";
@@ -621,7 +622,7 @@ jobOrdersRouter.post(
 
     const orderedKeys = orderedPipelineKeys(existing.workStages);
     const nextStage = nextStageAfterComplete(stageKey, orderedKeys);
-    const completedAt = body.completedAt ? new Date(body.completedAt) : new Date();
+    const completedAt = resolveStageCompletedAt(body.completedAt, existing.createdAt, new Date());
     const mergedNotes =
       body.notes !== undefined ? (body.notes.trim() ? body.notes.trim() : null) : row.notes;
 
@@ -796,14 +797,7 @@ jobOrdersRouter.post(
     const orderedKeys = orderedPipelineKeys(existing.workStages);
     const nextStage = nextStageAfterComplete(stageKey, orderedKeys);
 
-    let completedAt = new Date();
-    if (body.completedAt) {
-      const parsed = new Date(body.completedAt);
-      if (Number.isNaN(parsed.getTime())) {
-        throw new AppError(400, "Invalid completedAt", "VALIDATION_ERROR");
-      }
-      completedAt = parsed;
-    }
+    const completedAt = resolveStageCompletedAt(body.completedAt, existing.createdAt, new Date());
 
     const resolvedWorkerId = (body.workerId?.trim() || row.workerId?.trim() || "").trim();
     if (row.status === "PENDING" && !resolvedWorkerId) {
