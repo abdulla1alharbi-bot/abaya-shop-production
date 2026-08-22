@@ -37,7 +37,10 @@ function useTierBadge() {
 }
 
 export function CustomerDetail() {
+  // Every hook must run before the `if (!id) return null` guard below —
+  // a hook after a conditional return changes the hook count between renders.
   const { id } = useParams<{ id: string }>();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const tierBadge = useTierBadge();
   const [newNote, setNewNote] = useState("");
@@ -96,8 +99,6 @@ export function CustomerDetail() {
   }
 
   if (!id) return null;
-
-  const { t } = useTranslation();
 
   if (isLoading || !data) {
     return (
