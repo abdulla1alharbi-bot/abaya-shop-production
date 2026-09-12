@@ -3,7 +3,7 @@ import { useWhenChanged } from "@/hooks/useWhenChanged";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Minus, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, Printer, Receipt, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { printInvoice } from "@/lib/printInvoice";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   tailoringLineToCheckoutItem,
@@ -51,6 +52,9 @@ export function CartPanel() {
   const posCustomerLabel = useCartStore((s) => s.posCustomerLabel);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [deliveryLocal, setDeliveryLocal] = useState("");
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState(false);
   const [paymentRows, setPaymentRows] = useState<PayRow[]>([{ method: "CASH", amountAed: "" }]);
   const [notes, setNotes] = useState("");
   const [discountReason, setDiscountReason] = useState("");
@@ -125,6 +129,24 @@ export function CartPanel() {
 
   const hasTailoring = useMemo(() => lines.some((l) => l.kind === "tailoring"), [lines]);
 
+  // The order-level delivery date offered at checkout defaults to the latest
+  // piece due date entered during intake. These are `datetime-local` strings
+  // (YYYY-MM-DDTHH:mm), so a plain sort puts the latest one last.
+  const latestLineDue = useMemo(() => {
+    const dues = lines
+      .filter((l): l is TailoringCartLine => l.kind === "tailoring")
+      .map((l) => l.dueDate)
+      .filter((d): d is string => Boolean(d))
+      .sort();
+    return dues.length > 0 ? dues[dues.length - 1]! : "";
+  }, [lines]);
+
+  const openCheckout = () => {
+    setDeliveryLocal(latestLineDue);
+    setPrintError(false);
+    setCheckoutOpen(true);
+  };
+
   const paidFils = useMemo(
     () =>
       paymentRows.reduce((a, r) => a + Math.round((parseFloat(r.amountAed) || 0) * 100), 0),
@@ -153,6 +175,12 @@ export function CartPanel() {
       if (!posCustomerId) throw new Error("\u0627\u062e\u062a\u0631 \u0627\u0644\u0639\u0645\u064a\u0644 \u0623\u0648\u0644\u0627\u064b.");
       if (totalDiscountFils > 0 && !discountReason.trim())
         throw new Error("\u0633\u0628\u0628 \u0627\u0644\u062e\u0635\u0645 \u0645\u0637\u0644\u0648\u0628 \u0639\u0646\u062f \u0648\u062c\u0648\u062f \u062e\u0635\u0645 / Discount reason is required");
+
+      const deliveryIso = (() => {
+        if (!deliveryLocal.trim()) return null;
+        const d = new Date(deliveryLocal);
+        return Number.isNaN(d.getTime()) ? null : d.toISOString();
+      })();
 
       const payments = paymentRows
         .map((r) => ({
@@ -185,6 +213,7 @@ export function CartPanel() {
         invoiceDiscountFils,
         discountReason: totalDiscountFils > 0 ? discountReason.trim() : undefined,
         notes: notes.trim() || undefined,
+        deliveryDate: deliveryIso ?? undefined,
         creditOverride: creditOverride || undefined,
       });
 
@@ -228,16 +257,37 @@ export function CartPanel() {
       void queryClient.invalidateQueries({ queryKey: ["customers"] });
       void queryClient.invalidateQueries({ queryKey: ["job-orders"] });
       void queryClient.invalidateQueries({ queryKey: ["fabric-rolls"] });
+      // No auto-redirect: the seller prints the invoice for the customer from
+      // this screen before the workshop starts, and a timer would close it
+      // while the print dialog is still open.
       setSuccessData(data.invoice);
-      setTimeout(() => {
-        setCheckoutOpen(false);
-        setSuccessData(null);
-        navigate(`/invoices/${data.invoice.id}`);
-      }, 2000);
     },
   });
 
   const cartEmpty = lines.length === 0;
+
+  const printCreatedInvoice = async () => {
+    if (!successData) return;
+    setPrinting(true);
+    setPrintError(false);
+    try {
+      const res = await api.get<{ success: boolean; data: Record<string, unknown> }>(
+        `/invoices/${successData.id}`,
+      );
+      await printInvoice(res.data.data, settings);
+    } catch {
+      setPrintError(true);
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const closeSuccess = (openInvoice: boolean) => {
+    const invoiceId = successData?.id;
+    setCheckoutOpen(false);
+    setSuccessData(null);
+    if (openInvoice && invoiceId) navigate(`/invoices/${invoiceId}`);
+  };
 
   return (
     <>
@@ -399,7 +449,7 @@ export function CartPanel() {
             size="lg"
             className="h-11 w-full font-semibold"
             disabled={cartEmpty || !posCustomerId || !can("pos.checkout")}
-            onClick={() => setCheckoutOpen(true)}
+            onClick={openCheckout}
             title={!can("pos.checkout") ? t("pos.cart.noCheckoutPerm") : undefined}
           >
             {t("pos.cart.checkout")}
@@ -407,7 +457,15 @@ export function CartPanel() {
         </CardContent>
       </Card>
 
-      <Dialog open={checkoutOpen} onOpenChange={(open) => { if (!successData) setCheckoutOpen(open); }}>
+      <Dialog
+        open={checkoutOpen}
+        onOpenChange={(open) => {
+          // Dismissing the success screen ends the sale the same way the
+          // "new sale" button does — the invoice is already saved.
+          if (!open && successData) closeSuccess(false);
+          else setCheckoutOpen(open);
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           {successData ? (
             <div className="flex flex-col items-center gap-4 py-8 text-center">
@@ -419,7 +477,42 @@ export function CartPanel() {
               <div>
                 <p className="text-lg font-semibold text-green-700 dark:text-green-400">{t("pos.pay.successTitle")}</p>
                 <p className="mt-1 text-2xl font-bold">#{successData.invoiceNo}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{t("pos.pay.redirecting")}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{t("pos.pay.printHint")}</p>
+              </div>
+              <div className="flex w-full flex-col gap-2">
+                {can("invoices.print") ? (
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="h-12 w-full font-semibold"
+                    disabled={printing}
+                    onClick={() => void printCreatedInvoice()}
+                  >
+                    <Printer className="me-2 h-5 w-5" />
+                    {printing ? t("pos.pay.printing") : t("pos.pay.printInvoice")}
+                  </Button>
+                ) : null}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 flex-1"
+                    onClick={() => closeSuccess(true)}
+                  >
+                    {t("pos.pay.openInvoice")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-11 flex-1"
+                    onClick={() => closeSuccess(false)}
+                  >
+                    {t("pos.pay.newSale")}
+                  </Button>
+                </div>
+                {printError ? (
+                  <p className="text-sm text-destructive">{t("pos.pay.printFailed")}</p>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -462,6 +555,22 @@ export function CartPanel() {
                     )}
                   </div>
                 ) : null}
+
+                <div className="space-y-1.5 rounded-md border border-brand-300 bg-brand-50 p-3 dark:border-brand-800 dark:bg-brand-900/20">
+                  <Label htmlFor="pos-delivery-date" className="text-sm font-semibold">
+                    {t("pos.pay.deliveryDate")}
+                  </Label>
+                  <Input
+                    id="pos-delivery-date"
+                    className="h-10"
+                    type="datetime-local"
+                    value={deliveryLocal}
+                    onChange={(e) => setDeliveryLocal(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {hasTailoring ? t("pos.pay.deliveryDateHintTailoring") : t("pos.pay.deliveryDateHint")}
+                  </p>
+                </div>
 
                 <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
                   <div className="flex justify-between">

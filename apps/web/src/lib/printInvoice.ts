@@ -67,6 +67,16 @@ function formatDate(d: string): string {
   }
 }
 
+/** Delivery is an appointment, so the customer copy carries the hour too. */
+function formatDateTime(d: string): string {
+  try {
+    const dt = new Date(d);
+    return `${dt.toLocaleDateString("en-GB")} ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  } catch {
+    return d;
+  }
+}
+
 export async function printInvoice(data: Record<string, unknown>, shopSettings?: Record<string, string>): Promise<void> {
   const inv = data as unknown as InvoiceData;
   const shopName = shopSettings?.shop_name || "Abaya Shop";
@@ -180,7 +190,7 @@ export async function printInvoice(data: Record<string, unknown>, shopSettings?:
       <div class="inv-no">#${inv.invoiceNo}</div>
       <div class="meta">
         التاريخ: ${formatDate(inv.createdAt)}<br/>
-        ${inv.deliveryDate ? `موعد التسليم: ${formatDate(inv.deliveryDate)}` : ""}
+        ${inv.deliveryDate ? `موعد التسليم: ${formatDateTime(inv.deliveryDate)}` : ""}
       </div>
     </div>
   </div>

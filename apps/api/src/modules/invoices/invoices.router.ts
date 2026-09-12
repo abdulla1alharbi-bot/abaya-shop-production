@@ -733,6 +733,8 @@ const posCheckoutBody = z
     invoiceDiscountFils: z.number().int().min(0).optional().default(0),
     discountReason: z.string().optional(),
     notes: z.string().optional(),
+    /** Agreed delivery date for the whole order, chosen by the seller at checkout. */
+    deliveryDate: z.string().datetime().optional().nullable(),
     creditOverride: z.boolean().optional().default(false),
   })
   .superRefine((data, ctx) => {
@@ -1174,6 +1176,7 @@ invoicesRouter.post(
           branchId,
           salesPersonId,
           orderType,
+          ...(body.deliveryDate ? { deliveryDate: new Date(body.deliveryDate) } : {}),
           subtotalFils,
           discountFils,
           vatFils,
@@ -1281,7 +1284,10 @@ invoicesRouter.post(
               productStyle: it.productStyle.trim(),
               stage: "NEW",
               priority: "NORMAL",
-              dueDate: new Date(it.dueDate),
+              // The date agreed with the customer at checkout governs the whole
+              // order, so every piece is due then; the per-line date is the
+              // intake default that stands when the seller set nothing.
+              dueDate: body.deliveryDate ? new Date(body.deliveryDate) : new Date(it.dueDate),
               fabricSource: "STOCK",
               measurements: it.measurements,
               notes: it.notes?.trim(),
