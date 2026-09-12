@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Printer, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,9 @@ import { api } from "@/lib/api";
 import { getApiErrorMessage, isServerError } from "@/lib/apiErrors";
 import { formatAED } from "@/lib/money";
 import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
+import { printInvoiceById } from "@/lib/printInvoiceById";
 import { useIsWorker } from "@/hooks/useIsWorker";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 
 type InvoiceListItem = {
@@ -86,6 +88,8 @@ function setListMode(
 
 export function InvoicesPage() {
   const isWorker = useIsWorker();
+  const { can } = usePermissions();
+  const canPrint = can("invoices.print");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const balanceDueMode = searchParams.get("balanceDue") === "true";
@@ -96,6 +100,17 @@ export function InvoicesPage() {
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  /** Id of the row whose printable copy is being fetched, so only that button waits. */
+  const [printingId, setPrintingId] = useState<string | null>(null);
+
+  const printRow = async (invoiceId: string) => {
+    setPrintingId(invoiceId);
+    try {
+      await printInvoiceById(invoiceId);
+    } finally {
+      setPrintingId(null);
+    }
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQ(searchInput.trim()), 350);
@@ -393,13 +408,31 @@ export function InvoicesPage() {
                     </td>
                   ) : null}
                   <td className="px-3 py-3 text-center">
-                    <Link
-                      className="font-semibold text-brand-700 underline"
-                      to={`/invoices/${inv.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {t("pages.invoices.viewLink")}
-                    </Link>
+                    <div className="flex items-center justify-center gap-3">
+                      <Link
+                        className="font-semibold text-brand-700 underline"
+                        to={`/invoices/${inv.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t("pages.invoices.viewLink")}
+                      </Link>
+                      {canPrint ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1 px-2"
+                          disabled={printingId === inv.id}
+                          title={t("pos.pay.printInvoice")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void printRow(inv.id);
+                          }}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-3 py-3 text-center">
                     <Link

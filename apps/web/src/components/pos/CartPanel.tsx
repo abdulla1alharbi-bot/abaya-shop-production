@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
-import { printInvoice } from "@/lib/printInvoice";
+import { printInvoiceById } from "@/lib/printInvoiceById";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   tailoringLineToCheckoutItem,
@@ -271,10 +271,7 @@ export function CartPanel() {
     setPrinting(true);
     setPrintError(false);
     try {
-      const res = await api.get<{ success: boolean; data: Record<string, unknown> }>(
-        `/invoices/${successData.id}`,
-      );
-      await printInvoice(res.data.data, settings);
+      await printInvoiceById(successData.id);
     } catch {
       setPrintError(true);
     } finally {

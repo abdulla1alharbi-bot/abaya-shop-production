@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Search } from "lucide-react";
+import { ChevronDown, Loader2, Printer, Search } from "lucide-react";
 import { InvoiceQuickSettle } from "@/components/invoices/InvoiceQuickSettle";
 import { InvoiceSellerPanel } from "@/components/invoices/InvoiceSellerPanel";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { api } from "@/lib/api";
 import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { formatAED } from "@/lib/money";
+import { printInvoiceById } from "@/lib/printInvoiceById";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { useWhenChanged } from "@/hooks/useWhenChanged";
@@ -89,9 +90,25 @@ function GlobalInvoiceQuickViewModal({
 }) {
   const isWorker = useIsWorker();
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
   const [sellerOpen, setSellerOpen] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState(false);
   const { t } = useTranslation();
   const paymentStatus = usePaymentStatus();
+
+  const print = async () => {
+    if (!invoiceId) return;
+    setPrinting(true);
+    setPrintError(false);
+    try {
+      await printInvoiceById(invoiceId);
+    } catch {
+      setPrintError(true);
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["invoice", invoiceId],
@@ -249,7 +266,20 @@ function GlobalInvoiceQuickViewModal({
               ) : null}
 
               <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap">
-                <Button variant="default" size="sm" className="gap-2" onClick={() => onOpenChange(false)}>
+                {can("invoices.print") ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="gap-2"
+                    disabled={printing}
+                    onClick={() => void print()}
+                  >
+                    <Printer className="h-4 w-4" />
+                    {printing ? t("pos.pay.printing") : t("pos.pay.printInvoice")}
+                  </Button>
+                ) : null}
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => onOpenChange(false)}>
                   {t("common.view")}
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -261,6 +291,9 @@ function GlobalInvoiceQuickViewModal({
                   </Button>
                 ) : null}
               </div>
+              {printError ? (
+                <p className="text-sm text-destructive">{t("pos.pay.printFailed")}</p>
+              ) : null}
             </div>
           )}
         </DialogContent>
