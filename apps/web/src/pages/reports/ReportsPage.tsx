@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import {
@@ -46,6 +47,26 @@ import { useTranslation } from "react-i18next";
 
 function rangeKey(r: ReportDateRange): string {
   return `${r.from.getTime()}-${r.to.getTime()}`;
+}
+
+type ReceivablesSort = "oldest" | "newest" | "balanceDesc" | "balanceAsc";
+
+/** Remaining-amount filter for the receivables report, as typed (AED strings). */
+type AmountFilter = { min: string; max: string; exclude: string };
+const EMPTY_AMOUNT_FILTER: AmountFilter = { min: "", max: "", exclude: "" };
+
+/** One typed amount in AED to fils; blank, zero and junk all mean "no filter". */
+function amountToFils(value: string): number | undefined {
+  const n = parseFloat(value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : undefined;
+}
+
+/** A list of amounts to exclude — separated by commas (Arabic or Latin) or spaces. */
+function amountListToFils(value: string): number[] {
+  return value
+    .split(/[,، ]+/)
+    .map(amountToFils)
+    .filter((n): n is number => n !== undefined);
 }
 
 function useCashFlowTypeLabel() {
@@ -116,6 +137,9 @@ export function ReportsPage() {
   const [invApplied, setInvApplied] = useState(defaults);
   const [balDraft, setBalDraft] = useState(defaults);
   const [balApplied, setBalApplied] = useState(defaults);
+  const [balAmountDraft, setBalAmountDraft] = useState(EMPTY_AMOUNT_FILTER);
+  const [balAmountApplied, setBalAmountApplied] = useState(EMPTY_AMOUNT_FILTER);
+  const [balSort, setBalSort] = useState<ReceivablesSort>("oldest");
   const [tailDraft, setTailDraft] = useState(defaults);
   const [tailApplied, setTailApplied] = useState(defaults);
   const [mostDraft, setMostDraft] = useState(defaults);
@@ -156,7 +180,10 @@ export function ReportsPage() {
     if (open) setInvDraft(invApplied);
   });
   useWhenChanged(balancesOpen, (open) => {
-    if (open) setBalDraft(balApplied);
+    if (open) {
+      setBalDraft(balApplied);
+      setBalAmountDraft(balAmountApplied);
+    }
   });
   useWhenChanged(tailoringOpen, (open) => {
     if (open) setTailDraft(tailApplied);
@@ -273,8 +300,24 @@ export function ReportsPage() {
 
   const balParams = reportRangeToApiParams(balApplied.from, balApplied.to);
   type AgingBucket = "current" | "31to60" | "61to90" | "over90";
+
+  // Amount filters travel to the API rather than being applied to the rows here:
+  // the endpoint caps its row list, and the period total has to cover every
+  // matching invoice, not just the ones that fit on screen.
+  const balFilterParams = useMemo(() => {
+    const min = amountToFils(balAmountApplied.min);
+    const max = amountToFils(balAmountApplied.max);
+    const excluded = amountListToFils(balAmountApplied.exclude);
+    return {
+      ...(min !== undefined ? { minBalanceFils: String(min) } : {}),
+      ...(max !== undefined ? { maxBalanceFils: String(max) } : {}),
+      ...(excluded.length > 0 ? { excludeBalancesFils: excluded.join(",") } : {}),
+      sort: balSort,
+    };
+  }, [balAmountApplied, balSort]);
+
   const receivablesQuery = useQuery({
-    queryKey: ["reports", "receivables", rangeKey(balApplied)],
+    queryKey: ["reports", "receivables", rangeKey(balApplied), balFilterParams],
     queryFn: async () => {
       const res = await api.get<{
         success: boolean;
@@ -296,13 +339,29 @@ export function ReportsPage() {
             mobile: string;
             balanceFils: number;
           }>;
-          agingTotals: Record<AgingBucket, number>;
+          summary: {
+            invoiceCount: number;
+            totalBalanceFils: number;
+            totalInvoicedFils: number;
+            totalPaidFils: number;
+          };
+          truncated: boolean;
         };
-      }>("/reports/receivables", { params: balParams });
+      }>("/reports/receivables", { params: { ...balParams, ...balFilterParams } });
       return res.data.data;
     },
     enabled: balancesOpen,
   });
+
+  const applyBalances = () => {
+    setBalApplied(normalizeReportRange(balDraft.from, balDraft.to));
+    setBalAmountApplied(balAmountDraft);
+  };
+
+  const balAmountFilterActive =
+    balAmountApplied.min.trim() !== "" ||
+    balAmountApplied.max.trim() !== "" ||
+    balAmountApplied.exclude.trim() !== "";
 
   const tailoringQuery = useQuery({
     queryKey: ["reports", "tailoring-orders", rangeKey(tailApplied)],
@@ -934,15 +993,112 @@ export function ReportsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
-            <div className="flex-1">
+            <div className="w-full space-y-2">
               <ReportDateRangeBar
                 from={balDraft.from}
                 to={balDraft.to}
                 onFromChange={(v) => setBalDraft((d) => ({ ...d, from: v }))}
                 onToChange={(v) => setBalDraft((d) => ({ ...d, to: v }))}
-                onApply={() => setBalApplied(normalizeReportRange(balDraft.from, balDraft.to))}
+                onApply={applyBalances}
                 isFetching={receivablesQuery.isFetching}
               />
+              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="bal-min" className="text-xs font-medium">
+                    {t("reports.minBalanceLabel")}
+                  </Label>
+                  <Input
+                    id="bal-min"
+                    className="h-10 w-[120px]"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    inputMode="decimal"
+                    placeholder={t("reports.amountPh")}
+                    value={balAmountDraft.min}
+                    onChange={(e) => setBalAmountDraft((d) => ({ ...d, min: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") applyBalances();
+                    }}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="bal-max" className="text-xs font-medium">
+                    {t("reports.maxBalanceLabel")}
+                  </Label>
+                  <Input
+                    id="bal-max"
+                    className="h-10 w-[120px]"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    inputMode="decimal"
+                    placeholder={t("reports.amountPh")}
+                    value={balAmountDraft.max}
+                    onChange={(e) => setBalAmountDraft((d) => ({ ...d, max: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") applyBalances();
+                    }}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="bal-exclude" className="text-xs font-medium">
+                    {t("reports.excludeAmountsLabel")}
+                  </Label>
+                  <Input
+                    id="bal-exclude"
+                    className="h-10 w-[170px]"
+                    inputMode="decimal"
+                    placeholder={t("reports.excludeAmountsPh")}
+                    value={balAmountDraft.exclude}
+                    onChange={(e) => setBalAmountDraft((d) => ({ ...d, exclude: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") applyBalances();
+                    }}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="bal-sort" className="text-xs font-medium">
+                    {t("reports.sortLabel")}
+                  </Label>
+                  <select
+                    id="bal-sort"
+                    className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                    value={balSort}
+                    onChange={(e) => setBalSort(e.target.value as ReceivablesSort)}
+                  >
+                    <option value="balanceDesc">{t("reports.sortBalanceDesc")}</option>
+                    <option value="balanceAsc">{t("reports.sortBalanceAsc")}</option>
+                    <option value="oldest">{t("reports.sortOldest")}</option>
+                    <option value="newest">{t("reports.sortNewest")}</option>
+                  </select>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-10"
+                  onClick={applyBalances}
+                  disabled={receivablesQuery.isFetching}
+                >
+                  {receivablesQuery.isFetching
+                    ? t("components.dateRange.applying")
+                    : t("components.dateRange.apply")}
+                </Button>
+                {balAmountFilterActive ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10"
+                    onClick={() => {
+                      setBalAmountDraft(EMPTY_AMOUNT_FILTER);
+                      setBalAmountApplied(EMPTY_AMOUNT_FILTER);
+                    }}
+                  >
+                    {t("reports.clearAmountFilter")}
+                  </Button>
+                ) : null}
+                <p className="w-full text-xs text-muted-foreground">{t("reports.amountFilterHint")}</p>
+              </div>
             </div>
             <Button
               type="button"
@@ -957,7 +1113,7 @@ export function ReportsPage() {
                   {
                     unpaidInvoices: d.unpaidInvoices,
                     customersWithBalance: d.customersWithBalance,
-                    agingTotals: d.agingTotals,
+                    summary: d.summary,
                   },
                   rangeToParams(balApplied),
                   shopSettings,
@@ -998,26 +1154,52 @@ export function ReportsPage() {
               <p className="text-sm text-destructive">{t("reports.loadFailed")}</p>
             ) : (
               <div className="space-y-4">
-                {/* Aging summary cards */}
-                {receivablesQuery.data?.agingTotals && (
+                {/* Totals for the selected period, after the amount filter */}
+                {receivablesQuery.data?.summary && (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {(
                       [
-                        { key: "current", label: t("reports.aging0to30"), color: "border-green-400 bg-green-50 dark:bg-green-950/30" },
-                        { key: "31to60", label: t("reports.aging31to60"), color: "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30" },
-                        { key: "61to90", label: t("reports.aging61to90"), color: "border-orange-400 bg-orange-50 dark:bg-orange-950/30" },
-                        { key: "over90", label: t("reports.agingOver90"), color: "border-red-500 bg-red-50 dark:bg-red-950/30" },
+                        {
+                          key: "count",
+                          label: t("reports.periodInvoiceCount"),
+                          value: String(receivablesQuery.data.summary.invoiceCount),
+                          color: "border-border bg-muted/40",
+                        },
+                        {
+                          key: "invoiced",
+                          label: t("reports.periodInvoiced"),
+                          value: formatAED(receivablesQuery.data.summary.totalInvoicedFils),
+                          color: "border-border bg-muted/40",
+                        },
+                        {
+                          key: "paid",
+                          label: t("reports.periodPaid"),
+                          value: formatAED(receivablesQuery.data.summary.totalPaidFils),
+                          color: "border-green-400 bg-green-50 dark:bg-green-950/30",
+                        },
+                        {
+                          key: "remaining",
+                          label: t("reports.periodRemaining"),
+                          value: formatAED(receivablesQuery.data.summary.totalBalanceFils),
+                          color: "border-amber-500 bg-amber-50 dark:bg-amber-950/30",
+                        },
                       ] as const
-                    ).map(({ key, label, color }) => (
+                    ).map(({ key, label, value, color }) => (
                       <div key={key} className={`rounded-lg border-2 p-3 text-center ${color}`}>
                         <p className="text-xs text-muted-foreground">{label}</p>
-                        <p className="mt-1 text-sm font-bold">
-                          {formatAED(receivablesQuery.data.agingTotals[key])}
-                        </p>
+                        <p className="mt-1 text-sm font-bold tabular-nums">{value}</p>
                       </div>
                     ))}
                   </div>
                 )}
+                {receivablesQuery.data?.truncated ? (
+                  <p className="rounded-md bg-yellow-50 px-3 py-2 text-xs text-yellow-900 dark:bg-yellow-950/40 dark:text-yellow-100">
+                    {t("reports.rowsTruncated", {
+                      shown: receivablesQuery.data.unpaidInvoices.length,
+                      total: receivablesQuery.data.summary.invoiceCount,
+                    })}
+                  </p>
+                ) : null}
 
                 {/* Aging invoices table */}
                 <div className="rounded-lg border p-3">
@@ -1076,9 +1258,7 @@ export function ReportsPage() {
                           <tr>
                             <td colSpan={4} className="px-2 py-1.5 text-end text-xs">{t("reports.total")}</td>
                             <td className="px-2 py-1.5 text-end font-mono tabular-nums">
-                              {formatAED(
-                                receivablesQuery.data?.unpaidInvoices?.reduce((s, i) => s + i.balanceFils, 0) ?? 0,
-                              )}
+                              {formatAED(receivablesQuery.data?.summary?.totalBalanceFils ?? 0)}
                             </td>
                           </tr>
                         </tfoot>

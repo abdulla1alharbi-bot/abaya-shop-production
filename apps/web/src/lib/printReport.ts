@@ -139,7 +139,12 @@ export type ReceivablesPayload = {
     customer: { name: string; mobile: string } | null;
   }>;
   customersWithBalance: Array<{ id: string; name: string; mobile: string; balanceFils: number }>;
-  agingTotals: { current: number; "31to60": number; "61to90": number; over90: number };
+  summary: {
+    invoiceCount: number;
+    totalBalanceFils: number;
+    totalInvoicedFils: number;
+    totalPaidFils: number;
+  };
 };
 
 function printReceivables(
@@ -148,15 +153,15 @@ function printReceivables(
   shopName: string,
   vatNo: string,
 ): void {
-  const totals = data.agingTotals;
-  const grandTotal = totals.current + totals["31to60"] + totals["61to90"] + totals.over90;
+  const totals = data.summary;
+  const grandTotal = totals.totalBalanceFils;
 
   const cards = `
     <div class="summary-cards">
-      <div class="card green"><div class="label">0 – 30 يوم</div><div class="value">${aed(totals.current)}</div></div>
-      <div class="card yellow"><div class="label">31 – 60 يوم</div><div class="value">${aed(totals["31to60"])}</div></div>
-      <div class="card orange"><div class="label">61 – 90 يوم</div><div class="value">${aed(totals["61to90"])}</div></div>
-      <div class="card red"><div class="label">+90 يوم</div><div class="value">${aed(totals.over90)}</div></div>
+      <div class="card"><div class="label">عدد الفواتير</div><div class="value">${totals.invoiceCount}</div></div>
+      <div class="card"><div class="label">إجمالي الفواتير</div><div class="value">${aed(totals.totalInvoicedFils)}</div></div>
+      <div class="card green"><div class="label">المدفوع</div><div class="value">${aed(totals.totalPaidFils)}</div></div>
+      <div class="card orange"><div class="label">المتبقي</div><div class="value">${aed(totals.totalBalanceFils)}</div></div>
     </div>`;
 
   const rows = data.unpaidInvoices
@@ -181,7 +186,9 @@ function printReceivables(
 
   const body = `
     ${cards}
-    <h3 style="font-size:13px;margin-bottom:6px;">فواتير غير مسددة (${data.unpaidInvoices.length})</h3>
+    <h3 style="font-size:13px;margin-bottom:6px;">فواتير غير مسددة (${data.unpaidInvoices.length}${
+      totals.invoiceCount > data.unpaidInvoices.length ? ` من ${totals.invoiceCount}` : ""
+    })</h3>
     <table>
       <thead><tr>
         <th class="text-start">فاتورة / عميل</th>
@@ -195,7 +202,7 @@ function printReceivables(
     </table>`;
 
   openPrintWindow(
-    shellHtml({ shopName, vatNo, title: "تقرير الذمم المستحقة (أعمار الديون)", subtitle: rangeSubtitle(range), body }),
+    shellHtml({ shopName, vatNo, title: "تقرير الذمم المستحقة", subtitle: rangeSubtitle(range), body }),
   );
 }
 

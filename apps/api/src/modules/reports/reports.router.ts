@@ -5,7 +5,12 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { computeInvoiceFulfillment } from "../../utils/invoiceFulfillment.js";
-import { parseDateRangeOrDefault, parseOptionalDate, queryParamString } from "../../utils/queryParams.js";
+import {
+  parseDateRangeOrDefault,
+  parseOptionalDate,
+  parseOptionalInt,
+  queryParamString,
+} from "../../utils/queryParams.js";
 import { dailyReportRouter } from "./daily-report.router.js";
 
 export const reportsRouter = Router();
@@ -59,6 +64,38 @@ reportsRouter.get(
   }),
 );
 
+const RECEIVABLES_ROW_LIMIT = 500;
+
+const RECEIVABLES_SORTS = {
+  oldest: { createdAt: "asc" },
+  newest: { createdAt: "desc" },
+  balanceDesc: { balanceFils: "desc" },
+  balanceAsc: { balanceFils: "asc" },
+} as const satisfies Record<string, Prisma.InvoiceOrderByWithRelationInput>;
+
+type ReceivablesSort = keyof typeof RECEIVABLES_SORTS;
+
+function parseReceivablesSort(q: Record<string, unknown>): ReceivablesSort {
+  const raw = queryParamString(q, "sort");
+  return raw && raw in RECEIVABLES_SORTS ? (raw as ReceivablesSort) : "oldest";
+}
+
+/**
+ * Exact remaining amounts to keep out of the report, as comma-separated fils
+ * ("50,100" drops every 0.50 and 1.00 leftover). Rounding crumbs like these are
+ * never going to be collected, and they bury the balances that matter.
+ */
+function parseExcludedBalances(q: Record<string, unknown>): number[] {
+  const raw = queryParamString(q, "excludeBalancesFils");
+  if (!raw) return [];
+  const amounts = new Set<number>();
+  for (const part of raw.split(",")) {
+    const n = parseInt(part.trim(), 10);
+    if (Number.isFinite(n) && n > 0) amounts.add(n);
+  }
+  return [...amounts].slice(0, 50);
+}
+
 reportsRouter.get(
   "/receivables",
   requirePermission("reports.balances"),
@@ -68,18 +105,28 @@ reportsRouter.get(
     const to = parseOptionalDate(q, "to");
     const filterByInvoiceDate = Boolean(from && to);
 
+    const minBalanceFils = parseOptionalInt(q, "minBalanceFils");
+    const maxBalanceFils = parseOptionalInt(q, "maxBalanceFils");
+    const excludedBalancesFils = parseExcludedBalances(q);
+    const sort = parseReceivablesSort(q);
+
+    const balanceFils: Prisma.IntFilter = { gt: 0 };
+    if (minBalanceFils !== undefined && minBalanceFils > 0) balanceFils.gte = minBalanceFils;
+    if (maxBalanceFils !== undefined && maxBalanceFils > 0) balanceFils.lte = maxBalanceFils;
+    if (excludedBalancesFils.length > 0) balanceFils.notIn = excludedBalancesFils;
+
     const invoiceWhere: Prisma.InvoiceWhereInput = {
       isVoid: false,
-      balanceFils: { gt: 0 },
+      balanceFils,
       customerId: { not: null },
       ...(filterByInvoiceDate && from && to ? { createdAt: { gte: from, lte: to } } : {}),
     };
 
-    const [invoiceRows, customerRows] = await Promise.all([
+    const [invoiceRows, totals, customerRows] = await Promise.all([
       prisma.invoice.findMany({
         where: invoiceWhere,
-        orderBy: { createdAt: "asc" },
-        take: 500,
+        orderBy: RECEIVABLES_SORTS[sort],
+        take: RECEIVABLES_ROW_LIMIT,
         select: {
           id: true,
           invoiceNo: true,
@@ -89,6 +136,14 @@ reportsRouter.get(
           createdAt: true,
           customer: { select: { id: true, name: true, mobile: true, code: true } },
         },
+      }),
+      // Totals come from the database, not from the rows above: the row list is
+      // capped, so summing it would under-report the moment a filter still
+      // leaves more than RECEIVABLES_ROW_LIMIT invoices.
+      prisma.invoice.aggregate({
+        where: invoiceWhere,
+        _count: { _all: true },
+        _sum: { balanceFils: true, totalFils: true, paidFils: true },
       }),
       prisma.customer.findMany({
         where: { balanceFils: { gt: 0 } },
@@ -100,7 +155,6 @@ reportsRouter.get(
 
     const now = Date.now();
     type AgingBucket = "current" | "31to60" | "61to90" | "over90";
-    const agingTotals: Record<AgingBucket, number> = { current: 0, "31to60": 0, "61to90": 0, over90: 0 };
 
     const unpaidInvoices = invoiceRows.map((inv) => {
       const daysSince = Math.floor((now - inv.createdAt.getTime()) / 86_400_000);
@@ -109,19 +163,26 @@ reportsRouter.get(
       else if (daysSince <= 60) agingBucket = "31to60";
       else if (daysSince <= 90) agingBucket = "61to90";
       else agingBucket = "over90";
-      agingTotals[agingBucket] += inv.balanceFils;
       return { ...inv, daysSince, agingBucket };
     });
 
-    // Sort: oldest (most overdue) first
-    unpaidInvoices.sort((a, b) => b.daysSince - a.daysSince);
+    const invoiceCount = totals._count._all;
 
     res.status(200).json({
       success: true,
       data: {
         unpaidInvoices,
         customersWithBalance: customerRows,
-        agingTotals,
+        summary: {
+          invoiceCount,
+          totalBalanceFils: totals._sum.balanceFils ?? 0,
+          totalInvoicedFils: totals._sum.totalFils ?? 0,
+          totalPaidFils: totals._sum.paidFils ?? 0,
+        },
+        sort,
+        appliedFilters: { minBalanceFils, maxBalanceFils, excludedBalancesFils },
+        /** Rows were capped — the summary still covers every matching invoice. */
+        truncated: invoiceCount > unpaidInvoices.length,
         filteredByInvoiceCreatedAt: filterByInvoiceDate,
       },
     });
