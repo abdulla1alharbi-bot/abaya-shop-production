@@ -1,5 +1,4 @@
 import type { NextFunction, Request, Response } from "express";
-import { computeEffectivePermissions } from "@abaya-shop/shared";
 import { verifyAccessToken } from "../utils/jwt.js";
 import { AppError } from "./error.middleware.js";
 
@@ -18,10 +17,9 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
   }
   try {
     const payload = verifyAccessToken(match[1]);
-    const permissions =
-      payload.permissions.length > 0
-        ? payload.permissions
-        : computeEffectivePermissions(payload.role, null, null);
+    // Taken as-is: an empty list means every permission was revoked. Falling back
+    // to the role defaults here handed a locked-out user their full role back.
+    const permissions = payload.permissions;
     req.user = {
       id: payload.sub,
       username: payload.username,

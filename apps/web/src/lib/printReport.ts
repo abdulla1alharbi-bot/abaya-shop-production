@@ -4,6 +4,20 @@
  * Mirrors the printInvoice.ts pattern.
  */
 
+/**
+ * Every value that came from a user (customer/product names, SKU, category, shop
+ * name) goes through this. The print window shares the app's origin, so markup in
+ * a customer name would otherwise run as script with the printing user's session.
+ */
+function esc(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function aed(fils: number): string {
   return `AED ${(fils / 100).toFixed(2)}`;
 }
@@ -37,7 +51,7 @@ function shellHtml(opts: {
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>${opts.title}</title>
+  <title>${esc(opts.title)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', 'Arial', sans-serif; font-size: 12px; color: #111; background: #fff; direction: rtl; }
@@ -85,18 +99,18 @@ function shellHtml(opts: {
 <div class="page">
   <div class="header">
     <div>
-      <div class="shop-name">${opts.shopName}</div>
-      ${opts.vatNo ? `<div class="shop-meta">رقم التسجيل الضريبي / VAT TRN: ${opts.vatNo}</div>` : ""}
+      <div class="shop-name">${esc(opts.shopName)}</div>
+      ${opts.vatNo ? `<div class="shop-meta">رقم التسجيل الضريبي / VAT TRN: ${esc(opts.vatNo)}</div>` : ""}
     </div>
     <div class="report-title" dir="rtl">
-      <h2>${opts.title}</h2>
-      <div class="subtitle">${opts.subtitle}</div>
+      <h2>${esc(opts.title)}</h2>
+      <div class="subtitle">${esc(opts.subtitle)}</div>
       <div class="subtitle">تاريخ الطباعة: ${formatDateTime(new Date())}</div>
     </div>
   </div>
   ${opts.body}
   <div class="footer">
-    ${opts.shopName} — تقرير داخلي | Generated on ${formatDateTime(new Date())}
+    ${esc(opts.shopName)} — تقرير داخلي | Generated on ${formatDateTime(new Date())}
   </div>
 </div>
 <script>window.onload = function() { setTimeout(function(){ window.print(); }, 100); }</script>
@@ -175,7 +189,7 @@ function printReceivables(
               ? "orange"
               : "red";
       return `<tr>
-        <td>#${inv.invoiceNo} <span class="muted">${inv.customer?.name ?? ""}</span></td>
+        <td>#${inv.invoiceNo} <span class="muted">${esc(inv.customer?.name)}</span></td>
         <td class="text-center"><span class="badge ${bucket}">${inv.daysSince}</span></td>
         <td class="text-end">${aed(inv.totalFils)}</td>
         <td class="text-end">${aed(inv.paidFils)}</td>
@@ -235,7 +249,7 @@ function printSales(data: SalesPayload, range: ReportRange, shopName: string, va
       (inv) => `<tr>
       <td>#${inv.invoiceNo}</td>
       <td>${formatDate(inv.createdAt)}</td>
-      <td>${inv.customer?.name ?? "—"}</td>
+      <td>${esc(inv.customer?.name ?? "—")}</td>
       <td class="text-end">${aed(inv.totalFils)}</td>
       <td class="text-end">${aed(inv.paidFils)}</td>
       <td class="text-end">${aed(inv.balanceFils)}</td>
@@ -278,7 +292,7 @@ function printWages(data: WagesPayload, range: ReportRange, shopName: string, va
   const rows = data.productionRows
     .map(
       (r) => `<tr>
-      <td class="font-bold">${r.name}</td>
+      <td class="font-bold">${esc(r.name)}</td>
       <td class="text-center">${r.entries}</td>
       <td class="text-center">${r.qty}</td>
       <td class="text-end font-bold">${aed(r.totalFils)}</td>
@@ -370,9 +384,9 @@ function printTailoring(data: TailoringPayload, range: ReportRange, shopName: st
     .map(
       (j) => `<tr>
       <td>#${j.jobNo}</td>
-      <td>${j.customer?.name ?? "—"}</td>
-      <td>${j.productStyle}</td>
-      <td class="text-center"><span class="badge yellow">${STAGE_AR[j.stage] ?? j.stage}</span></td>
+      <td>${esc(j.customer?.name ?? "—")}</td>
+      <td>${esc(j.productStyle)}</td>
+      <td class="text-center"><span class="badge yellow">${esc(STAGE_AR[j.stage] ?? j.stage)}</span></td>
       <td>${formatDate(j.createdAt)}</td>
       <td>${formatDate(j.dueDate)}</td>
     </tr>`,
@@ -424,9 +438,9 @@ function printMostRequested(
     .map(
       (i, idx) => `<tr>
       <td class="text-center font-bold">${idx + 1}</td>
-      <td>${i.name}</td>
-      <td class="muted">${i.sku ?? "—"}</td>
-      <td>${i.categoryName}</td>
+      <td>${esc(i.name)}</td>
+      <td class="muted">${esc(i.sku ?? "—")}</td>
+      <td>${esc(i.categoryName)}</td>
       <td class="text-center">${i.kind === "tailoring" ? "تفصيل" : "جاهز"}</td>
       <td class="text-center">${i.totalQty}</td>
       <td class="text-center">${i.invoiceCount}</td>

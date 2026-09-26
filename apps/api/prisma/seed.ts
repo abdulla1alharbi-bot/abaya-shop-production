@@ -17,12 +17,35 @@ const DEFAULT_RATES: Record<string, number> = {
 
 const WORK_TYPES = Object.keys(DEFAULT_RATES);
 
+async function seedDemoUser(
+  username: string,
+  name: string,
+  role: "SELLER" | "WORKER",
+  phone: string,
+  passwordHash: string,
+): Promise<void> {
+  await prisma.user.upsert({
+    where: { username },
+    update: {},
+    create: {
+      username,
+      email: `${username}@abayashop.ae`,
+      name,
+      password: passwordHash,
+      role,
+      phone,
+      isActive: true,
+    },
+  });
+}
+
 async function main(): Promise<void> {
   // Initial password comes from SEED_ADMIN_PASSWORD, or is generated randomly.
   // It is only used when CREATING a user (never on re-seed) and only printed
   // when a user was actually created this run.
   const ownerExisted = (await prisma.user.findUnique({ where: { username: "owner" }, select: { id: true } })) !== null;
-  const seedPassword = process.env.SEED_ADMIN_PASSWORD ?? crypto.randomBytes(9).toString("base64url");
+  // `||`, not `??`: docker-compose passes SEED_ADMIN_PASSWORD="" when it is unset.
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD || crypto.randomBytes(9).toString("base64url");
   const passwordHash = await bcrypt.hash(seedPassword, 12);
 
   const owner = await prisma.user.upsert({
@@ -48,33 +71,13 @@ async function main(): Promise<void> {
   });
 
   // Test logins for role-aware landing (seller → POS, worker → workshop queue).
-  await prisma.user.upsert({
-    where: { username: "seller" },
-    update: { name: "Sales Person", role: "SELLER", isActive: true },
-    create: {
-      username: "seller",
-      email: "seller@abayashop.ae",
-      name: "Sales Person",
-      password: passwordHash,
-      role: "SELLER",
-      phone: "+971500000001",
-      isActive: true,
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { username: "worker" },
-    update: { name: "Workshop Worker", role: "WORKER", isActive: true },
-    create: {
-      username: "worker",
-      email: "worker@abayashop.ae",
-      name: "Workshop Worker",
-      password: passwordHash,
-      role: "WORKER",
-      phone: "+971500000002",
-      isActive: true,
-    },
-  });
+  // Development only: in production they would be live accounts sharing the
+  // owner's initial password. `update: {}` because re-seeding (every container
+  // start) must never re-activate an account the owner disabled or reset its role.
+  if (process.env.NODE_ENV !== "production") {
+    await seedDemoUser("seller", "Sales Person", "SELLER", "+971500000001", passwordHash);
+    await seedDemoUser("worker", "Workshop Worker", "WORKER", "+971500000002", passwordHash);
+  }
 
   const branch = await prisma.branch.upsert({
     where: { id: "seed-main-branch" },

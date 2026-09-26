@@ -44,7 +44,7 @@ usersRouter.post(
       return;
     }
     const canEdit = acting.permissions.includes("users.permissions");
-    const user = await usersService.createUser(req.body, canEdit);
+    const user = await usersService.createUser(req.body, canEdit, acting.role);
     res.status(201).json({ success: true, data: user });
   }),
 );
@@ -65,7 +65,7 @@ usersRouter.patch(
       return;
     }
     const canEdit = acting.permissions.includes("users.permissions");
-    const user = await usersService.updateUser(id, req.body, acting.id, canEdit);
+    const user = await usersService.updateUser(id, req.body, acting.id, canEdit, acting.role);
     res.status(200).json({ success: true, data: user });
   }),
 );
