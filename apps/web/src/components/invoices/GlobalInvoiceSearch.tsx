@@ -21,6 +21,7 @@ import { formatAED } from "@/lib/money";
 import { printInvoiceById } from "@/lib/printInvoiceById";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { useWhenChanged } from "@/hooks/useWhenChanged";
 
 const SEARCH_DEBOUNCE_MS = 500;
@@ -92,6 +93,7 @@ function GlobalInvoiceQuickViewModal({
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const [sellerOpen, setSellerOpen] = useState(false);
+  const navigate = useNavigate();
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState(false);
   const { t } = useTranslation();
@@ -279,10 +281,30 @@ function GlobalInvoiceQuickViewModal({
                     {printing ? t("pos.pay.printing") : t("pos.pay.printInvoice")}
                   </Button>
                 ) : null}
-                <Button variant="outline" size="sm" className="gap-2" onClick={() => onOpenChange(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    if (!invoiceId) return;
+                    onOpenChange(false);
+                    navigate(`/invoices/${invoiceId}`);
+                  }}
+                >
                   {t("common.view")}
                 </Button>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    if (!invoiceId) return;
+                    onOpenChange(false);
+                    navigate(`/invoices/${invoiceId}/process`);
+                  }}
+                >
                   {t("components.globalSearch.workProcess", { defaultValue: "Work Process" })}
                 </Button>
                 {!hideMoney ? (
@@ -512,6 +534,7 @@ function SearchResultsModal({
   onOpenSingle: (invoiceId: string) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const navigate = useNavigate();
   const isWorker = useIsWorker();
   const { t } = useTranslation();
   const listStatus = useListStatus();
@@ -625,14 +648,29 @@ function SearchResultsModal({
                       className={cn("h-4 w-4 transition-transform", expanded ? "rotate-180" : "")}
                     />
                   </Button>
-                  <Button type="button" size="sm" onClick={() => onOpenSingle(inv.id)}>
-                    View invoice
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      onOpenChange(false);
+                      navigate(`/invoices/${inv.id}`);
+                    }}
+                  >
+                    {t("components.globalSearch.viewInvoice")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      onOpenChange(false);
+                      navigate(`/invoices/${inv.id}/process`);
+                    }}
+                  >
+                    {t("components.globalSearch.workProcess")}
                   </Button>
                   <Button type="button" variant="secondary" size="sm" onClick={() => onOpenSingle(inv.id)}>
-                    Job Process
-                  </Button>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => onOpenSingle(inv.id)}>
-                    Payments & Delivery
+                    {t("components.globalSearch.payDelivery")}
                   </Button>
                 </div>
                 <SearchInvoiceDetailsPanel invoiceId={inv.id} open={expanded} />

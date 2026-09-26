@@ -33,6 +33,11 @@ export const ALL_PERMISSIONS = [
   "invoices.return",
   /** Give a discount above the configured max_discount_percent. */
   "invoices.discountOverride",
+  /**
+   * Change an invoice's number (swapping with the invoice that holds the target
+   * number) when it was typed in out of order from the paper book. Owner only.
+   */
+  "invoices.renumber",
 
   "customers.view",
   "customers.create",
@@ -339,6 +344,7 @@ export const PERMISSION_GROUPS_AR: Record<string, string> = {
   "invoices.creditOverride": "الفواتير — تجاوز حد الائتمان (إداري)",
   "invoices.return": "الفواتير — إرجاع / استبدال",
   "invoices.discountOverride": "الفواتير — خصم فوق الحد المسموح (إداري)",
+  "invoices.renumber": "الفواتير — تصحيح رقم الفاتورة (المالك)",
 
   "customers.view": "العملاء — عرض",
   "customers.create": "العملاء — إضافة",

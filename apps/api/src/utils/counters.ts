@@ -13,6 +13,15 @@ const FIRST_INVOICE_NO = 33194;
 /** Arbitrary fixed key for the invoice-number advisory lock (see nextInvoiceNo). */
 const INVOICE_NO_LOCK_KEY = 427419;
 
+/**
+ * Take the invoice-numbering lock without drawing a number. Anything that writes
+ * `invoiceNo` outside nextInvoiceNo (renumbering) must hold it, or a checkout
+ * running at the same moment can pick the same MAX+1 and fail on the unique key.
+ */
+export async function lockInvoiceNumbering(prisma: Db): Promise<void> {
+  await prisma.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${INVOICE_NO_LOCK_KEY})`);
+}
+
 export async function nextInvoiceNo(prisma: Db): Promise<number> {
   // Serialize number assignment within the caller's transaction so two
   // simultaneous checkouts can't read the same MAX and collide on the unique

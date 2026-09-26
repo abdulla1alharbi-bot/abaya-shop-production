@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { isAxiosError } from "axios";
 import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,60 @@ export function InvoiceSellerPanel({
       await api.patch(`/invoices/${invoiceId}`, { deliveryDate: iso });
     },
     onSuccess: () => onUpdated(),
+  });
+
+  const [renumberInput, setRenumberInput] = useState("");
+  const [renumberDone, setRenumberDone] = useState<string | null>(null);
+
+  const renumber = useMutation({
+    /** Resolves to null when the user cancels the confirmation. */
+    mutationFn: async (): Promise<{ oldNo: number; newNo: number; swapped: boolean } | null> => {
+      const raw = renumberInput.trim();
+      const newNo = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+      if (!Number.isFinite(newNo) || newNo < 1) throw new Error(t("invoices.renumberInvalid"));
+
+      // Say what will happen before doing it: a taken number means a swap with
+      // someone else's invoice, which the owner should see by name.
+      let holderName: string | null = null;
+      let taken = false;
+      try {
+        const res = await api.get<{ data: { customer?: { name?: string } | null } }>(
+          `/invoices/lookup?no=${newNo}`,
+        );
+        taken = true;
+        holderName = res.data.data.customer?.name ?? "—";
+      } catch (err) {
+        if (!(isAxiosError(err) && err.response?.status === 404)) throw err;
+      }
+
+      let message = taken
+        ? t("invoices.renumberConfirmSwap", { newNo, oldNo: invoiceNo, customer: holderName })
+        : t("invoices.renumberConfirmFree", { newNo, oldNo: invoiceNo });
+      if (!taken) {
+        const meta = await api.get<{ data: { invoiceNo: number } }>("/invoices/next-invoice-no");
+        if (newNo >= meta.data.data.invoiceNo) message += `\n\n${t("invoices.renumberAboveMax")}`;
+      }
+      if (!window.confirm(message)) return null;
+
+      const res = await api.post<{ meta: { oldNo: number; newNo: number; swapped: boolean } }>(
+        `/invoices/${invoiceId}/renumber`,
+        { invoiceNo: newNo },
+      );
+      return res.data.meta;
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      setRenumberInput("");
+      setRenumberDone(
+        result.swapped
+          ? t("invoices.renumberDoneSwap", { newNo: result.newNo, oldNo: result.oldNo })
+          : t("invoices.renumberDone", { newNo: result.newNo }),
+      );
+      onUpdated();
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["job-orders"] });
+    },
   });
 
   const deliver = useMutation({
@@ -214,6 +269,43 @@ export function InvoiceSellerPanel({
           </div>
           {saveDue.isError ? (
             <p className="text-sm text-destructive">{getApiErrorMessage(saveDue.error)}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {can("invoices.renumber") ? (
+        <div className="space-y-2 rounded-xl border p-4">
+          <Label htmlFor="renumber-no" className="text-sm font-semibold">
+            {t("invoices.renumberTitle")}
+          </Label>
+          <p className="text-xs text-muted-foreground">{t("invoices.renumberHint")}</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              id="renumber-no"
+              className="h-12 rounded-lg font-mono"
+              inputMode="numeric"
+              dir="ltr"
+              placeholder={t("invoices.renumberPlaceholder")}
+              value={renumberInput}
+              onChange={(e) => {
+                setRenumberInput(e.target.value);
+                setRenumberDone(null);
+              }}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-12 shrink-0"
+              disabled={renumber.isPending || !renumberInput.trim()}
+              onClick={() => renumber.mutate()}
+            >
+              {renumber.isPending ? "…" : t("invoices.renumberSave")}
+            </Button>
+          </div>
+          {renumber.isError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(renumber.error)}</p>
+          ) : renumberDone ? (
+            <p className="text-sm text-emerald-700 dark:text-emerald-300">{renumberDone}</p>
           ) : null}
         </div>
       ) : null}

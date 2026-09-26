@@ -16,7 +16,7 @@ import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parsePageLimit, queryParamString } from "../../utils/queryParams.js";
-import { nextInvoiceNo, nextJobNo } from "../../utils/counters.js";
+import { lockInvoiceNumbering, nextInvoiceNo, nextJobNo } from "../../utils/counters.js";
 import { allocateByLineShares } from "../../utils/invoiceAllocation.js";
 import { syncInvoiceJobsFinancials } from "../../utils/invoiceJobSync.js";
 import { effectivePaidFils, lockInvoiceRow } from "../../utils/invoiceLock.js";
@@ -1645,6 +1645,84 @@ invoicesRouter.patch(
     const data = await fetchInvoiceDetailWithMeta(invoiceId);
     if (!data) throw new AppError(404, "Invoice not found", "NOT_FOUND");
     res.status(200).json({ success: true, data });
+  }),
+);
+
+const renumberBody = z.object({
+  invoiceNo: z.number().int().min(1),
+});
+
+/**
+ * Correct an invoice number that doesn't match the paper order book.
+ *
+ * Orders are still written in a numbered book first and typed in afterwards;
+ * when one is typed out of order every invoice after it is shifted by one, and the
+ * customer's receipt (from the book) no longer matches the system. The contents of
+ * each invoice are right — only the number is wrong — so the fix is the number.
+ *
+ * If the target number is already taken, the two invoices SWAP numbers, which lets
+ * a shifted run be fixed one invoice at a time. Payments, job orders and wages hang
+ * off the invoice id, not its number, so nothing else moves.
+ */
+invoicesRouter.post(
+  "/:id/renumber",
+  requirePermission("invoices.renumber"),
+  validateBody(renumberBody),
+  asyncHandler(async (req, res) => {
+    const invoiceId = req.params.id;
+    if (!invoiceId) throw new AppError(400, "Missing invoice id", "VALIDATION_ERROR");
+    const target = (req.body as z.infer<typeof renumberBody>).invoiceNo;
+    const userId = req.user?.id ?? "system";
+
+    const result = await prisma.$transaction(async (tx) => {
+      await lockInvoiceNumbering(tx);
+      const inv = await tx.invoice.findUnique({ where: { id: invoiceId }, select: { id: true, invoiceNo: true } });
+      if (!inv) throw new AppError(404, "Invoice not found", "NOT_FOUND");
+      if (inv.invoiceNo === target) {
+        throw new AppError(400, "هذا هو رقم الفاتورة الحالي", "SAME_INVOICE_NO");
+      }
+
+      const other = await tx.invoice.findUnique({ where: { invoiceNo: target }, select: { id: true } });
+      if (other) {
+        // invoiceNo is unique, so park this invoice on a number no real invoice can
+        // hold (numbers are ≥ 1) while the other one takes its old number.
+        await tx.invoice.update({ where: { id: inv.id }, data: { invoiceNo: -inv.invoiceNo } });
+        await tx.invoice.update({ where: { id: other.id }, data: { invoiceNo: inv.invoiceNo } });
+      }
+      await tx.invoice.update({ where: { id: inv.id }, data: { invoiceNo: target } });
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "INVOICE_RENUMBERED",
+          entity: "Invoice",
+          entityId: inv.id,
+          oldValue: JSON.stringify({ invoiceNo: inv.invoiceNo }),
+          newValue: JSON.stringify({
+            invoiceNo: target,
+            swappedWithInvoiceId: other?.id ?? null,
+          }),
+        },
+      });
+      if (other) {
+        await tx.auditLog.create({
+          data: {
+            userId,
+            action: "INVOICE_RENUMBERED",
+            entity: "Invoice",
+            entityId: other.id,
+            oldValue: JSON.stringify({ invoiceNo: target }),
+            newValue: JSON.stringify({ invoiceNo: inv.invoiceNo, swappedWithInvoiceId: inv.id }),
+          },
+        });
+      }
+
+      return { oldNo: inv.invoiceNo, newNo: target, swapped: other != null };
+    });
+
+    const data = await fetchInvoiceDetailWithMeta(invoiceId);
+    if (!data) throw new AppError(404, "Invoice not found", "NOT_FOUND");
+    res.status(200).json({ success: true, data, meta: result });
   }),
 );
 

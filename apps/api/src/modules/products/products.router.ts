@@ -176,6 +176,51 @@ productsRouter.patch(
   }),
 );
 
+const addStockBody = z.object({
+  qty: z.number().int().min(1).max(100000),
+});
+
+/**
+ * Receive new stock of an existing ready-made product from the list, without
+ * opening the edit form. An increment, not a "set": a sale at the counter can
+ * land between reading the shelf count and saving it, and an absolute write would
+ * silently undo that sale's stock deduction.
+ */
+productsRouter.post(
+  "/:id/stock",
+  requirePermission("readyMade.edit"),
+  validateBody(addStockBody),
+  asyncHandler(async (req, res) => {
+    const id = req.params.id;
+    if (!id) throw new AppError(400, "Missing product id", "VALIDATION_ERROR");
+    const { qty } = req.body as z.infer<typeof addStockBody>;
+
+    const product = await prisma.$transaction(async (tx) => {
+      const existing = await tx.product.findUnique({ where: { id }, select: { id: true, name: true, isService: true } });
+      if (!existing) throw new AppError(404, "Product not found", "NOT_FOUND");
+      if (existing.isService) throw new AppError(400, "هذا منتج تفصيل وليس له مخزون", "NOT_STOCKED");
+      const updated = await tx.product.update({
+        where: { id },
+        data: { stockQty: { increment: qty } },
+        include: { category: true },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: req.user?.id ?? "system",
+          action: "STOCK_ADDED",
+          entity: "Product",
+          entityId: id,
+          oldValue: JSON.stringify({ stockQty: updated.stockQty - qty }),
+          newValue: JSON.stringify({ stockQty: updated.stockQty, addedQty: qty, name: existing.name }),
+        },
+      });
+      return updated;
+    });
+
+    res.status(200).json({ success: true, data: product });
+  }),
+);
+
 productsRouter.delete(
   "/:id",
   requirePermission("readyMade.delete"),
