@@ -211,7 +211,7 @@ export function renderDailyReportHtml(report: DailyReport): string {
 
   <tr><td style="padding:18px 6px 6px;font-size:11px;color:#9ca3af;line-height:1.7;">
     التقرير يُحتسب بتوقيت ${esc(report.timeZone)} من منتصف الليل إلى منتصف الليل، ويطابق شاشة «اليوم» في التطبيق.
-    الفواتير الملغاة غير محسوبة. «أجور الورشة» هي أجور المراحل المنجزة اليوم على طلبات وصلت مرحلة جاهز أو مُسلَّم.
+    الفواتير الملغاة غير محسوبة. «أجور الورشة» هي أجور كل المراحل التي أُنجزت اليوم.
   </td></tr>
 
 </table>

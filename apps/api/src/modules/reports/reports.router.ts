@@ -12,7 +12,6 @@ import {
   queryParamString,
 } from "../../utils/queryParams.js";
 import { dailyReportRouter } from "./daily-report.router.js";
-import { COMPLETED_WAGE_JOB_STAGES, EARNED_WAGE_ENTRY } from "../../utils/wageRules.js";
 
 export const reportsRouter = Router();
 reportsRouter.use(authMiddleware);
@@ -29,7 +28,6 @@ reportsRouter.get(
     const entries = await prisma.productionEntry.findMany({
       where: {
         date: { gte: from, lte: to },
-        ...EARNED_WAGE_ENTRY,
       },
       include: { worker: { select: { id: true, name: true, isActive: true } } },
     });
@@ -259,7 +257,6 @@ reportsRouter.get(
     const entries = await prisma.productionEntry.findMany({
       where: {
         date: { gte: from, lte: to },
-        ...EARNED_WAGE_ENTRY,
       },
       orderBy: [{ date: "desc" }, { id: "desc" }],
       take: 2000,
@@ -307,7 +304,6 @@ reportsRouter.get(
     const stages = await prisma.jobOrderWorkStage.findMany({
       where: {
         isCompleted: true,
-        jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
         OR: [
           { completedAt: { gte: from, lte: to } },
           {
@@ -747,7 +743,6 @@ reportsRouter.get(
 
     const wageWhere: Prisma.JobOrderWorkStageWhereInput = {
       isCompleted: true,
-      jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
       OR: [
         { completedAt: { gte: from, lte: to } },
         {

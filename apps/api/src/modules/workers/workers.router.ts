@@ -9,7 +9,6 @@ import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parseDateRangeOrDefault, parsePageLimit, parseOptionalDate, queryParamString } from "../../utils/queryParams.js";
-import { EARNED_WAGE_ENTRY } from "../../utils/wageRules.js";
 
 export const workersRouter = Router();
 workersRouter.use(authMiddleware);
@@ -330,7 +329,6 @@ workersRouter.get(
       prisma.productionEntry.aggregate({
         where: {
           workerId: wid,
-          ...EARNED_WAGE_ENTRY,
         },
         _sum: { totalFils: true },
       }),
@@ -490,7 +488,6 @@ workersRouter.get(
       prisma.productionEntry.aggregate({
         where: {
           workerId: worker.id,
-          ...EARNED_WAGE_ENTRY,
         },
         _sum: { totalFils: true },
       }),

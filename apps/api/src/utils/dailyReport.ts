@@ -15,7 +15,6 @@ import { type DateKey, dayRangeUtc, shopWallClock } from "./shopTime.js";
  */
 
 /** Invoice line rollups are keyed off "does this line have a job order" — same as the dashboard. */
-const COMPLETED_WAGE_JOB_STAGES = ["READY", "DELIVERED"] as const;
 
 /** How many of today's invoices to list line-by-line in the email before summarising. */
 const INVOICE_LIST_LIMIT = 25;
@@ -143,7 +142,6 @@ export async function buildDailyReport(
     db.jobOrderWorkStage.findMany({
       where: {
         isCompleted: true,
-        jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
         OR: [
           { completedAt: range },
           // Legacy rows finished before `completedAt` existed still carry the date

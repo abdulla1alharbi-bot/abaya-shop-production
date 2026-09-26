@@ -24,7 +24,6 @@ import {
 } from "../../utils/jobUrgency.js";
 import { findOverdueJobs, summarizeOverdueBacklog } from "../../utils/overdueBacklog.js";
 import { parsePageLimit, queryParamString } from "../../utils/queryParams.js";
-import { COMPLETED_WAGE_JOB_STAGES, EARNED_WAGE_ENTRY } from "../../utils/wageRules.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
@@ -242,7 +241,6 @@ dashboardRouter.get(
       prisma.jobOrderWorkStage.findMany({
         where: {
           isCompleted: true,
-          jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
           OR: [
             { completedAt: todayRange },
             { completedAt: null, productionEntry: { date: todayRange } },
@@ -420,7 +418,6 @@ dashboardRouter.get(
       prisma.jobOrderWorkStage.aggregate({
         where: {
           isCompleted: true,
-          jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
           OR: [
             { completedAt: { gte: startOfToday, lt: endOfTodayExclusive } },
             {
@@ -991,7 +988,6 @@ dashboardRouter.get(
     const wagesThisWeek = await prisma.productionEntry.findMany({
       where: {
         date: { gte: startOfWeek },
-        ...EARNED_WAGE_ENTRY,
       },
       include: { worker: { select: { id: true, name: true } } },
     });
