@@ -55,6 +55,26 @@ function trimSafe(v: string | null | undefined): string {
   return (v ?? "").trim();
 }
 
+/**
+ * First statement of a stage-completion transaction. The status checks run on a
+ * snapshot read before the transaction, so a double-click (or two tabs) both pass
+ * them and would each create a ProductionEntry — paying the wage twice. This
+ * conditional update takes the row lock; the second request waits, re-checks the
+ * status after the first commits DONE, matches nothing and is rejected.
+ */
+async function claimStageForCompletion(
+  tx: Prisma.TransactionClient,
+  row: { id: string; status: string },
+): Promise<void> {
+  const claimed = await tx.jobOrderWorkStage.updateMany({
+    where: { id: row.id, status: row.status },
+    data: { status: row.status },
+  });
+  if (claimed.count === 0) {
+    throw new AppError(409, "Stage already completed", "ALREADY_DONE");
+  }
+}
+
 async function markDisplaySampleActive(args: {
   tx: Prisma.TransactionClient;
   job: {
@@ -627,6 +647,7 @@ jobOrdersRouter.post(
       body.notes !== undefined ? (body.notes.trim() ? body.notes.trim() : null) : row.notes;
 
     const data = await prisma.$transaction(async (tx) => {
+      await claimStageForCompletion(tx, row);
       const pe = await tx.productionEntry.create({
         data: {
           workerId: row.workerId!,
@@ -805,6 +826,7 @@ jobOrdersRouter.post(
     }
 
     const data = await prisma.$transaction(async (tx) => {
+      await claimStageForCompletion(tx, row);
       let effectiveRow = row;
       let mergedNotes =
         body.notes !== undefined ? (body.notes.trim() ? body.notes.trim() : null) : row.notes;

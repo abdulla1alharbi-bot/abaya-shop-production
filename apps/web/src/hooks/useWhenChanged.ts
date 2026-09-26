@@ -19,9 +19,14 @@ import { useState } from "react";
  * });
  */
 export function useWhenChanged<T>(value: T, onChange: (next: T, prev: T) => void): void {
-  const [prev, setPrev] = useState(value);
-  if (!Object.is(value, prev)) {
+  // Starts from a sentinel so `onChange` also runs on the first render, like the
+  // effects this replaced did on mount. Callers that seed state from data already
+  // in the query cache (a worker's specializations, the admin stage drafts) rely on it.
+  const [prev, setPrev] = useState<T | typeof UNSET>(UNSET);
+  if (prev === UNSET || !Object.is(value, prev)) {
     setPrev(value);
-    onChange(value, prev);
+    onChange(value, prev === UNSET ? value : prev);
   }
 }
+
+const UNSET: unique symbol = Symbol("useWhenChanged.unset");

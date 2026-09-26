@@ -1022,8 +1022,9 @@ invoicesRouter.get(
   "/next-invoice-no",
   requirePermission("pos.use", "invoices.create"),
   asyncHandler(async (_req, res) => {
-    const invoiceNo = await nextInvoiceNo(prisma);
-    res.json({ success: true, data: { invoiceNo } });
+    // The POS cart previews VAT with this rate — sellers can't read /settings.
+    const [invoiceNo, vatPercent] = await Promise.all([nextInvoiceNo(prisma), getVatRatePercent(prisma)]);
+    res.json({ success: true, data: { invoiceNo, vatPercent } });
   }),
 );
 

@@ -62,14 +62,6 @@ export function CartPanel() {
   const [successData, setSuccessData] = useState<{ id: string; invoiceNo: number } | null>(null);
   const [creditOverride, setCreditOverride] = useState(false);
 
-  const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const res = await api.get<{ success: boolean; data: Record<string, string> }>("/settings");
-      return res.data.data;
-    },
-  });
-
   const { data: abayaCatalog } = useQuery({
     queryKey: ["abaya-catalog"],
     queryFn: async () => {
@@ -89,16 +81,17 @@ export function CartPanel() {
     },
   });
 
-  const { data: nextInvoiceNo } = useQuery({
+  const { data: posMeta } = useQuery({
     queryKey: ["invoices", "next-no"],
     queryFn: async () => {
-      const res = await api.get<{ success: boolean; data: { invoiceNo: number } }>(
+      const res = await api.get<{ success: boolean; data: { invoiceNo: number; vatPercent: number } }>(
         "/invoices/next-invoice-no",
       );
-      return res.data.data.invoiceNo;
+      return res.data.data;
     },
     staleTime: 30_000,
   });
+  const nextInvoiceNo = posMeta?.invoiceNo;
 
   const { data: customerCredit } = useQuery({
     queryKey: ["customer-credit", posCustomerId],
@@ -111,7 +104,8 @@ export function CartPanel() {
     enabled: Boolean(posCustomerId),
   });
 
-  const vatPercent = parseFloat(settings?.vat_rate ?? "5") || 5;
+  // Same rate the server charges at checkout (0 is a valid rate — not VAT registered).
+  const vatPercent = posMeta?.vatPercent ?? 5;
 
   const subtotalFils = useMemo(() => subtotalFilsFromLines(lines), [lines]);
   const lineDiscountFils = useMemo(
@@ -189,6 +183,24 @@ export function CartPanel() {
         }))
         .filter((p) => p.amountFils > 0);
 
+      // The dialog shows the excess as change handed back, so only the invoice total
+      // is actually kept: take the change out of the cash rows (the server rejects
+      // payments above the total). Card/transfer can't give change.
+      let excessFils = payments.reduce((a, p) => a + p.amountFils, 0) - totalFils;
+      for (let i = payments.length - 1; i >= 0 && excessFils > 0; i--) {
+        const p = payments[i]!;
+        if (p.method !== "CASH") continue;
+        const cut = Math.min(p.amountFils, excessFils);
+        p.amountFils -= cut;
+        excessFils -= cut;
+      }
+      if (excessFils > 0) {
+        throw new Error(
+          "مبلغ البطاقة / التحويل أكبر من إجمالي الفاتورة / Card or transfer amount exceeds the invoice total",
+        );
+      }
+      const keptPayments = payments.filter((p) => p.amountFils > 0);
+
       const retailItems = lines
         .filter((l): l is Extract<PosCartLine, { kind: "retail" }> => l.kind === "retail")
         .map((i) => ({
@@ -209,7 +221,7 @@ export function CartPanel() {
         customerId: posCustomerId ?? undefined,
         retailItems,
         tailoringItems,
-        payments,
+        payments: keptPayments,
         invoiceDiscountFils,
         discountReason: totalDiscountFils > 0 ? discountReason.trim() : undefined,
         notes: notes.trim() || undefined,
