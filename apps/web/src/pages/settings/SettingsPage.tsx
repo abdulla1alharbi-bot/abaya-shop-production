@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/apiErrors";
+import { invoicePaperOf } from "@/lib/printInvoice";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function SettingsPage() {
@@ -39,6 +40,7 @@ export function SettingsPage() {
         vat_rate: String(form.get("vat_rate") ?? "5"),
         vat_number: String(form.get("vat_number") ?? ""),
         currency: String(form.get("currency") ?? "AED"),
+        invoice_paper: String(form.get("invoice_paper") ?? "receipt80"),
         max_discount_percent: String(form.get("max_discount_percent") ?? "10"),
         default_cutting_wage_fils: aedToFilsStr("default_cutting_aed"),
         default_sewing_wage_fils: aedToFilsStr("default_sewing_aed"),
@@ -112,6 +114,19 @@ export function SettingsPage() {
         <div className="grid gap-2">
           <Label htmlFor="currency">{t("settings.currency")}</Label>
           <Input id="currency" name="currency" defaultValue={data.currency ?? "AED"} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="invoice_paper">{t("settings.invoicePaper")}</Label>
+          <select
+            id="invoice_paper"
+            name="invoice_paper"
+            defaultValue={invoicePaperOf(data)}
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="receipt80">{t("settings.paperReceipt80")}</option>
+            <option value="a4">{t("settings.paperA4")}</option>
+          </select>
+          <p className="text-xs text-muted-foreground">{t("settings.invoicePaperHint")}</p>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="max_discount_percent">

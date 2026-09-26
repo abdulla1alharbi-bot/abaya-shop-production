@@ -23,6 +23,21 @@ export async function getCustomerFacingShopName(prisma: PrismaClient): Promise<s
   return byKey.get("shop_name_ar") || byKey.get("shop_name") || null;
 }
 
+/**
+ * What the printed invoice needs from settings: names, VAT line and paper size.
+ * Sent down with the invoice because SELLER and ACCOUNTANT print invoices but lack
+ * `settings.view` — reading /settings from the browser failed every print for them.
+ */
+const PRINT_SETTING_KEYS = ["shop_name", "shop_name_ar", "vat_rate", "vat_number", "invoice_paper"] as const;
+
+export async function getInvoicePrintSettings(prisma: PrismaClient): Promise<Record<string, string>> {
+  const rows = await prisma.setting.findMany({
+    where: { key: { in: [...PRINT_SETTING_KEYS] } },
+    select: { key: true, value: true },
+  });
+  return Object.fromEntries(rows.map((r) => [r.key, r.value ?? ""]));
+}
+
 /** The shop's IANA timezone (setting `timezone`), used to slice reporting periods. */
 export async function getShopTimezone(prisma: PrismaClient): Promise<string> {
   const s = await prisma.setting.findUnique({ where: { key: "timezone" } });

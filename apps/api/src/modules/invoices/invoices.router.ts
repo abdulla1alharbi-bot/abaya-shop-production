@@ -2,7 +2,12 @@ import { Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
-import { getCustomerFacingShopName, getDefaultBranchId, getVatRatePercent } from "../../config/shop.js";
+import {
+  getCustomerFacingShopName,
+  getDefaultBranchId,
+  getInvoicePrintSettings,
+  getVatRatePercent,
+} from "../../config/shop.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireAllPermissions, requirePermission } from "../../middleware/rbac.middleware.js";
 import { validateBody } from "../../middleware/validate.middleware.js";
@@ -130,8 +135,12 @@ async function fetchInvoiceDetailWithMeta(invoiceId: string) {
     : [];
   // Sellers build WhatsApp messages from this payload but can't read /settings
   // (settings.view is owner/manager only), so the signature comes down with the invoice.
-  const shopName = await getCustomerFacingShopName(prisma);
-  return { ...invoice, fulfillmentStatus, relatedInvoices, shopName };
+  // Printing has the same problem, hence printSettings.
+  const [shopName, printSettings] = await Promise.all([
+    getCustomerFacingShopName(prisma),
+    getInvoicePrintSettings(prisma),
+  ]);
+  return { ...invoice, fulfillmentStatus, relatedInvoices, shopName, printSettings };
 }
 
 export const invoicesRouter = Router();
