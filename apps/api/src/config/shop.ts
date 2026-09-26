@@ -28,7 +28,7 @@ export async function getCustomerFacingShopName(prisma: PrismaClient): Promise<s
  * Sent down with the invoice because SELLER and ACCOUNTANT print invoices but lack
  * `settings.view` — reading /settings from the browser failed every print for them.
  */
-const PRINT_SETTING_KEYS = ["shop_name", "shop_name_ar", "vat_rate", "vat_number", "invoice_paper", "shop_copies"] as const;
+const PRINT_SETTING_KEYS = ["shop_name", "shop_name_ar", "vat_rate", "vat_number", "invoice_paper"] as const;
 
 export async function getInvoicePrintSettings(prisma: PrismaClient): Promise<Record<string, string>> {
   const rows = await prisma.setting.findMany({

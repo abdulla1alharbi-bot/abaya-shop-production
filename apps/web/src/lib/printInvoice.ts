@@ -199,10 +199,14 @@ function jobSheetHtml(job: JobOrder, deliveryDate: string | null): string {
     </div>`;
 }
 
-/** How many shop copies follow the customer copy (setting `shop_copies`, 0–5, default 1). */
-export function shopCopiesOf(settings?: Record<string, string>): number {
-  const n = parseInt(settings?.shop_copies ?? "", 10);
-  return Number.isFinite(n) ? Math.min(5, Math.max(0, n)) : 1;
+/** Shop copies per print: the seller picks 0–5 at the print button, default 1. */
+export const SHOP_COPIES_DEFAULT = 1;
+export const SHOP_COPIES_MAX = 5;
+
+export function clampShopCopies(n: number | undefined): number {
+  return typeof n === "number" && Number.isFinite(n)
+    ? Math.min(SHOP_COPIES_MAX, Math.max(0, Math.round(n)))
+    : SHOP_COPIES_DEFAULT;
 }
 
 /**
@@ -561,6 +565,7 @@ export async function printInvoice(
   data: Record<string, unknown>,
   shopSettings?: Record<string, string>,
   win?: Window | null,
+  opts?: { shopCopies?: number },
 ): Promise<void> {
   const target = win ?? openPrintWindow();
   if (!target) return;
@@ -574,7 +579,7 @@ export async function printInvoice(
   const vatRate = s.vat_rate || "5";
   const vatNo = s.vat_number?.trim() || "";
 
-  const ctx: Ctx = { inv, shopName, vatRate, vatNo, shopCopies: shopCopiesOf(s) };
+  const ctx: Ctx = { inv, shopName, vatRate, vatNo, shopCopies: clampShopCopies(opts?.shopCopies) };
   const html = paper === "a4" ? a4Html(ctx) : receiptHtml(ctx);
 
   target.document.open();

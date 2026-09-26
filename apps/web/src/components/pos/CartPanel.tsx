@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { printInvoiceById } from "@/lib/printInvoiceById";
+import { SHOP_COPIES_DEFAULT } from "@/lib/printInvoice";
+import { ShopCopiesStepper } from "@/components/invoices/ShopCopiesStepper";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   tailoringLineToCheckoutItem,
@@ -59,7 +61,10 @@ export function CartPanel() {
   const [notes, setNotes] = useState("");
   const [discountReason, setDiscountReason] = useState("");
   const [saveMeasurementsToProfile, setSaveMeasurementsToProfile] = useState(false);
-  const [successData, setSuccessData] = useState<{ id: string; invoiceNo: number } | null>(null);
+  const [successData, setSuccessData] = useState<{ id: string; invoiceNo: number; hasTailoring: boolean } | null>(
+    null,
+  );
+  const [shopCopies, setShopCopies] = useState(SHOP_COPIES_DEFAULT);
   const [creditOverride, setCreditOverride] = useState(false);
 
   const { data: abayaCatalog } = useQuery({
@@ -136,6 +141,7 @@ export function CartPanel() {
   }, [lines]);
 
   const openCheckout = () => {
+    setShopCopies(SHOP_COPIES_DEFAULT);
     setDeliveryLocal(latestLineDue);
     setPrintError(false);
     setCheckoutOpen(true);
@@ -254,7 +260,7 @@ export function CartPanel() {
         }
       }
 
-      return res.data.data;
+      return { ...res.data.data, hasTailoring: tailoringItems.length > 0 };
     },
     onSuccess: (data) => {
       clear();
@@ -272,7 +278,7 @@ export function CartPanel() {
       // No auto-redirect: the seller prints the invoice for the customer from
       // this screen before the workshop starts, and a timer would close it
       // while the print dialog is still open.
-      setSuccessData(data.invoice);
+      setSuccessData({ ...data.invoice, hasTailoring: data.hasTailoring });
     },
   });
 
@@ -283,7 +289,7 @@ export function CartPanel() {
     setPrinting(true);
     setPrintError(false);
     try {
-      await printInvoiceById(successData.id);
+      await printInvoiceById(successData.id, { shopCopies: successData.hasTailoring ? shopCopies : 0 });
     } catch {
       setPrintError(true);
     } finally {
@@ -489,6 +495,9 @@ export function CartPanel() {
                 <p className="mt-2 text-xs text-muted-foreground">{t("pos.pay.printHint")}</p>
               </div>
               <div className="flex w-full flex-col gap-2">
+                {can("invoices.print") && successData.hasTailoring ? (
+                  <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} />
+                ) : null}
                 {can("invoices.print") ? (
                   <Button
                     type="button"

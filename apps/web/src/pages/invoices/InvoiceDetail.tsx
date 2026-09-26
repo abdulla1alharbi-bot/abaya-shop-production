@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Banknote, CheckCheck, MessageCircle, Printer, Trash2 } from "lucide-react";
 import { VOID_CATEGORIES } from "@abaya-shop/shared";
-import { printInvoice } from "@/lib/printInvoice";
+import { printInvoice, SHOP_COPIES_DEFAULT } from "@/lib/printInvoice";
+import { ShopCopiesStepper } from "@/components/invoices/ShopCopiesStepper";
 import { buildWhatsAppLink, orderReadyMessage, paymentReminderMessage } from "@/lib/whatsappLinks";
 import { JobProcessPieceTable } from "@/components/job-orders/JobProcessPieceTable";
 import type { WorkshopWorkStageRow } from "@/components/job-orders/WorkshopTaskSheet";
@@ -186,6 +187,7 @@ export function InvoiceDetail() {
   const canInspect = can("jobProcess.inspect");
   const canViewCost = can("reports.financial");
   const canPrint = can("invoices.print");
+  const [shopCopies, setShopCopies] = useState(SHOP_COPIES_DEFAULT);
   const UNCLAIMED_DAYS = 120;
   const scrollToAnchor = useCallback((eid: string) => {
     document.getElementById(eid)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -506,13 +508,16 @@ export function InvoiceDetail() {
               {t("invoiceDetail.paymentAndDelivery")}
             </Button>
           ) : null}
+          {canPrint && data && jobOrders.length > 0 ? (
+            <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} className="h-14 rounded-xl" />
+          ) : null}
           {canPrint && data ? (
             <Button
               type="button"
               variant="outline"
               size="lg"
               className="h-14 rounded-xl"
-              onClick={() => printInvoice(data, settings)}
+              onClick={() => void printInvoice(data, settings, undefined, { shopCopies })}
             >
               <Printer className="me-2 h-5 w-5" />
               {t("invoiceDetail.printInvoice")}

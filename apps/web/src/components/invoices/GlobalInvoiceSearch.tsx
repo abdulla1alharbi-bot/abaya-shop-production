@@ -19,6 +19,8 @@ import { api } from "@/lib/api";
 import { invoiceFulfillmentKey } from "@/lib/invoiceOperationalLabels";
 import { formatAED } from "@/lib/money";
 import { printInvoiceById } from "@/lib/printInvoiceById";
+import { SHOP_COPIES_DEFAULT } from "@/lib/printInvoice";
+import { ShopCopiesStepper } from "@/components/invoices/ShopCopiesStepper";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -96,6 +98,7 @@ function GlobalInvoiceQuickViewModal({
   const navigate = useNavigate();
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState(false);
+  const [shopCopies, setShopCopies] = useState(SHOP_COPIES_DEFAULT);
   const { t } = useTranslation();
   const paymentStatus = usePaymentStatus();
 
@@ -104,7 +107,7 @@ function GlobalInvoiceQuickViewModal({
     setPrinting(true);
     setPrintError(false);
     try {
-      await printInvoiceById(invoiceId);
+      await printInvoiceById(invoiceId, { shopCopies });
     } catch {
       setPrintError(true);
     } finally {
@@ -267,6 +270,9 @@ function GlobalInvoiceQuickViewModal({
                 />
               ) : null}
 
+              {can("invoices.print") && ((data.jobOrders as unknown[] | undefined)?.length ?? 0) > 0 ? (
+                <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} className="border-t pt-3" />
+              ) : null}
               <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap">
                 {can("invoices.print") ? (
                   <Button
