@@ -384,6 +384,8 @@
     "paperReceipt80": "80mm thermal receipt printer",
     "paperA4": "A4 paper",
     "invoicePaperHint": "In the print dialog: pick the receipt printer, margins “None”, scale 100%. The browser remembers it after the first time.",
+    "shopCopies": "Shop copies per invoice",
+    "shopCopiesHint": "Printed after the customer copy, one numbered sheet each (1/2, 2/2). 0 = none. Only for invoices with tailoring.",
     "currency": "Currency",
     "defaultWagesTitle": "Default Tailoring Wages (for models without specified wages)",
     "wageCutting": "Cutting (AED)",

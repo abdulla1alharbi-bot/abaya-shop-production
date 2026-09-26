@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/apiErrors";
-import { invoicePaperOf } from "@/lib/printInvoice";
+import { invoicePaperOf, shopCopiesOf } from "@/lib/printInvoice";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export function SettingsPage() {
@@ -41,6 +41,7 @@ export function SettingsPage() {
         vat_number: String(form.get("vat_number") ?? ""),
         currency: String(form.get("currency") ?? "AED"),
         invoice_paper: String(form.get("invoice_paper") ?? "receipt80"),
+        shop_copies: String(shopCopiesOf({ shop_copies: String(form.get("shop_copies") ?? "1") })),
         max_discount_percent: String(form.get("max_discount_percent") ?? "10"),
         default_cutting_wage_fils: aedToFilsStr("default_cutting_aed"),
         default_sewing_wage_fils: aedToFilsStr("default_sewing_aed"),
@@ -127,6 +128,19 @@ export function SettingsPage() {
             <option value="a4">{t("settings.paperA4")}</option>
           </select>
           <p className="text-xs text-muted-foreground">{t("settings.invoicePaperHint")}</p>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="shop_copies">{t("settings.shopCopies")}</Label>
+          <Input
+            id="shop_copies"
+            name="shop_copies"
+            type="number"
+            min={0}
+            max={5}
+            step={1}
+            defaultValue={shopCopiesOf(data)}
+          />
+          <p className="text-xs text-muted-foreground">{t("settings.shopCopiesHint")}</p>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="max_discount_percent">

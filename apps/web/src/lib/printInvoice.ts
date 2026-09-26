@@ -199,15 +199,30 @@ function jobSheetHtml(job: JobOrder, deliveryDate: string | null): string {
     </div>`;
 }
 
-function shopCopyHtml(inv: InvoiceData, shopName: string): string {
+/** How many shop copies follow the customer copy (setting `shop_copies`, 0–5, default 1). */
+export function shopCopiesOf(settings?: Record<string, string>): number {
+  const n = parseInt(settings?.shop_copies ?? "", 10);
+  return Number.isFinite(n) ? Math.min(5, Math.max(0, n)) : 1;
+}
+
+/**
+ * The shop copies, one page each. Several are printed when the work is split
+ * across people (cutter, tailor, embroiderer), each keeping a sheet; they are
+ * numbered so a missing one shows.
+ */
+function shopCopiesHtml(inv: InvoiceData, shopName: string, copies: number): string {
   const jobs = inv.jobOrders ?? [];
-  if (jobs.length === 0) return "";
+  if (jobs.length === 0 || copies <= 0) return "";
+  return Array.from({ length: copies }, (_, i) => shopCopyHtml(inv, jobs, shopName, i + 1, copies)).join("");
+}
+
+function shopCopyHtml(inv: InvoiceData, jobs: JobOrder[], shopName: string, copyNo: number, copies: number): string {
   const delivery = inv.deliveryDate ?? latestDue(jobs);
   return `
 <div class="shop-copy">
   <div class="c">
     <div class="shop">${esc(shopName)}</div>
-    <div class="copy-tag">نسخة المحل / Shop copy</div>
+    <div class="copy-tag">نسخة المحل / Shop copy${copies > 1 ? ` <span class="num">${copyNo}/${copies}</span>` : ""}</div>
     <div class="inv-no num">#${inv.invoiceNo}</div>
   </div>
   <hr />
@@ -251,6 +266,7 @@ type Ctx = {
   shopName: string;
   vatRate: string;
   vatNo: string;
+  shopCopies: number;
 };
 
 function paymentStatusBadge(inv: InvoiceData): string {
@@ -260,7 +276,7 @@ function paymentStatusBadge(inv: InvoiceData): string {
 }
 
 /** 80mm thermal roll: ~72mm printable, black only, one narrow column. */
-function receiptHtml({ inv, shopName, vatRate, vatNo }: Ctx): string {
+function receiptHtml({ inv, shopName, vatRate, vatNo, shopCopies }: Ctx): string {
   const itemRows = inv.items
     .map(
       (item) => `
@@ -360,14 +376,14 @@ ${SHOP_COPY_CSS}
     فاتورة ضريبية — الإمارات العربية المتحدة<br/>
     شكراً لزيارتكم / Thank you
   </div>
-${shopCopyHtml(inv, shopName)}
+${shopCopiesHtml(inv, shopName, shopCopies)}
 ${PRINT_ON_LOAD}
 </body>
 </html>`;
 }
 
 /** Full-page A4 invoice. */
-function a4Html({ inv, shopName, vatRate, vatNo }: Ctx): string {
+function a4Html({ inv, shopName, vatRate, vatNo, shopCopies }: Ctx): string {
   const itemRows = inv.items
     .map(
       (item) => `
@@ -530,7 +546,7 @@ ${SHOP_COPY_CSS}
     VAT Rate: ${esc(vatRate)}% | Currency: AED | Invoice No: ${inv.invoiceNo} | Date: ${formatDate(inv.createdAt)}
   </div>
 </div>
-${shopCopyHtml(inv, shopName)}
+${shopCopiesHtml(inv, shopName, shopCopies)}
 ${PRINT_ON_LOAD}
 </body>
 </html>`;
@@ -558,7 +574,7 @@ export async function printInvoice(
   const vatRate = s.vat_rate || "5";
   const vatNo = s.vat_number?.trim() || "";
 
-  const ctx: Ctx = { inv, shopName, vatRate, vatNo };
+  const ctx: Ctx = { inv, shopName, vatRate, vatNo, shopCopies: shopCopiesOf(s) };
   const html = paper === "a4" ? a4Html(ctx) : receiptHtml(ctx);
 
   target.document.open();
