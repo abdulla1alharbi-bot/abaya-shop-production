@@ -19,6 +19,7 @@ import { parsePageLimit, queryParamString } from "../../utils/queryParams.js";
 import { nextInvoiceNo, nextJobNo } from "../../utils/counters.js";
 import { allocateByLineShares } from "../../utils/invoiceAllocation.js";
 import { syncInvoiceJobsFinancials } from "../../utils/invoiceJobSync.js";
+import { effectivePaidFils, lockInvoiceRow } from "../../utils/invoiceLock.js";
 import {
   activateJobPipeline,
   loadWageDefaults,
@@ -654,13 +655,15 @@ invoicesRouter.post(
       for (const [productId, qtyInt] of qtyByProduct) {
         const p = products.find((x) => x.id === productId)!;
         if (p.isService) continue;
-        if (p.stockQty < qtyInt) {
-          throw new AppError(400, `Insufficient stock for ${p.name}`, "INSUFFICIENT_STOCK");
-        }
-        await tx.product.update({
-          where: { id: productId },
+        // Conditional decrement: the snapshot check above can pass for two sales of
+        // the last piece at once; only one of them matches `stockQty >= qty` here.
+        const taken = await tx.product.updateMany({
+          where: { id: productId, stockQty: { gte: qtyInt } },
           data: { stockQty: { decrement: qtyInt } },
         });
+        if (taken.count === 0) {
+          throw new AppError(400, `Insufficient stock for ${p.name}`, "INSUFFICIENT_STOCK");
+        }
       }
 
       if (body.customerId && balanceFils > 0) {
@@ -1228,13 +1231,15 @@ invoicesRouter.post(
         for (const [productId, qtyInt] of qtyByProduct) {
           const p = productsById.get(productId)!;
           if (p.isService) continue;
-          if (p.stockQty < qtyInt) {
-            throw new AppError(400, `Insufficient stock for ${p.name}`, "INSUFFICIENT_STOCK");
-          }
-          await tx.product.update({
-            where: { id: productId },
+          // Conditional decrement — see POST /invoices: only one of two concurrent
+          // sales of the last piece can match `stockQty >= qty`.
+          const taken = await tx.product.updateMany({
+            where: { id: productId, stockQty: { gte: qtyInt } },
             data: { stockQty: { decrement: qtyInt } },
           });
+          if (taken.count === 0) {
+            throw new AppError(400, `Insufficient stock for ${p.name}`, "INSUFFICIENT_STOCK");
+          }
         }
       }
 
@@ -1414,6 +1419,7 @@ invoicesRouter.post(
     const userId = req.user?.id ?? "system";
 
     await prisma.$transaction(async (tx) => {
+      await lockInvoiceRow(tx, invoiceId);
       const inv = await tx.invoice.findUnique({ where: { id: invoiceId } });
       if (!inv || inv.isVoid) throw new AppError(404, "Invoice not found", "NOT_FOUND");
 
@@ -1426,10 +1432,12 @@ invoicesRouter.post(
        * keeps `paid + balance == total` intact for every screen and for
        * `syncInvoiceJobsFinancials`, which allocates paid across job lines.
        */
-      const outstanding = Math.max(0, inv.totalFils - inv.paidFils);
+      // balanceFils, not total − paid: a return lowers the balance without touching
+      // the total, and total − paid would bring the returned amount back as debt.
+      const outstanding = Math.max(0, inv.balanceFils);
       const settled = Math.min(add, outstanding);
       const newPaid = inv.paidFils + settled;
-      const newBalance = inv.totalFils - newPaid;
+      const newBalance = outstanding - settled;
 
       await tx.payment.createMany({
         data: body.payments.map((p) => ({
@@ -1503,6 +1511,7 @@ invoicesRouter.delete(
     const userId = req.user?.id ?? "system";
 
     await prisma.$transaction(async (tx) => {
+      await lockInvoiceRow(tx, invoiceId);
       const inv = await tx.invoice.findUnique({ where: { id: invoiceId } });
       if (!inv) throw new AppError(404, "Invoice not found", "NOT_FOUND");
       if (inv.isVoid) throw new AppError(400, "الفاتورة ملغاة — لا يمكن تعديل دفعاتها", "INVOICE_VOID");
@@ -1510,6 +1519,22 @@ invoicesRouter.delete(
       const payment = await tx.payment.findUnique({ where: { id: paymentId } });
       if (!payment || payment.invoiceId !== invoiceId) {
         throw new AppError(404, "Payment not found on this invoice", "NOT_FOUND");
+      }
+      // The recompute below (paid = sum of rows, balance = total − paid) only holds
+      // without returns: a refund row is the cash half of a return whose goods are
+      // already back in stock, and after any return total − paid is no longer what
+      // is owed. Deleting either would resurrect debt or erase a refund from the
+      // cash reports, so those invoices are corrected by voiding instead.
+      if (payment.reference?.startsWith("RETURN:")) {
+        throw new AppError(400, "لا يمكن حذف سطر استرداد مرتجع", "RETURN_REFUND_ROW");
+      }
+      const returnsCount = await tx.invoiceReturn.count({ where: { invoiceId } });
+      if (returnsCount > 0) {
+        throw new AppError(
+          400,
+          "على هذه الفاتورة مرتجع — لا يمكن حذف دفعاتها، ألغِ الفاتورة بدلاً من ذلك",
+          "INVOICE_HAS_RETURNS",
+        );
       }
 
       // deleteMany, not delete: two supervisors hitting the same row must not 500.
@@ -1642,12 +1667,44 @@ invoicesRouter.post(
     const userName = req.user?.name ?? "مستخدم";
 
     await prisma.$transaction(async (tx) => {
+      // Locked first so a double-click can't pass the isVoid check twice and
+      // reverse the customer balance twice.
+      await lockInvoiceRow(tx, invoiceId);
       const inv = await tx.invoice.findUnique({
         where: { id: invoiceId },
-        include: { jobOrders: true, customer: { select: { id: true, name: true, balanceFils: true } } },
+        include: {
+          jobOrders: true,
+          customer: { select: { id: true, name: true, balanceFils: true } },
+          items: {
+            include: {
+              product: { select: { id: true, isService: true } },
+              returnItems: { select: { qty: true, restocked: true } },
+            },
+          },
+          returns: { select: { totalFils: true } },
+        },
       });
       if (!inv) throw new AppError(404, "Invoice not found", "NOT_FOUND");
       if (inv.isVoid) throw new AppError(400, "Invoice already void", "ALREADY_VOID");
+
+      // Ready-made pieces go back on the shelf — the sale no longer exists. Uses the
+      // same rounding the sale decremented with, minus whatever a return already
+      // restocked. Tailoring lines (a job order hangs off them) are not shelf stock.
+      const tailoringItemIds = new Set(inv.jobOrders.map((j) => j.invoiceItemId).filter(Boolean));
+      for (const item of inv.items) {
+        if (!item.product || item.product.isService || tailoringItemIds.has(item.id)) continue;
+        const sold = Math.max(1, Math.round(item.qty));
+        const restockedAlready = item.returnItems
+          .filter((r) => r.restocked)
+          .reduce((a, r) => a + Math.round(r.qty), 0);
+        const back = sold - restockedAlready;
+        if (back > 0) {
+          await tx.product.update({
+            where: { id: item.product.id },
+            data: { stockQty: { increment: back } },
+          });
+        }
+      }
 
       for (const j of inv.jobOrders) {
         await restoreAllDeductedMaterialsForJob(tx, {
@@ -1657,11 +1714,14 @@ invoicesRouter.post(
         });
       }
 
-      // Reverse customer balance: remove the unpaid debt, then apply credit for paid amount
+      // Reverse customer balance: remove the unpaid debt, then credit what was paid
+      // and not already given back by a return (a CREDIT return credited its part).
+      const returnsFils = inv.returns.reduce((a, r) => a + r.totalFils, 0);
+      const paidNotRefunded = effectivePaidFils(inv, returnsFils);
       if (inv.customerId && inv.customer) {
         let balanceDelta = 0;
         if (inv.balanceFils > 0) balanceDelta -= inv.balanceFils; // remove debt
-        if (inv.paidFils > 0) balanceDelta -= inv.paidFils;       // create store credit
+        if (paidNotRefunded > 0) balanceDelta -= paidNotRefunded; // create store credit
         if (balanceDelta !== 0) {
           await tx.customer.update({
             where: { id: inv.customerId },
@@ -1693,7 +1753,7 @@ invoicesRouter.post(
             voidCategory: body.voidCategory,
             voidReason: body.voidReason.trim(),
             invoiceNo: inv.invoiceNo,
-            customerBalanceReversed: inv.balanceFils + inv.paidFils,
+            customerBalanceReversed: Math.max(0, inv.balanceFils) + paidNotRefunded,
           }),
         },
       });
@@ -1878,7 +1938,11 @@ invoicesRouter.post(
     if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
     const invoiceId = req.params.id;
 
+    if (!invoiceId) throw new AppError(400, "Missing invoice id", "VALIDATION_ERROR");
+
     const result = await prisma.$transaction(async (tx) => {
+      // Locked so two returns of the same line can't both see it as unreturned.
+      await lockInvoiceRow(tx, invoiceId);
       const inv = await tx.invoice.findUnique({
         where: { id: invoiceId },
         include: {

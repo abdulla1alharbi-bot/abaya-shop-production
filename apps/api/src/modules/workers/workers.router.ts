@@ -9,10 +9,10 @@ import { icontains } from "../../utils/search.js";
 import { AppError } from "../../middleware/error.middleware.js";
 import { prismaSkipTake, buildPaginatedMeta } from "../../utils/pagination.js";
 import { parseDateRangeOrDefault, parsePageLimit, parseOptionalDate, queryParamString } from "../../utils/queryParams.js";
+import { EARNED_WAGE_ENTRY } from "../../utils/wageRules.js";
 
 export const workersRouter = Router();
 workersRouter.use(authMiddleware);
-const COMPLETED_WAGE_JOB_STAGES = ["READY", "DELIVERED"] as const;
 
 function endOfDay(d: Date): Date {
   const x = new Date(d);
@@ -330,7 +330,7 @@ workersRouter.get(
       prisma.productionEntry.aggregate({
         where: {
           workerId: wid,
-          jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
+          ...EARNED_WAGE_ENTRY,
         },
         _sum: { totalFils: true },
       }),
@@ -490,7 +490,7 @@ workersRouter.get(
       prisma.productionEntry.aggregate({
         where: {
           workerId: worker.id,
-          jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
+          ...EARNED_WAGE_ENTRY,
         },
         _sum: { totalFils: true },
       }),

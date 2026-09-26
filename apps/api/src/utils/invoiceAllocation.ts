@@ -24,7 +24,12 @@ export function allocateByLineShares(
   }
   const shareTotal = lineAmounts.map((L) => Math.round((invoiceTotal * L) / invoiceSubtotal));
   const sharePaid = lineAmounts.map((L) => Math.round((paidTotal * L) / invoiceSubtotal));
-  fixRoundingSum(shareTotal, invoiceTotal);
-  fixRoundingSum(sharePaid, paidTotal);
+  // Rounding is corrected to *these lines'* share, not the whole invoice: on a mixed
+  // invoice (retail + tailoring) the tailoring lines are only part of the subtotal,
+  // and forcing their sum to the full total put the retail amount on the last job.
+  // When the lines are the whole subtotal this is exactly invoiceTotal / paidTotal.
+  const linesSum = lineAmounts.reduce((a, b) => a + b, 0);
+  fixRoundingSum(shareTotal, Math.round((invoiceTotal * linesSum) / invoiceSubtotal));
+  fixRoundingSum(sharePaid, Math.round((paidTotal * linesSum) / invoiceSubtotal));
   return { shareTotal, sharePaid };
 }

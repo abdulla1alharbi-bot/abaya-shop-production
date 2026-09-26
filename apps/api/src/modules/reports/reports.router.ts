@@ -12,13 +12,13 @@ import {
   queryParamString,
 } from "../../utils/queryParams.js";
 import { dailyReportRouter } from "./daily-report.router.js";
+import { COMPLETED_WAGE_JOB_STAGES, EARNED_WAGE_ENTRY } from "../../utils/wageRules.js";
 
 export const reportsRouter = Router();
 reportsRouter.use(authMiddleware);
 
 // End-of-day owner report: figures, email preview, schedule, send-now.
 reportsRouter.use("/daily-report", dailyReportRouter);
-const COMPLETED_WAGE_JOB_STAGES = ["READY", "DELIVERED"] as const;
 
 reportsRouter.get(
   "/worker-productivity",
@@ -29,7 +29,7 @@ reportsRouter.get(
     const entries = await prisma.productionEntry.findMany({
       where: {
         date: { gte: from, lte: to },
-        jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
+        ...EARNED_WAGE_ENTRY,
       },
       include: { worker: { select: { id: true, name: true, isActive: true } } },
     });
@@ -259,7 +259,7 @@ reportsRouter.get(
     const entries = await prisma.productionEntry.findMany({
       where: {
         date: { gte: from, lte: to },
-        jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
+        ...EARNED_WAGE_ENTRY,
       },
       orderBy: [{ date: "desc" }, { id: "desc" }],
       take: 2000,

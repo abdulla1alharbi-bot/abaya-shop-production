@@ -24,11 +24,11 @@ import {
 } from "../../utils/jobUrgency.js";
 import { findOverdueJobs, summarizeOverdueBacklog } from "../../utils/overdueBacklog.js";
 import { parsePageLimit, queryParamString } from "../../utils/queryParams.js";
+import { COMPLETED_WAGE_JOB_STAGES, EARNED_WAGE_ENTRY } from "../../utils/wageRules.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
 
-const COMPLETED_WAGE_JOB_STAGES = ["READY", "DELIVERED"] as const;
 
 /** Calendar midnight in local server TZ — compare due instants to this for “before today”. */
 function startOfCalendarDay(d: Date): Date {
@@ -991,7 +991,7 @@ dashboardRouter.get(
     const wagesThisWeek = await prisma.productionEntry.findMany({
       where: {
         date: { gte: startOfWeek },
-        jobOrder: { stage: { in: [...COMPLETED_WAGE_JOB_STAGES] } },
+        ...EARNED_WAGE_ENTRY,
       },
       include: { worker: { select: { id: true, name: true } } },
     });
