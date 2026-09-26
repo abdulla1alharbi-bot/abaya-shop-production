@@ -221,6 +221,41 @@ productsRouter.post(
   }),
 );
 
+const bulkDeleteBody = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(500),
+});
+
+/**
+ * Remove several ready-made products at once (same soft delete as DELETE /:id).
+ * Tailoring service products are never touched here, whatever ids are sent —
+ * hiding one would break the POS tailoring flow.
+ */
+productsRouter.post(
+  "/bulk-delete",
+  requirePermission("readyMade.delete"),
+  validateBody(bulkDeleteBody),
+  asyncHandler(async (req, res) => {
+    const ids = [...new Set((req.body as z.infer<typeof bulkDeleteBody>).ids)];
+    const count = await prisma.$transaction(async (tx) => {
+      const result = await tx.product.updateMany({
+        where: { id: { in: ids }, isService: false, isActive: true },
+        data: { isActive: false },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: req.user?.id ?? "system",
+          action: "PRODUCTS_BULK_DELETED",
+          entity: "Product",
+          entityId: ids[0] ?? "",
+          newValue: JSON.stringify({ ids, deleted: result.count }),
+        },
+      });
+      return result.count;
+    });
+    res.status(200).json({ success: true, data: { deleted: count } });
+  }),
+);
+
 productsRouter.delete(
   "/:id",
   requirePermission("readyMade.delete"),

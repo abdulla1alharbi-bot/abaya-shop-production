@@ -42,6 +42,8 @@ export function ReadyMadeProductsPage() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [stockFor, setStockFor] = useState<ReadyMadeRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const canDelete = can("readyMade.delete");
 
   const { data, isLoading } = useQuery({
     queryKey: ["products", "ready-made", { showDeleted }],
@@ -71,7 +73,32 @@ export function ReadyMadeProductsPage() {
     onSuccess: refresh,
   });
 
-  const rowError = remove.error ?? restore.error;
+  const bulkRemove = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await api.post<{ data: { deleted: number } }>("/products/bulk-delete", { ids });
+      return res.data.data.deleted;
+    },
+    onSuccess: (deleted) => {
+      setSelected(new Set());
+      setNotice(t("readyMade.bulkDeleted", { count: deleted }));
+      refresh();
+    },
+  });
+
+  const rowError = remove.error ?? restore.error ?? bulkRemove.error;
+
+  // Only rows still on screen and still active can be deleted; a selection
+  // survives a refetch, so filter it against the current list every render.
+  const selectable = (data ?? []).filter((p) => p.isActive);
+  const selectedIds = selectable.filter((p) => selected.has(p.id)).map((p) => p.id);
+  const allSelected = selectable.length > 0 && selectedIds.length === selectable.length;
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <div>
@@ -99,6 +126,30 @@ export function ReadyMadeProductsPage() {
           />
           {t("readyMade.showDeleted")}
         </label>
+        {canDelete && selectedIds.length > 0 ? (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-1.5">
+            <span className="text-sm font-medium">{t("readyMade.selectedCount", { count: selectedIds.length })}</span>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-8 gap-1"
+              disabled={bulkRemove.isPending}
+              onClick={() => {
+                if (window.confirm(t("readyMade.confirmBulkDelete", { count: selectedIds.length }))) {
+                  setNotice(null);
+                  bulkRemove.mutate(selectedIds);
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              {bulkRemove.isPending ? "…" : t("readyMade.deleteSelected")}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setSelected(new Set())}>
+              {t("readyMade.clearSelection")}
+            </Button>
+          </div>
+        ) : null}
         {notice ? <p className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p> : null}
         {rowError ? <p className="text-sm text-destructive">{getApiErrorMessage(rowError)}</p> : null}
       </div>
@@ -106,6 +157,19 @@ export function ReadyMadeProductsPage() {
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/40">
             <tr>
+              {canDelete ? (
+                <th className="w-10 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    aria-label={t("readyMade.selectAll")}
+                    title={t("readyMade.selectAll")}
+                    checked={allSelected}
+                    disabled={selectable.length === 0}
+                    onChange={() => setSelected(allSelected ? new Set() : new Set(selectable.map((p) => p.id)))}
+                  />
+                </th>
+              ) : null}
               <th className="px-3 py-3 text-start font-medium">{t("readyMade.colImage")}</th>
               <th className="px-4 py-3 text-start font-medium">{t("readyMade.colCode")}</th>
               <th className="px-4 py-3 text-start font-medium">{t("readyMade.colName")}</th>
@@ -120,13 +184,13 @@ export function ReadyMadeProductsPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={canDelete ? 10 : 9} className="px-4 py-8 text-center text-muted-foreground">
                   {t("common.loadingData")}
                 </td>
               </tr>
             ) : !data?.length ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={canDelete ? 10 : 9} className="px-4 py-8 text-center text-muted-foreground">
                   {t("readyMade.emptyMessage", { defaultValue: "No ready-made products yet." })}
                 </td>
               </tr>
@@ -136,6 +200,18 @@ export function ReadyMadeProductsPage() {
                   key={p.id}
                   className={`border-b border-border/60 last:border-0 ${p.isActive ? "" : "opacity-60"}`}
                 >
+                  {canDelete ? (
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        aria-label={t("readyMade.selectRow", { name: p.name })}
+                        checked={p.isActive && selected.has(p.id)}
+                        disabled={!p.isActive}
+                        onChange={() => toggle(p.id)}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2">
                     {p.catalogImageUrl ? (
                       <img
@@ -200,7 +276,7 @@ export function ReadyMadeProductsPage() {
                           <Link to={`/ready-made/${p.id}/edit`}>{t("common.edit")}</Link>
                         </Button>
                       ) : null}
-                      {can("readyMade.delete") && p.isActive ? (
+                      {canDelete && p.isActive ? (
                         <Button
                           type="button"
                           variant="ghost"
