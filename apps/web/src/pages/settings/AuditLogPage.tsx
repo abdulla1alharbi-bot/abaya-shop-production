@@ -21,6 +21,7 @@ type AuditEntry = {
 
 const ACTION_COLORS: Record<string, string> = {
   INVOICE_VOID: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  INVOICE_HARD_DELETE: "bg-red-200 text-red-900 dark:bg-red-800 dark:text-red-100",
   PAYMENT_ADDED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   STAGE_REOPEN: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
   WORKER_PAYOUT: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",

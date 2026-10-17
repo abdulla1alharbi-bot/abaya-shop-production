@@ -1863,6 +1863,283 @@ invoicesRouter.post(
   }),
 );
 
+const hardDeleteBody = z.object({
+  /** The invoice's own number, typed by hand — a mis-tap can't erase an invoice. */
+  confirmInvoiceNo: z.number().int(),
+  reason: z.string().min(3, "Reason is required"),
+});
+
+/**
+ * Erase an invoice and everything hanging off it — permanently.
+ *
+ * This exists for one situation: the same paper order typed into the system twice.
+ * A void is the right correction for a sale that happened and was then cancelled —
+ * it keeps the row, its number and its history, and the invoice stays in every
+ * report as a cancelled sale. A duplicate never happened at all: leaving it void
+ * still shows two orders for one abaya, double-counts the piece in "how many did we
+ * sell", and keeps a second job order on the workshop board. So the duplicate goes.
+ *
+ * Before the rows go, the money and the goods are put back exactly as a void would:
+ * ready-made pieces return to the shelf, reserved fabric returns to its roll, and
+ * the customer's account drops the debt this invoice created. An already-void
+ * invoice had all that reversed when it was voided — except that the void turned
+ * what the customer had paid into store credit, and the payment rows that justified
+ * that credit are about to disappear with the invoice, so the credit goes too.
+ *
+ * Worker wages are deliberately NOT touched: `ProductionEntry` rows are detached
+ * from the deleted job (jobOrderId → null) instead of being deleted, because a
+ * stage that a worker actually finished is owed to her whichever invoice the piece
+ * was typed under.
+ *
+ * The full invoice — lines, payments, jobs, finished stages — is written to the
+ * audit log as JSON first, so "what was on 33834 before it was deleted?" stays
+ * answerable. Returns and pieces already converted to ready stock are refused:
+ * both are real events with money or inventory of their own, and a duplicate never
+ * has them.
+ */
+invoicesRouter.delete(
+  "/:id",
+  requirePermission("invoices.delete"),
+  validateBody(hardDeleteBody),
+  asyncHandler(async (req, res) => {
+    const invoiceId = req.params.id;
+    if (!invoiceId) throw new AppError(400, "Missing invoice id", "VALIDATION_ERROR");
+    const body = req.body as z.infer<typeof hardDeleteBody>;
+    const userId = req.user?.id;
+    if (!userId) throw new AppError(401, "Unauthorized", "UNAUTHORIZED");
+    const userName = req.user?.name ?? "مستخدم";
+
+    // The 20s timeout is deliberate (default is 5s): an invoice with several
+    // tailoring pieces walks every piece's fabric lines and every child table one
+    // statement at a time, and this is the one transaction that must never
+    // half-commit.
+    const summary = await prisma.$transaction(async (tx) => {
+      // Locked first: a payment being recorded on this invoice in another tab must
+      // finish (and then find the invoice gone) rather than interleave with it.
+      await lockInvoiceRow(tx, invoiceId);
+      const inv = await tx.invoice.findUnique({
+        where: { id: invoiceId },
+        include: {
+          payments: { select: { id: true, method: true, amountFils: true, reference: true, createdAt: true } },
+          customer: { select: { id: true, name: true, mobile: true } },
+          items: {
+            include: {
+              product: { select: { id: true, name: true, isService: true } },
+              returnItems: { select: { qty: true, restocked: true } },
+            },
+          },
+          jobOrders: {
+            select: {
+              id: true,
+              jobNo: true,
+              stage: true,
+              productStyle: true,
+              invoiceItemId: true,
+              isConvertedToReady: true,
+              convertedReadyProductId: true,
+            },
+          },
+          returns: { select: { id: true } },
+        },
+      });
+      if (!inv) throw new AppError(404, "Invoice not found", "NOT_FOUND");
+      if (body.confirmInvoiceNo !== inv.invoiceNo) {
+        throw new AppError(400, "الرقم المكتوب لا يطابق رقم الفاتورة", "CONFIRM_MISMATCH");
+      }
+      if (inv.returns.length > 0) {
+        throw new AppError(
+          400,
+          "على هذه الفاتورة مرتجع — ألغِ الفاتورة بدلاً من حذفها",
+          "INVOICE_HAS_RETURNS",
+        );
+      }
+      const converted = inv.jobOrders.find((j) => j.isConvertedToReady || j.convertedReadyProductId);
+      if (converted) {
+        throw new AppError(
+          400,
+          `قطعة من هذه الفاتورة (طلب #${converted.jobNo}) حُوّلت إلى مخزون جاهز — أرجع التحويل أولاً`,
+          "JOB_CONVERTED_TO_READY",
+        );
+      }
+
+      const jobIds = inv.jobOrders.map((j) => j.id);
+      const completedStages = jobIds.length
+        ? await tx.jobOrderWorkStage.findMany({
+            where: { jobOrderId: { in: jobIds }, isCompleted: true },
+            select: { jobOrderId: true, stageKey: true, wageFils: true, workerNameSnapshot: true, completedAt: true },
+          })
+        : [];
+
+      const paymentsTotalFils = inv.payments.reduce((a, p) => a + p.amountFils, 0);
+
+      // Written to the audit log below — the only copy of this invoice that survives.
+      const snapshot = {
+        id: inv.id,
+        invoiceNo: inv.invoiceNo,
+        createdAt: inv.createdAt,
+        orderType: inv.orderType,
+        branchId: inv.branchId,
+        salesPersonId: inv.salesPersonId,
+        customer: inv.customer,
+        subtotalFils: inv.subtotalFils,
+        discountFils: inv.discountFils,
+        vatFils: inv.vatFils,
+        totalFils: inv.totalFils,
+        paidFils: inv.paidFils,
+        balanceFils: inv.balanceFils,
+        isVoid: inv.isVoid,
+        voidReason: inv.voidReason,
+        notes: inv.notes,
+        deliveredAt: inv.deliveredAt,
+        items: inv.items.map((it) => ({
+          id: it.id,
+          productId: it.productId,
+          productName: it.product?.name ?? null,
+          description: it.description,
+          qty: it.qty,
+          unitFils: it.unitFils,
+          discountFils: it.discountFils,
+          totalFils: it.totalFils,
+        })),
+        payments: inv.payments,
+        jobOrders: inv.jobOrders.map((j) => ({
+          id: j.id,
+          jobNo: j.jobNo,
+          stage: j.stage,
+          productStyle: j.productStyle,
+        })),
+        completedStages,
+      };
+
+      let restockedPieces = 0;
+      if (!inv.isVoid) {
+        // Same reversal a void does — the goods were never really sold here.
+        // Tailoring lines (a job order hangs off them) are not shelf stock.
+        const tailoringItemIds = new Set(inv.jobOrders.map((j) => j.invoiceItemId).filter(Boolean));
+        for (const item of inv.items) {
+          if (!item.product || item.product.isService || tailoringItemIds.has(item.id)) continue;
+          const sold = Math.max(1, Math.round(item.qty));
+          const restockedAlready = item.returnItems
+            .filter((r) => r.restocked)
+            .reduce((a, r) => a + Math.round(r.qty), 0);
+          const back = sold - restockedAlready;
+          if (back > 0) {
+            await tx.product.update({
+              where: { id: item.product.id },
+              data: { stockQty: { increment: back } },
+            });
+            restockedPieces += back;
+          }
+        }
+
+        for (const j of inv.jobOrders) {
+          await restoreAllDeductedMaterialsForJob(tx, {
+            jobOrderId: j.id,
+            jobNo: j.jobNo,
+            reason: "[DELETE] duplicate invoice deleted — fabric restored",
+          });
+        }
+
+        if (inv.customerId && inv.balanceFils > 0) {
+          await tx.customer.update({
+            where: { id: inv.customerId },
+            data: { balanceFils: { decrement: inv.balanceFils } },
+          });
+        }
+      } else if (inv.customerId && inv.paidFils > 0) {
+        // The void credited what had been paid; the payment rows justifying that
+        // credit are going away, so the credit goes with them.
+        await tx.customer.update({
+          where: { id: inv.customerId },
+          data: { balanceFils: { increment: inv.paidFils } },
+        });
+      }
+
+      // Children first, in dependency order and spelled out rather than left to
+      // whichever cascade rules the live database happens to carry.
+      if (jobIds.length > 0) {
+        // Detached, not deleted: finished work stays on the worker's payroll.
+        await tx.productionEntry.updateMany({
+          where: { jobOrderId: { in: jobIds } },
+          data: { jobOrderId: null },
+        });
+        await tx.jobStageLog.deleteMany({ where: { jobOrderId: { in: jobIds } } });
+        await tx.jobAssignment.deleteMany({ where: { jobOrderId: { in: jobIds } } });
+        await tx.jobOrderWorkStage.deleteMany({ where: { jobOrderId: { in: jobIds } } });
+        await tx.jobOrderMaterial.deleteMany({ where: { jobOrderId: { in: jobIds } } });
+        await tx.reworkLog.deleteMany({ where: { jobOrderId: { in: jobIds } } });
+        await tx.conversionLog.deleteMany({ where: { jobId: { in: jobIds } } });
+        await tx.sampleSaleLog.updateMany({
+          where: { sampleJobId: { in: jobIds } },
+          data: { sampleJobId: null },
+        });
+        // A sample piece born from one of these jobs keeps its shelf life; it just
+        // loses the pointer back to the job.
+        await tx.product.updateMany({
+          where: { sampleJobId: { in: jobIds } },
+          data: { sampleJobId: null },
+        });
+        await tx.jobOrder.deleteMany({ where: { id: { in: jobIds } } });
+      }
+      await tx.sampleSaleLog.deleteMany({ where: { invoiceId } });
+      await tx.conversionLog.updateMany({ where: { invoiceId }, data: { invoiceId: null } });
+      await tx.invoiceCustomerNotice.deleteMany({ where: { invoiceId } });
+      await tx.payment.deleteMany({ where: { invoiceId } });
+      await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+      await tx.invoice.delete({ where: { id: invoiceId } });
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "INVOICE_HARD_DELETE",
+          entity: "Invoice",
+          entityId: invoiceId,
+          oldValue: JSON.stringify(snapshot),
+          newValue: JSON.stringify({
+            deleted: true,
+            invoiceNo: inv.invoiceNo,
+            reason: body.reason.trim(),
+            paymentsDeleted: inv.payments.length,
+            paymentsTotalFils,
+            jobOrdersDeleted: jobIds.length,
+            completedStagesRemoved: completedStages.length,
+            restockedPieces,
+            wasVoid: inv.isVoid,
+          }),
+        },
+      });
+
+      const amount = (paymentsTotalFils / 100).toFixed(2);
+      for (const role of ["OWNER", "MANAGER"]) {
+        await tx.notification.create({
+          data: {
+            targetRole: role,
+            type: "INVOICE_DELETED",
+            title: "حذف فاتورة نهائياً",
+            message: `حذف ${userName} الفاتورة #${inv.invoiceNo} نهائياً${
+              inv.payments.length > 0 ? ` — مع ${inv.payments.length} دفعة بقيمة ${amount}` : ""
+            } — السبب: ${body.reason.trim()}`,
+            link: "/invoices",
+          },
+        });
+      }
+
+      return {
+        invoiceNo: inv.invoiceNo,
+        customerName: inv.customer?.name ?? null,
+        paymentsDeleted: inv.payments.length,
+        paymentsTotalFils,
+        itemsDeleted: inv.items.length,
+        jobOrdersDeleted: jobIds.length,
+        completedStagesRemoved: completedStages.length,
+        restockedPieces,
+      };
+    }, { timeout: 20_000 });
+
+    res.status(200).json({ success: true, data: summary });
+  }),
+);
+
 invoicesRouter.post(
   "/:id/deliver",
   requirePermission("invoices.deliver"),

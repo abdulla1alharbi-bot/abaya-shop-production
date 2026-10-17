@@ -38,6 +38,12 @@ export const ALL_PERMISSIONS = [
    * number) when it was typed in out of order from the paper book. Owner only.
    */
   "invoices.renumber",
+  /**
+   * Erase an invoice and everything hanging off it from the database — for the
+   * same order typed in twice. Separate from `invoices.edit` (which voids): a void
+   * keeps the row and its history, this one does not, so it is owner only.
+   */
+  "invoices.delete",
 
   "customers.view",
   "customers.create",
@@ -345,6 +351,7 @@ export const PERMISSION_GROUPS_AR: Record<string, string> = {
   "invoices.return": "الفواتير — إرجاع / استبدال",
   "invoices.discountOverride": "الفواتير — خصم فوق الحد المسموح (إداري)",
   "invoices.renumber": "الفواتير — تصحيح رقم الفاتورة (المالك)",
+  "invoices.delete": "الفواتير — حذف فاتورة مكررة نهائياً (المالك)",
 
   "customers.view": "العملاء — عرض",
   "customers.create": "العملاء — إضافة",

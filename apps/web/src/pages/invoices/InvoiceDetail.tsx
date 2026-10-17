@@ -1,8 +1,8 @@
 ﻿import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Banknote, CheckCheck, MessageCircle, Printer, Trash2 } from "lucide-react";
+import { Ban, Banknote, CheckCheck, MessageCircle, Printer, Trash2 } from "lucide-react";
 import { VOID_CATEGORIES } from "@abaya-shop/shared";
 import { printInvoice, SHOP_COPIES_DEFAULT } from "@/lib/printInvoice";
 import { ShopCopiesStepper } from "@/components/invoices/ShopCopiesStepper";
@@ -179,6 +179,11 @@ export function InvoiceDetail() {
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidCategory, setVoidCategory] = useState<keyof typeof VOID_CATEGORIES>("DEFECT");
   const [voidReason, setVoidReason] = useState("");
+  /** Permanent delete — for the same order typed in twice. Owner only. */
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmNo, setDeleteConfirmNo] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
+  const navigate = useNavigate();
   const isWorker = useIsWorker();
   const { can } = usePermissions();
   const { t } = useTranslation();
@@ -289,6 +294,23 @@ export function InvoiceDetail() {
       setVoidReason("");
       setVoidCategory("DEFECT");
       invalidate();
+    },
+  });
+
+  /**
+   * Erases the invoice for good — the duplicate-entry fix. The invoice no longer
+   * exists afterwards, so this leaves the page instead of refetching it.
+   */
+  const deleteInvoice = useMutation({
+    mutationFn: async (payload: { confirmInvoiceNo: number; reason: string }) => {
+      await api.delete(`/invoices/${id}`, { data: payload });
+    },
+    onSuccess: () => {
+      setDeleteOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["customers"] });
+      invalidate();
+      navigate("/invoices", { replace: true });
     },
   });
 
@@ -610,8 +632,25 @@ export function InvoiceDetail() {
               className="h-14 rounded-xl border-red-400 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
               onClick={() => setVoidOpen(true)}
             >
-              <Trash2 className="me-2 h-4 w-4" />
+              <Ban className="me-2 h-4 w-4" />
               {t("invoiceDetail.voidBtn")}
+            </Button>
+          ) : null}
+          {can("invoices.delete") ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-14 rounded-xl border-red-600 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-700 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
+              onClick={() => {
+                setDeleteConfirmNo("");
+                setDeleteReason("");
+                deleteInvoice.reset();
+                setDeleteOpen(true);
+              }}
+            >
+              <Trash2 className="me-2 h-4 w-4" />
+              {t("invoiceDetail.deleteBtn")}
             </Button>
           ) : null}
         </div>
@@ -1231,6 +1270,99 @@ export function InvoiceDetail() {
           </DialogFooter>
           {voidInvoice.isError ? (
             <p className="text-sm text-destructive">{(voidInvoice.error as Error).message}</p>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent delete — the duplicate-entry fix. The number has to be typed by
+          hand, so no stray tap can erase an invoice. */}
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleteInvoice.isPending) setDeleteOpen(o); }}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-red-700 dark:text-red-400">
+              {t("invoiceDetail.deleteDialogTitle", { invoiceNo })}
+            </DialogTitle>
+            <DialogDescription>{t("invoiceDetail.deleteDialogDesc")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
+              <p className="font-semibold">{t("invoiceDetail.deleteWillRemove")}</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5">
+                <li>{t("invoiceDetail.deleteLinesCount", { count: items.length })}</li>
+                {payments.length > 0 ? (
+                  <li>
+                    {t("invoiceDetail.deletePaymentsCount", {
+                      count: payments.length,
+                      amount: formatAED(payments.reduce((s, p) => s + p.amountFils, 0)),
+                    })}
+                  </li>
+                ) : null}
+                {jobOrders.length > 0 ? (
+                  <li>{t("invoiceDetail.deleteJobsCount", { count: jobOrders.length })}</li>
+                ) : null}
+              </ul>
+              <p className="mt-2">{t("invoiceDetail.deleteRestoreNote")}</p>
+            </div>
+
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              {t("invoiceDetail.deleteVoidInstead")}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                {t("invoiceDetail.deleteConfirmNoLabel", { invoiceNo })} <span className="text-red-500">*</span>
+              </label>
+              <input
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder={String(invoiceNo)}
+                value={deleteConfirmNo}
+                onChange={(e) => setDeleteConfirmNo(e.target.value.replace(/[^\d]/g, ""))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                {t("invoiceDetail.deleteReasonLabel")} <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                rows={2}
+                placeholder={t("invoiceDetail.deleteReasonPlaceholder")}
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleteInvoice.isPending}
+            >
+              {t("invoiceDetail.voidUndoBtn")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                deleteConfirmNo !== String(invoiceNo) ||
+                deleteReason.trim().length < 3 ||
+                deleteInvoice.isPending
+              }
+              onClick={() =>
+                deleteInvoice.mutate({ confirmInvoiceNo: Number(deleteConfirmNo), reason: deleteReason.trim() })
+              }
+            >
+              {deleteInvoice.isPending ? t("invoiceDetail.deleting") : t("invoiceDetail.deleteConfirmBtn")}
+            </Button>
+          </DialogFooter>
+          {deleteInvoice.isError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(deleteInvoice.error)}</p>
           ) : null}
         </DialogContent>
       </Dialog>
