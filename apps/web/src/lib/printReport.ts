@@ -472,6 +472,91 @@ function printMostRequested(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Customer balances statement (dashboard "Total Customer Balances" card)
+// ────────────────────────────────────────────────────────────────────────────
+
+export type CustomerBalancesPayload = {
+  items: Array<{
+    id: string;
+    name: string;
+    mobile: string;
+    balanceFils: number;
+    openInvoiceCount: number;
+    oldestOpenInvoiceAt: string | null;
+  }>;
+  totalFils: number;
+  shopName: string;
+  vatNumber: string;
+};
+
+function customerBalancesHtml(data: CustomerBalancesPayload): string {
+  const rows = data.items
+    .map(
+      (c, idx) => `<tr>
+      <td class="text-center muted">${idx + 1}</td>
+      <td>${esc(c.name)}</td>
+      <td class="muted" dir="ltr">${c.mobile && c.mobile !== c.name ? esc(c.mobile) : "—"}</td>
+      <td class="text-center">${c.openInvoiceCount}</td>
+      <td class="text-center">${formatDate(c.oldestOpenInvoiceAt)}</td>
+      <td class="text-end font-bold">${aed(c.balanceFils)}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const body = `
+    <div class="summary-cards">
+      <div class="card"><div class="label">عدد العملاء</div><div class="value">${data.items.length}</div></div>
+      <div class="card orange"><div class="label">إجمالي أرصدة العملاء</div><div class="value">${aed(data.totalFils)}</div></div>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="text-center">#</th>
+        <th class="text-start">العميل</th>
+        <th class="text-start">الجوال</th>
+        <th class="text-center">فواتير مفتوحة</th>
+        <th class="text-center">أقدم فاتورة مفتوحة</th>
+        <th class="text-end">الرصيد</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="6" class="text-center muted">لا يوجد عملاء عليهم رصيد.</td></tr>'}</tbody>
+      <tfoot><tr>
+        <td colspan="5">الإجمالي</td>
+        <td class="text-end">${aed(data.totalFils)}</td>
+      </tr></tfoot>
+    </table>`;
+
+  const shopName = data.shopName || "Abaya Shop";
+  return shellHtml({
+    shopName,
+    vatNo: data.vatNumber,
+    title: "كشف أرصدة العملاء",
+    subtitle: "كل العملاء الذين عليهم رصيد، من الأعلى إلى الأقل",
+    body,
+  });
+}
+
+/**
+ * Prints every customer who owes money. Call it straight from the click: the
+ * window opens before the list loads, otherwise the popup blocker swallows it.
+ */
+export async function printCustomerBalances(load: () => Promise<CustomerBalancesPayload>): Promise<void> {
+  const win = window.open("", "_blank", "width=1000,height=750");
+  if (!win) {
+    alert("يرجى السماح بفتح النوافذ المنبثقة لطباعة التقرير.");
+    return;
+  }
+  win.document.write('<p dir="rtl" style="font-family:sans-serif;padding:24px">جارٍ تجهيز الكشف…</p>');
+  try {
+    const data = await load();
+    win.document.open();
+    win.document.write(customerBalancesHtml(data));
+    win.document.close();
+  } catch (err) {
+    win.close();
+    throw err;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Public dispatcher
 // ────────────────────────────────────────────────────────────────────────────
 

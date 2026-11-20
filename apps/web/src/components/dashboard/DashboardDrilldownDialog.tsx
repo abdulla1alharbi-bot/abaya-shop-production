@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,8 @@ export function DashboardDrilldownDialog({
   totalLabel,
   fullPageHref,
   fullPageLabel,
+  onPrint,
+  printLabel,
   children,
 }: {
   open: boolean;
@@ -38,6 +40,9 @@ export function DashboardDrilldownDialog({
   /** Escape hatch to the real page, for anything the dialog does not cover. */
   fullPageHref?: string;
   fullPageLabel?: string;
+  /** Adds a print button to the footer. */
+  onPrint?: () => void;
+  printLabel?: string;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -61,14 +66,22 @@ export function DashboardDrilldownDialog({
 
         <div className="min-h-0 flex-1 overflow-auto px-4 py-3 sm:px-6 sm:py-4">{children}</div>
 
-        {fullPageHref ? (
-          <div className="shrink-0 border-t px-4 py-3 sm:px-6">
-            <Button variant="outline" size="sm" className="w-full gap-2 sm:w-auto" asChild>
-              <Link to={fullPageHref}>
-                <ExternalLink className="h-3.5 w-3.5" />
-                {fullPageLabel ?? t("pages.dashboard.openFullPage")}
-              </Link>
-            </Button>
+        {fullPageHref || onPrint ? (
+          <div className="flex shrink-0 flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:px-6">
+            {onPrint ? (
+              <Button type="button" size="sm" className="w-full gap-2 sm:w-auto" onClick={onPrint}>
+                <Printer className="h-3.5 w-3.5" />
+                {printLabel ?? t("common.print")}
+              </Button>
+            ) : null}
+            {fullPageHref ? (
+              <Button variant="outline" size="sm" className="w-full gap-2 sm:w-auto" asChild>
+                <Link to={fullPageHref}>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {fullPageLabel ?? t("pages.dashboard.openFullPage")}
+                </Link>
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </DialogContent>

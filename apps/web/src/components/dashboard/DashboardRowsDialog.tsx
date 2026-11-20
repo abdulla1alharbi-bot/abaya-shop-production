@@ -26,6 +26,8 @@ export function DashboardRowsDialog({
   description,
   totalFils,
   fullPageHref,
+  onPrint,
+  printLabel,
   onClose,
 }: {
   /** Row set to load, or null when closed. Matches `/dashboard/attention/:id/rows`. */
@@ -34,6 +36,9 @@ export function DashboardRowsDialog({
   description?: string;
   totalFils?: number;
   fullPageHref?: string;
+  /** Prints the complete list behind the card (the dialog itself shows at most 100 rows). */
+  onPrint?: () => void;
+  printLabel?: string;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -63,6 +68,8 @@ export function DashboardRowsDialog({
       description={description ?? t("pages.dashboard.drilldown.attentionDesc")}
       totalFils={totalFils}
       fullPageHref={fullPageHref}
+      onPrint={onPrint}
+      printLabel={printLabel}
     >
       {state ? (
         <DrilldownState state={state} />

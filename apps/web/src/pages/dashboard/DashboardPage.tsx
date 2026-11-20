@@ -26,7 +26,9 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { formatAED } from "@/lib/money";
+import { printCustomerBalances, type CustomerBalancesPayload } from "@/lib/printReport";
 import { useLangStore } from "@/store/langStore";
 
 interface DashboardTrends {
@@ -139,6 +141,19 @@ export function DashboardPage() {
         title={rowsCard ? t(`pages.dashboard.${rowsCard.id}Card`) : ""}
         totalFils={rowsCard?.totalFils}
         fullPageHref={rowsCard?.href}
+        onPrint={
+          rowsCard?.id === "customerBalances"
+            ? () => {
+                printCustomerBalances(async () => {
+                  const res = await api.get<{ success: boolean; data: CustomerBalancesPayload }>(
+                    "/dashboard/customer-balances",
+                  );
+                  return res.data.data;
+                }).catch((err: unknown) => alert(getApiErrorMessage(err)));
+              }
+            : undefined
+        }
+        printLabel={rowsCard?.id === "customerBalances" ? t("pages.dashboard.printCustomerBalances") : undefined}
         onClose={() => setRowsCard(null)}
       />
 

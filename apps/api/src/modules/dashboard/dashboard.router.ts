@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
+import { getInvoicePrintSettings } from "../../config/shop.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
@@ -841,6 +842,64 @@ dashboardRouter.get(
     }
 
     res.status(200).json({ success: true, data: { items: rows } });
+  }),
+);
+
+/**
+ * Every customer with a non-zero balance, for the printed balances statement
+ * behind the "Total Customer Balances" card. Unlike the drill-down rows (capped
+ * at 100) this is the whole list — a printout that silently stops at 100 names
+ * would not add up to the card. The total comes from the same aggregate the card
+ * uses, so the paper and the screen always show the same figure.
+ */
+dashboardRouter.get(
+  "/customer-balances",
+  requirePermission("dashboard.view"),
+  asyncHandler(async (req, res) => {
+    if (isWorkerRequest(req)) {
+      res.status(403).json({ success: false, error: "Financial breakdown not available" });
+      return;
+    }
+
+    const [customers, openInvoices, totalAgg, printSettings] = await Promise.all([
+      prisma.customer.findMany({
+        where: { balanceFils: { not: 0 } },
+        select: { id: true, name: true, mobile: true, balanceFils: true },
+        orderBy: [{ balanceFils: "desc" }, { name: "asc" }],
+      }),
+      prisma.invoice.groupBy({
+        by: ["customerId"],
+        where: { isVoid: false, balanceFils: { gt: 0 }, customerId: { not: null } },
+        _count: { _all: true },
+        _min: { createdAt: true },
+      }),
+      prisma.customer.aggregate({ _sum: { balanceFils: true } }),
+      // Sellers can open this card but lack settings.view, so the print header comes along.
+      getInvoicePrintSettings(prisma),
+    ]);
+
+    const byCustomer = new Map(openInvoices.map((g) => [g.customerId, g]));
+    const items = customers.map((c) => {
+      const g = byCustomer.get(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        mobile: c.mobile,
+        balanceFils: c.balanceFils,
+        openInvoiceCount: g?._count._all ?? 0,
+        oldestOpenInvoiceAt: g?._min.createdAt ?? null,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        items,
+        totalFils: totalAgg._sum.balanceFils ?? 0,
+        shopName: printSettings.shop_name_ar || printSettings.shop_name || "",
+        vatNumber: printSettings.vat_number ?? "",
+      },
+    });
   }),
 );
 
