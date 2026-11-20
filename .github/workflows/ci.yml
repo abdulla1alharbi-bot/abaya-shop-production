@@ -35,7 +35,8 @@ jobs:
           node-version: "20"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec prisma generate --schema=apps/api/prisma/schema.prisma
+      # prisma is a dependency of the api package, not of the workspace root.
+      - run: pnpm --filter @abaya-shop/api exec prisma generate
       - run: pnpm --filter @abaya-shop/shared run build
       - run: pnpm --filter @abaya-shop/api run typecheck
       # Money logic (payments, rounding cap, returns, void) is tested against the
