@@ -478,7 +478,11 @@ function printMostRequested(
 export type OpenInvoiceBalance = {
   id: string;
   invoiceNo: number;
+  /** When the order was taken (the tailoring date). */
   createdAt: string;
+  /** Handover date if delivered, otherwise the promised delivery date. */
+  deliveryAt: string | null;
+  delivered: boolean;
   totalFils: number;
   paidFils: number;
   balanceFils: number;
@@ -511,6 +515,7 @@ export function printInvoiceBalances(opts: {
       <td class="text-center font-bold">${r.invoiceNo}</td>
       <td>${esc(name)}${mobile ? `<div class="muted" dir="ltr" style="text-align:right">${esc(mobile)}</div>` : ""}</td>
       <td class="text-center">${formatDate(r.createdAt)}</td>
+      <td class="text-center">${formatDate(r.deliveryAt)}${r.delivered ? '<div class="muted">سُلّمت</div>' : ""}</td>
       <td class="text-end font-bold">${aed(r.balanceFils)}</td>
     </tr>`;
     })
@@ -532,12 +537,13 @@ export function printInvoiceBalances(opts: {
         <th class="text-center">#</th>
         <th class="text-center">رقم الفاتورة</th>
         <th class="text-start">العميل / الجوال</th>
-        <th class="text-center">التاريخ</th>
+        <th class="text-center">تاريخ التفصيل</th>
+        <th class="text-center">تاريخ التسليم</th>
         <th class="text-end">المتبقي</th>
       </tr></thead>
-      <tbody>${rows || '<tr><td colspan="5" class="text-center muted">لا توجد فواتير بهذا الفلتر.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="6" class="text-center muted">لا توجد فواتير بهذا الفلتر.</td></tr>'}</tbody>
       <tfoot><tr>
-        <td colspan="4">الإجمالي</td>
+        <td colspan="5">الإجمالي</td>
         <td class="text-end">${aed(shownTotal)}</td>
       </tr></tfoot>
     </table>`;

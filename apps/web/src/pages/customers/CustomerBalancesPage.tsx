@@ -180,25 +180,26 @@ export function CustomerBalancesPage() {
               <th className="px-3 py-3 text-center font-medium">{t("pages.customerBalances.colInvoice")}</th>
               <th className="px-3 py-3 text-start font-medium">{t("pages.customerBalances.colCustomer")}</th>
               <th className="px-3 py-3 text-center font-medium">{t("pages.customerBalances.colDate")}</th>
+              <th className="px-3 py-3 text-center font-medium">{t("pages.customerBalances.colDelivery")}</th>
               <th className="px-3 py-3 text-end font-medium">{t("pages.customerBalances.colRemaining")}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   {t("common.loadingData")}
                 </td>
               </tr>
             ) : isError ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-destructive">
+                <td colSpan={6} className="px-4 py-10 text-center text-destructive">
                   {getApiErrorMessage(error)}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   {t("pages.customerBalances.empty")}
                 </td>
               </tr>
@@ -221,6 +222,14 @@ export function CustomerBalancesPage() {
                   </td>
                   <td className="px-3 py-2.5 text-center tabular-nums text-muted-foreground">
                     {new Date(r.createdAt).toLocaleDateString("en-GB")}
+                  </td>
+                  <td className="px-3 py-2.5 text-center tabular-nums text-muted-foreground">
+                    {r.deliveryAt ? new Date(r.deliveryAt).toLocaleDateString("en-GB") : "—"}
+                    {r.delivered ? (
+                      <span className="block text-[11px] text-emerald-700 dark:text-emerald-300">
+                        {t("pages.customerBalances.delivered")}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2.5 text-end font-semibold tabular-nums">{formatAED(r.balanceFils)}</td>
                 </tr>

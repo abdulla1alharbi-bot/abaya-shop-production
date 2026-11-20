@@ -871,7 +871,10 @@ dashboardRouter.get(
           totalFils: true,
           paidFils: true,
           balanceFils: true,
+          deliveryDate: true,
+          deliveredAt: true,
           customer: { select: { name: true, mobile: true } },
+          jobOrders: { select: { dueDate: true } },
         },
         orderBy: [{ balanceFils: "desc" }, { invoiceNo: "asc" }],
       }),
@@ -882,16 +885,27 @@ dashboardRouter.get(
     res.status(200).json({
       success: true,
       data: {
-        items: invoices.map((i) => ({
-          id: i.id,
-          invoiceNo: i.invoiceNo,
-          createdAt: i.createdAt,
-          totalFils: i.totalFils,
-          paidFils: i.paidFils,
-          balanceFils: i.balanceFils,
-          customerName: i.customer?.name ?? null,
-          customerMobile: i.customer?.mobile ?? null,
-        })),
+        items: invoices.map((i) => {
+          // Delivery date: the real handover when it happened, else the date promised
+          // on the invoice, else the last piece's due date (most older invoices carry
+          // their dates on the job lines only).
+          const lastDue = i.jobOrders.reduce<Date | null>(
+            (max, j) => (max === null || j.dueDate > max ? j.dueDate : max),
+            null,
+          );
+          return {
+            id: i.id,
+            invoiceNo: i.invoiceNo,
+            createdAt: i.createdAt,
+            deliveryAt: i.deliveredAt ?? i.deliveryDate ?? lastDue,
+            delivered: i.deliveredAt !== null,
+            totalFils: i.totalFils,
+            paidFils: i.paidFils,
+            balanceFils: i.balanceFils,
+            customerName: i.customer?.name ?? null,
+            customerMobile: i.customer?.mobile ?? null,
+          };
+        }),
         shopName: printSettings.shop_name_ar || printSettings.shop_name || "",
         vatNumber: printSettings.vat_number ?? "",
       },
