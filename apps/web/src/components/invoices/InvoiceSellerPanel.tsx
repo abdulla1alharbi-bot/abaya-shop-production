@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/apiErrors";
+import { overpayBlockMessage, overpayConfirmMessage, postInvoicePayment } from "@/lib/invoicePayment";
 import { formatAED } from "@/lib/money";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -60,9 +61,11 @@ export function InvoiceSellerPanel({
     mutationFn: async () => {
       const fils = Math.round((parseFloat(payAmount) || 0) * 100);
       if (fils <= 0) throw new Error(t("invoices.enterValidAmount"));
-      await api.post(`/invoices/${invoiceId}/payments`, {
-        payments: [{ method: "CASH", amountFils: fils }],
-      });
+      const blocked = overpayBlockMessage(fils, balanceFils);
+      if (blocked) throw new Error(blocked);
+      const confirmOverpay = overpayConfirmMessage(fils, balanceFils);
+      if (confirmOverpay && !window.confirm(confirmOverpay)) return false;
+      return postInvoicePayment(invoiceId, { method: "CASH", amountFils: fils });
     },
     onSuccess: () => {
       setPayAmount("");
@@ -202,7 +205,7 @@ export function InvoiceSellerPanel({
             {addPayment.isPending ? "…" : t("invoices.savePayment")}
           </Button>
           {addPayment.isError ? (
-            <p className="text-sm text-destructive">{(addPayment.error as Error).message}</p>
+            <p className="text-sm text-destructive">{getApiErrorMessage(addPayment.error)}</p>
           ) : null}
         </div>
       ) : balanceFils > 0 && !can("invoices.payment") ? (

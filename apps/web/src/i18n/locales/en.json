@@ -1809,6 +1809,8 @@
     "quickSettle": {
       "notReady": "Workshop work isn't finished yet.",
       "confirmOverpay": "Received {{amount}} but only {{due}} is due. The extra {{excess}} will be recorded as a rounding difference. Continue?",
+      "overpayTooLarge": "{{amount}} is more than the {{due}} still due. Rounding may add at most {{max}} — check the amount.",
+      "confirmRepeat": "A payment of {{amount}} was saved on this invoice moments ago. Is this really a second payment?",
       "deliveredOn": "Delivered on {{date}}",
       "confirmDeliverWithBalance": "Invoice #{{invoiceNo}} still has {{balance}} outstanding. Deliver anyway?"
     }

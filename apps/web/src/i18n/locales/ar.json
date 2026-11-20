@@ -1833,6 +1833,8 @@
     "quickSettle": {
       "notReady": "لم يكتمل عمل الورشة بعد.",
       "confirmOverpay": "المستلم {{amount}} والمستحق {{due}} فقط. الزائد {{excess}} سيُسجَّل كفرق تقريب. متابعة؟",
+      "overpayTooLarge": "المبلغ {{amount}} أكبر من المتبقي {{due}}. أقصى فرق تقريب مسموح {{max}} — تأكد من المبلغ.",
+      "confirmRepeat": "سُجّلت دفعة {{amount}} على هذه الفاتورة قبل لحظات. هل هذه دفعة ثانية فعلاً؟",
       "deliveredOn": "سُلّمت في {{date}}",
       "confirmDeliverWithBalance": "الفاتورة #{{invoiceNo}} عليها رصيد متبقٍ {{balance}}. هل تريد التسليم رغم ذلك؟"
     }

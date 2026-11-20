@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { MAX_PAYMENT_ROUNDING_FILS, REPEAT_PAYMENT_WINDOW_MS } from "@abaya-shop/shared";
 import { prisma } from "../../config/db.js";
 import {
   getCustomerFacingShopName,
@@ -1406,6 +1407,8 @@ const addPaymentsBody = z.object({
       }),
     )
     .min(1),
+  /** The seller saw the "same payment a moment ago" warning and confirmed it is a second, real payment. */
+  confirmRepeat: z.boolean().optional(),
 });
 
 invoicesRouter.post(
@@ -1435,6 +1438,39 @@ invoicesRouter.post(
       // balanceFils, not total − paid: a return lowers the balance without touching
       // the total, and total − paid would bring the returned amount back as debt.
       const outstanding = Math.max(0, inv.balanceFils);
+
+      // Rounding is change on the last payment, so it needs something left to pay
+      // and stays within a few dirhams. Anything beyond that was a typo (an invoice
+      // number keyed as the amount) or the same payment saved twice — accepted
+      // silently, those inflated every collections report.
+      if (outstanding === 0) {
+        throw new AppError(400, "الفاتورة مدفوعة بالكامل — لا يوجد مبلغ متبقٍ لتسجيل دفعة عليه", "INVOICE_FULLY_PAID");
+      }
+      if (add - outstanding > MAX_PAYMENT_ROUNDING_FILS) {
+        throw new AppError(
+          400,
+          `المبلغ ${(add / 100).toFixed(2)} درهم أكبر من المتبقي ${(outstanding / 100).toFixed(2)} درهم — الحد الأقصى لفرق التقريب ${(MAX_PAYMENT_ROUNDING_FILS / 100).toFixed(2)} درهم`,
+          "PAYMENT_EXCEEDS_BALANCE",
+        );
+      }
+      if (!body.confirmRepeat) {
+        const repeat = await tx.payment.findFirst({
+          where: {
+            invoiceId,
+            createdAt: { gte: new Date(Date.now() - REPEAT_PAYMENT_WINDOW_MS) },
+            OR: body.payments.map((p) => ({ method: p.method, amountFils: p.amountFils })),
+          },
+          select: { id: true },
+        });
+        if (repeat) {
+          throw new AppError(
+            409,
+            "سُجّلت دفعة بنفس المبلغ على هذه الفاتورة قبل لحظات — هل هي دفعة ثانية فعلاً؟",
+            "REPEAT_PAYMENT",
+          );
+        }
+      }
+
       const settled = Math.min(add, outstanding);
       const newPaid = inv.paidFils + settled;
       const newBalance = outstanding - settled;

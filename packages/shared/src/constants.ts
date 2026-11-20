@@ -2,6 +2,18 @@ export const UAE_VAT_RATE = 0.05;
 
 export const FILS_PER_AED = 100;
 
+/**
+ * The most a payment may exceed what the invoice still owes. The owner's rule is
+ * that cash rounding (163 on a 162.50 bill) stays in the till as rounding income —
+ * but that was meant for change, not for a mistyped invoice number (33,488 AED on
+ * a 300 AED bill) or the same payment saved twice, both of which inflated every
+ * collections report by AED 167,851 before this cap existed.
+ */
+export const MAX_PAYMENT_ROUNDING_FILS = 500;
+
+/** A second identical payment (same invoice, method and amount) inside this window is treated as a double save. */
+export const REPEAT_PAYMENT_WINDOW_MS = 60_000;
+
 export const DEFAULT_PIECE_RATES_FILS: Record<string, number> = {
   SEW_BASIC: 1500,
   SEW_LINING: 2000,

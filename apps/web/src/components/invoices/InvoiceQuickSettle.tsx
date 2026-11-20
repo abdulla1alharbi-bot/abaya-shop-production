@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/apiErrors";
+import { overpayBlockMessage, overpayConfirmMessage, postInvoicePayment } from "@/lib/invoicePayment";
 import { formatAED } from "@/lib/money";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -54,9 +55,9 @@ export function InvoiceQuickSettle({
   const addPayment = useMutation({
     mutationFn: async (fils: number) => {
       if (fils <= 0) throw new Error(t("invoices.enterValidAmount"));
-      await api.post(`/invoices/${invoiceId}/payments`, {
-        payments: [{ method, amountFils: fils }],
-      });
+      const blocked = overpayBlockMessage(fils, balanceFils);
+      if (blocked) throw new Error(blocked);
+      return postInvoicePayment(invoiceId, { method, amountFils: fils });
     },
     onSuccess: () => {
       setAmount("");
@@ -88,18 +89,11 @@ export function InvoiceQuickSettle({
         ? t("invoices.quickSettle.notReady")
         : null;
 
-  // Paying more than the balance is allowed (cash rounding), but a typo would
-  // otherwise vanish into the till silently — so name the excess and confirm it.
+  // A few dirhams over the balance is cash rounding and is confirmed; more than
+  // that is refused inside the mutation, so the reason shows under the field.
   const handleSavePayment = () => {
-    const excess = amountFils - balanceFils;
-    if (excess > 0) {
-      const message = t("invoices.quickSettle.confirmOverpay", {
-        amount: formatAED(amountFils),
-        due: formatAED(balanceFils),
-        excess: formatAED(excess),
-      });
-      if (!confirm(message)) return;
-    }
+    const message = overpayConfirmMessage(amountFils, balanceFils);
+    if (message && !confirm(message)) return;
     addPayment.mutate(amountFils);
   };
 
