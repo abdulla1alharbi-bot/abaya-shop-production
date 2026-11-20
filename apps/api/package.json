@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "tsx --test test/unit/money.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 test/integration/money.test.ts",
     "prisma": "prisma"
   },
   "dependencies": {

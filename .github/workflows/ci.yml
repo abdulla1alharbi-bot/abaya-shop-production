@@ -38,6 +38,13 @@ jobs:
       - run: pnpm exec prisma generate --schema=apps/api/prisma/schema.prisma
       - run: pnpm --filter @abaya-shop/shared run build
       - run: pnpm --filter @abaya-shop/api run typecheck
+      # Money logic (payments, rounding cap, returns, void) is tested against the
+      # real API and this job's Postgres service. The harness wipes the database,
+      # and refuses any database whose name lacks "test" or "ci".
+      - run: pnpm --filter @abaya-shop/api run test
+      - run: pnpm --filter @abaya-shop/api run test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://abaya:ci_password@localhost:5432/abaya_shop_ci
       # Lint runs before the build so a hook-rule violation fails the PR rather
       # than shipping: tsc does not catch them, and they are how a "Rendered
       # fewer hooks than expected" crash reaches production.
