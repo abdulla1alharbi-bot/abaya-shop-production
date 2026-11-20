@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -26,9 +26,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { getApiErrorMessage } from "@/lib/apiErrors";
 import { formatAED } from "@/lib/money";
-import { printCustomerBalances, type CustomerBalancesPayload } from "@/lib/printReport";
 import { useLangStore } from "@/store/langStore";
 
 interface DashboardTrends {
@@ -64,6 +62,7 @@ interface DashboardStats {
 export function DashboardPage() {
   const isWorker = useIsWorker();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { lang } = useLangStore();
   const [todayModal, setTodayModal] = useState<TodayModal>(null);
   const [rowsCard, setRowsCard] = useState<{ id: string; href: string; totalFils?: number } | null>(
@@ -142,16 +141,8 @@ export function DashboardPage() {
         totalFils={rowsCard?.totalFils}
         fullPageHref={rowsCard?.href}
         onPrint={
-          rowsCard?.id === "customerBalances"
-            ? () => {
-                printCustomerBalances(async () => {
-                  const res = await api.get<{ success: boolean; data: CustomerBalancesPayload }>(
-                    "/dashboard/customer-balances",
-                  );
-                  return res.data.data;
-                }).catch((err: unknown) => alert(getApiErrorMessage(err)));
-              }
-            : undefined
+          // The statement page filters by amount before printing, so the button goes there.
+          rowsCard?.id === "customerBalances" ? () => navigate("/customers/balances") : undefined
         }
         printLabel={rowsCard?.id === "customerBalances" ? t("pages.dashboard.printCustomerBalances") : undefined}
         onClose={() => setRowsCard(null)}

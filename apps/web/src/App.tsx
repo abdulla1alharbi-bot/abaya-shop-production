@@ -27,6 +27,7 @@ import { UsersPage } from "@/pages/settings/UsersPage";
 import { UserForm } from "@/pages/settings/UserForm";
 import { AuditLogPage } from "@/pages/settings/AuditLogPage";
 import { CustomerDetail } from "@/pages/customers/CustomerDetail";
+import { CustomerBalancesPage } from "@/pages/customers/CustomerBalancesPage";
 import { CustomerForm } from "@/pages/customers/CustomerForm";
 import { InvoiceDetail } from "@/pages/invoices/InvoiceDetail";
 import { InvoiceProcessRedirect } from "@/pages/invoices/InvoiceProcessRedirect";
@@ -292,6 +293,14 @@ export default function App() {
             element={
               <RequirePermission permission="customers.view">
                 <CustomersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/customers/balances"
+            element={
+              <RequirePermission permission="customers.view">
+                <CustomerBalancesPage />
               </RequirePermission>
             }
           />

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -34,12 +34,20 @@ export function CustomersPage() {
         title={t("pages.customers.title")}
         description={t("pages.customers.description")}
         actions={
-          <Button asChild size="sm">
-            <Link to="/customers/new">
-              <Plus className="me-1 h-4 w-4" />
-              {t("pages.customers.newCustomer")}
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link to="/customers/balances">
+                <Printer className="me-1 h-4 w-4" />
+                {t("pages.customerBalances.openButton")}
+              </Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/customers/new">
+                <Plus className="me-1 h-4 w-4" />
+                {t("pages.customers.newCustomer")}
+              </Link>
+            </Button>
+          </div>
         }
       />
       <div className="overflow-x-auto rounded-lg border bg-card">

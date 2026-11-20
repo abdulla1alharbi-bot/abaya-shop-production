@@ -472,88 +472,85 @@ function printMostRequested(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Customer balances statement (dashboard "Total Customer Balances" card)
+// Customer balances statement — one row per open invoice (/customers/balances)
 // ────────────────────────────────────────────────────────────────────────────
 
-export type CustomerBalancesPayload = {
-  items: Array<{
-    id: string;
-    name: string;
-    mobile: string;
-    balanceFils: number;
-    openInvoiceCount: number;
-    oldestOpenInvoiceAt: string | null;
-  }>;
+export type OpenInvoiceBalance = {
+  id: string;
+  invoiceNo: number;
+  createdAt: string;
   totalFils: number;
-  shopName: string;
-  vatNumber: string;
+  paidFils: number;
+  balanceFils: number;
+  customerName: string | null;
+  customerMobile: string | null;
 };
 
-function customerBalancesHtml(data: CustomerBalancesPayload): string {
-  const rows = data.items
-    .map(
-      (c, idx) => `<tr>
+/**
+ * Prints exactly the rows the page is showing, numbered from 1, with the filter
+ * that produced them in the subtitle so the paper says what was left out.
+ * Data is already on the page, so this runs synchronously inside the click and
+ * the popup blocker lets the window through.
+ */
+export function printInvoiceBalances(opts: {
+  rows: OpenInvoiceBalance[];
+  shopName: string;
+  vatNumber: string;
+  /** Human-readable description of the active filter, or "" when showing everything. */
+  filterNote: string;
+  allCount: number;
+  allTotalFils: number;
+}): void {
+  const shownTotal = opts.rows.reduce((a, r) => a + r.balanceFils, 0);
+  const rows = opts.rows
+    .map((r, idx) => {
+      const name = r.customerName ?? "—";
+      const mobile = r.customerMobile && r.customerMobile !== r.customerName ? r.customerMobile : "";
+      return `<tr>
       <td class="text-center muted">${idx + 1}</td>
-      <td>${esc(c.name)}</td>
-      <td class="muted" dir="ltr">${c.mobile && c.mobile !== c.name ? esc(c.mobile) : "—"}</td>
-      <td class="text-center">${c.openInvoiceCount}</td>
-      <td class="text-center">${formatDate(c.oldestOpenInvoiceAt)}</td>
-      <td class="text-end font-bold">${aed(c.balanceFils)}</td>
-    </tr>`,
-    )
+      <td class="text-center font-bold">${r.invoiceNo}</td>
+      <td>${esc(name)}${mobile ? `<div class="muted" dir="ltr" style="text-align:right">${esc(mobile)}</div>` : ""}</td>
+      <td class="text-center">${formatDate(r.createdAt)}</td>
+      <td class="text-end font-bold">${aed(r.balanceFils)}</td>
+    </tr>`;
+    })
     .join("");
 
+  const filtered = opts.rows.length !== opts.allCount;
   const body = `
     <div class="summary-cards">
-      <div class="card"><div class="label">عدد العملاء</div><div class="value">${data.items.length}</div></div>
-      <div class="card orange"><div class="label">إجمالي أرصدة العملاء</div><div class="value">${aed(data.totalFils)}</div></div>
+      <div class="card"><div class="label">عدد الفواتير</div><div class="value">${opts.rows.length}</div></div>
+      <div class="card orange"><div class="label">إجمالي المتبقي${filtered ? " (المعروض)" : ""}</div><div class="value">${aed(shownTotal)}</div></div>
+      ${
+        filtered
+          ? `<div class="card"><div class="label">الكل قبل الفلتر</div><div class="value">${opts.allCount} — ${aed(opts.allTotalFils)}</div></div>`
+          : ""
+      }
     </div>
     <table>
       <thead><tr>
         <th class="text-center">#</th>
-        <th class="text-start">العميل</th>
-        <th class="text-start">الجوال</th>
-        <th class="text-center">فواتير مفتوحة</th>
-        <th class="text-center">أقدم فاتورة مفتوحة</th>
-        <th class="text-end">الرصيد</th>
+        <th class="text-center">رقم الفاتورة</th>
+        <th class="text-start">العميل / الجوال</th>
+        <th class="text-center">التاريخ</th>
+        <th class="text-end">المتبقي</th>
       </tr></thead>
-      <tbody>${rows || '<tr><td colspan="6" class="text-center muted">لا يوجد عملاء عليهم رصيد.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="5" class="text-center muted">لا توجد فواتير بهذا الفلتر.</td></tr>'}</tbody>
       <tfoot><tr>
-        <td colspan="5">الإجمالي</td>
-        <td class="text-end">${aed(data.totalFils)}</td>
+        <td colspan="4">الإجمالي</td>
+        <td class="text-end">${aed(shownTotal)}</td>
       </tr></tfoot>
     </table>`;
 
-  const shopName = data.shopName || "Abaya Shop";
-  return shellHtml({
-    shopName,
-    vatNo: data.vatNumber,
-    title: "كشف أرصدة العملاء",
-    subtitle: "كل العملاء الذين عليهم رصيد، من الأعلى إلى الأقل",
-    body,
-  });
-}
-
-/**
- * Prints every customer who owes money. Call it straight from the click: the
- * window opens before the list loads, otherwise the popup blocker swallows it.
- */
-export async function printCustomerBalances(load: () => Promise<CustomerBalancesPayload>): Promise<void> {
-  const win = window.open("", "_blank", "width=1000,height=750");
-  if (!win) {
-    alert("يرجى السماح بفتح النوافذ المنبثقة لطباعة التقرير.");
-    return;
-  }
-  win.document.write('<p dir="rtl" style="font-family:sans-serif;padding:24px">جارٍ تجهيز الكشف…</p>');
-  try {
-    const data = await load();
-    win.document.open();
-    win.document.write(customerBalancesHtml(data));
-    win.document.close();
-  } catch (err) {
-    win.close();
-    throw err;
-  }
+  openPrintWindow(
+    shellHtml({
+      shopName: opts.shopName || "Abaya Shop",
+      vatNo: opts.vatNumber,
+      title: "كشف أرصدة العملاء",
+      subtitle: opts.filterNote || "كل الفواتير التي عليها مبلغ متبقٍ",
+      body,
+    }),
+  );
 }
 
 // ────────────────────────────────────────────────────────────────────────────

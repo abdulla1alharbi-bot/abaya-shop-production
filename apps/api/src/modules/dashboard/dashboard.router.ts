@@ -846,56 +846,52 @@ dashboardRouter.get(
 );
 
 /**
- * Every customer with a non-zero balance, for the printed balances statement
- * behind the "Total Customer Balances" card. Unlike the drill-down rows (capped
- * at 100) this is the whole list — a printout that silently stops at 100 names
- * would not add up to the card. The total comes from the same aggregate the card
- * uses, so the paper and the screen always show the same figure.
+ * Every open invoice (unpaid balance) for the printable customer balances
+ * statement at /customers/balances — one row per invoice, so the owner can
+ * read invoice numbers instead of the phone numbers most customers are saved
+ * under. Unlike the dashboard drill-down (capped at 100) this is the whole
+ * list; the page filters it by amount before printing.
  */
 dashboardRouter.get(
   "/customer-balances",
-  requirePermission("dashboard.view"),
+  requirePermission("customers.view"),
   asyncHandler(async (req, res) => {
     if (isWorkerRequest(req)) {
       res.status(403).json({ success: false, error: "Financial breakdown not available" });
       return;
     }
 
-    const [customers, openInvoices, totalAgg, printSettings] = await Promise.all([
-      prisma.customer.findMany({
-        where: { balanceFils: { not: 0 } },
-        select: { id: true, name: true, mobile: true, balanceFils: true },
-        orderBy: [{ balanceFils: "desc" }, { name: "asc" }],
+    const [invoices, printSettings] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { isVoid: false, balanceFils: { gt: 0 } },
+        select: {
+          id: true,
+          invoiceNo: true,
+          createdAt: true,
+          totalFils: true,
+          paidFils: true,
+          balanceFils: true,
+          customer: { select: { name: true, mobile: true } },
+        },
+        orderBy: [{ balanceFils: "desc" }, { invoiceNo: "asc" }],
       }),
-      prisma.invoice.groupBy({
-        by: ["customerId"],
-        where: { isVoid: false, balanceFils: { gt: 0 }, customerId: { not: null } },
-        _count: { _all: true },
-        _min: { createdAt: true },
-      }),
-      prisma.customer.aggregate({ _sum: { balanceFils: true } }),
-      // Sellers can open this card but lack settings.view, so the print header comes along.
+      // Sellers can open this page but lack settings.view, so the print header comes along.
       getInvoicePrintSettings(prisma),
     ]);
-
-    const byCustomer = new Map(openInvoices.map((g) => [g.customerId, g]));
-    const items = customers.map((c) => {
-      const g = byCustomer.get(c.id);
-      return {
-        id: c.id,
-        name: c.name,
-        mobile: c.mobile,
-        balanceFils: c.balanceFils,
-        openInvoiceCount: g?._count._all ?? 0,
-        oldestOpenInvoiceAt: g?._min.createdAt ?? null,
-      };
-    });
 
     res.status(200).json({
       success: true,
       data: {
-        items,
-        totalFils: totalAgg._sum.balanceFils ?? 0,
+        items: invoices.map((i) => ({
+          id: i.id,
+          invoiceNo: i.invoiceNo,
+          createdAt: i.createdAt,
+          totalFils: i.totalFils,
+          paidFils: i.paidFils,
+          balanceFils: i.balanceFils,
+          customerName: i.customer?.name ?? null,
+          customerMobile: i.customer?.mobile ?? null,
+        })),
         shopName: printSettings.shop_name_ar || printSettings.shop_name || "",
         vatNumber: printSettings.vat_number ?? "",
       },
