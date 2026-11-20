@@ -1,5 +1,7 @@
 # ── Stage 1: install all deps ──────────────────────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
+# Node 24 still bundles corepack; Node 25+ does not, so a move to Node 26 needs
+# `npm install -g corepack` before every `corepack enable` line in this file.
 RUN corepack enable pnpm
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
@@ -8,7 +10,7 @@ COPY packages/shared/package.json       ./packages/shared/
 RUN pnpm install --frozen-lockfile
 
 # ── Stage 2: build ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 RUN corepack enable pnpm
 # OpenSSL is required by Prisma's engines (schema + query) on Alpine/musl.
 RUN apk add --no-cache openssl
@@ -22,7 +24,7 @@ RUN pnpm --filter @abaya-shop/api exec prisma generate
 RUN pnpm --filter @abaya-shop/api build
 
 # ── Stage 3: slim production runtime ───────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 RUN corepack enable pnpm
 # OpenSSL is required at runtime by Prisma's schema engine (db push) and query engine.
 RUN apk add --no-cache openssl

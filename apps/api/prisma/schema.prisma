@@ -4,7 +4,7 @@
 
 generator client {
   provider      = "prisma-client-js"
-  // Include the Alpine/musl + OpenSSL 3 engine so Docker (node:20-alpine) builds work.
+  // Include the Alpine/musl + OpenSSL 3 engine so Docker (node:24-alpine) builds work.
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 

@@ -1,5 +1,6 @@
 # ── Stage 1: build Vite app ────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
+# Node 24 still bundles corepack; Node 25+ does not (see apps/api/Dockerfile).
 RUN corepack enable pnpm
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./

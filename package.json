@@ -17,7 +17,7 @@
     "db:reset": "pnpm --filter @abaya-shop/api exec prisma migrate reset --force"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "packageManager": "pnpm@9.15.9"
 }

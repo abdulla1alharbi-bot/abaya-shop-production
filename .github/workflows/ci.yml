@@ -26,13 +26,18 @@ jobs:
     env:
       DATABASE_URL: postgresql://abaya:ci_password@localhost:5432/abaya_shop_ci
     steps:
-      - uses: actions/checkout@v4
+      # All three majors run on Node 24 (the v4s ran on Node 20, end of life since
+      # April 2026). checkout and action-setup are at their first Node 24 major;
+      # setup-node is one past it because v5 switched caching on by itself for any
+      # packageManager, and v6 limits that to npm.
+      - uses: actions/checkout@v5
       # No `version:` here — it must come only from "packageManager" in the root
       # package.json; giving both made action-setup fail every run since September.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          # Keep in step with the `FROM node:24-alpine` lines in both Dockerfiles.
+          node-version: "24"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       # prisma is a dependency of the api package, not of the workspace root.
@@ -51,3 +56,51 @@ jobs:
       # fewer hooks than expected" crash reaches production.
       - run: pnpm --filter @abaya-shop/web run lint
       - run: pnpm --filter @abaya-shop/web run build
+
+  # The two production images, built from the same Dockerfiles the server builds
+  # and the api one booted against Postgres. The job above runs on the runner's
+  # Node; this one is the only check of the Alpine images themselves (Node
+  # version, corepack, Prisma's musl engines), which otherwise first meet reality
+  # during `docker compose up -d --build` on the server.
+  docker:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: abaya_shop_ci
+          POSTGRES_USER: abaya
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -f apps/web/Dockerfile -t abaya-web .
+      - run: docker build -f apps/api/Dockerfile -t abaya-api .
+      # Runs the real entrypoint: prisma db push, the seed through tsx, then the
+      # server. /health answers 200 only after a query reaches Postgres, so a
+      # pass means the image's Prisma engines load on this Node.
+      - name: Boot the api image and wait for /health
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL=postgresql://abaya:ci_password@localhost:5432/abaya_shop_ci \
+            -e NODE_ENV=production -e PORT=3001 \
+            -e JWT_ACCESS_SECRET=ci-access-secret -e JWT_REFRESH_SECRET=ci-refresh-secret \
+            abaya-api
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3001/health; then
+              echo
+              docker exec api node --version
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "api did not become healthy within 120 s"
+          exit 1
+      - if: always()
+        run: docker logs api
