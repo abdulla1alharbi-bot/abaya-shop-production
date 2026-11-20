@@ -440,7 +440,7 @@ dashboardRouter.get(
       prisma.invoice.count({ where: invoiceReadyForDeliveryWhere() }),
       prisma.invoice.aggregate({
         where: invoiceReadyForDeliveryWhere(),
-        _sum: { totalFils: true },
+        _sum: { totalFils: true, balanceFils: true },
       }),
     ]);
 
@@ -505,6 +505,7 @@ dashboardRouter.get(
       invoicesWithBalanceCount,
       readyForDeliveryInvoiceCount,
       readyForDeliveryTotalFils: readyForDeliveryValueAgg._sum.totalFils ?? 0,
+      readyForDeliveryBalanceFils: readyForDeliveryValueAgg._sum.balanceFils ?? 0,
     };
     res.status(200).json({
       success: true,

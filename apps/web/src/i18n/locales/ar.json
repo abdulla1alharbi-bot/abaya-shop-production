@@ -1496,6 +1496,7 @@
       "invoicesWithBalance": "عدد الفواتير ذات رصيد مستحق",
       "readyInvoiceCount": "عدد الفواتير الجاهزة",
       "totalReadyValue": "إجمالي قيمة الفواتير (إجمالي الفاتورة)",
+      "readyStillOwed": "المتبقي عليها:",
       "searchSection": "بحث",
       "searchLabel": "رقم فاتورة أو جوال",
       "searchPlaceholder": "Search by invoice number or mobile number",

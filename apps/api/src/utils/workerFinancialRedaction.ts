@@ -105,6 +105,7 @@ export function redactInvoiceListPayloadForWorker(payload: {
   delete meta.invoiceCountWithBalance;
   delete meta.readyInvoiceCount;
   delete meta.totalReadyValueFils;
+  delete meta.totalReadyBalanceFils;
   return { items, meta: { ...meta, financialsRedacted: true } };
 }
 
@@ -153,6 +154,7 @@ export function redactDashboardStatsForWorker(stats: Record<string, unknown>): R
     invoicesWithBalanceCount: null,
     readyForDeliveryInvoiceCount: stats.readyForDeliveryInvoiceCount ?? 0,
     readyForDeliveryTotalFils: null,
+    readyForDeliveryBalanceFils: null,
   };
 }
 

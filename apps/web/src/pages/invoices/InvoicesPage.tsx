@@ -41,6 +41,7 @@ type InvoiceListMeta = {
   invoiceCountWithBalance?: number;
   readyInvoiceCount?: number;
   totalReadyValueFils?: number;
+  totalReadyBalanceFils?: number;
 };
 
 function fulfillmentBadgeClass(s: string): string {
@@ -252,7 +253,7 @@ export function InvoicesPage() {
           aria-label={t("pages.invoices.summaryReadyTitle")}
         >
           <h2 className="text-sm font-semibold text-emerald-950 dark:text-emerald-100">{t("pages.invoices.summaryReadyTitle")}</h2>
-          <dl className="mt-3 grid gap-4 sm:grid-cols-2">
+          <dl className="mt-3 grid gap-4 sm:grid-cols-3">
             <div>
               <dt className="text-xs font-medium text-muted-foreground">{t("pages.invoices.readyInvoiceCount")}</dt>
               <dd className="mt-1 text-2xl font-bold tabular-nums text-emerald-950 dark:text-emerald-50">
@@ -265,6 +266,14 @@ export function InvoicesPage() {
                 {formatAED(meta.totalReadyValueFils)}
               </dd>
             </div>
+            {typeof meta.totalReadyBalanceFils === "number" ? (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">{t("pages.invoices.readyStillOwed")}</dt>
+                <dd className="mt-1 text-2xl font-bold tabular-nums text-amber-900 dark:text-amber-100">
+                  {formatAED(meta.totalReadyBalanceFils)}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </section>
       ) : null}

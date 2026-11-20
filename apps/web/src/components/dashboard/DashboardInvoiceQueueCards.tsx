@@ -22,6 +22,8 @@ export type DashboardQueueStats = {
   invoicesWithBalanceCount: number;
   readyForDeliveryInvoiceCount: number;
   readyForDeliveryTotalFils: number;
+  /** Part of the value above that customers still owe — the only debt figure on this card. */
+  readyForDeliveryBalanceFils: number;
 };
 
 type InvoiceQueueRow = {
@@ -316,6 +318,9 @@ export function DashboardInvoiceQueueCards({ stats }: { stats: DashboardQueueSta
             <>
               {stats.readyForDeliveryInvoiceCount} {t("pages.invoices.title").toLowerCase()} · {t("pages.invoices.totalReadyValue")}{" "}
               {formatAED(stats.readyForDeliveryTotalFils)}
+              <span className="block font-medium text-amber-900 dark:text-amber-100">
+                {t("pages.invoices.readyStillOwed")} {formatAED(stats.readyForDeliveryBalanceFils)}
+              </span>
             </>
           }
           onClick={() => setReadyOpen(true)}

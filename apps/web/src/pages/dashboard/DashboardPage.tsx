@@ -56,6 +56,7 @@ interface DashboardStats {
   invoicesWithBalanceCount: number;
   readyForDeliveryInvoiceCount: number;
   readyForDeliveryTotalFils: number;
+  readyForDeliveryBalanceFils: number;
 }
 
 export function DashboardPage() {
@@ -263,6 +264,7 @@ export function DashboardPage() {
                     invoicesWithBalanceCount: data.invoicesWithBalanceCount,
                     readyForDeliveryInvoiceCount: data.readyForDeliveryInvoiceCount,
                     readyForDeliveryTotalFils: data.readyForDeliveryTotalFils,
+                    readyForDeliveryBalanceFils: data.readyForDeliveryBalanceFils,
                   }}
                 />
               ) : null}

@@ -240,7 +240,7 @@ invoicesRouter.get(
       readyForDelivery
         ? prisma.invoice.aggregate({
             where,
-            _sum: { totalFils: true },
+            _sum: { totalFils: true, balanceFils: true },
           })
         : Promise.resolve(null),
     ]);
@@ -273,6 +273,9 @@ invoicesRouter.get(
         ? {
             readyInvoiceCount: total,
             totalReadyValueFils: readyAggregate._sum.totalFils ?? 0,
+            // The full value above reads like a debt next to the outstanding figures;
+            // this is the part of it customers still owe.
+            totalReadyBalanceFils: readyAggregate._sum.balanceFils ?? 0,
           }
         : {}),
     };

@@ -1492,6 +1492,7 @@
       "invoicesWithBalance": "Invoices with Outstanding Balance",
       "readyInvoiceCount": "Ready Invoice Count",
       "totalReadyValue": "Total Invoice Value",
+      "readyStillOwed": "Still owed:",
       "searchSection": "Search",
       "searchLabel": "Invoice number or mobile",
       "searchPlaceholder": "Search by invoice number or mobile number",
