@@ -108,6 +108,12 @@ export type ResolvedRow = {
   candidates: Array<{ id: string; jobNo: number; label: string; stage: string }>;
   pieces: PlanPiece[];
   entries: ResolvedEntry[];
+  /**
+   * Notebook line whose invoice has no alteration piece: an abaya that came back
+   * for a specific FREE repair. Approval writes `note` on the invoice and touches
+   * no stage (so the tailor's own wages stay correct). Null otherwise.
+   */
+  freeRepair: { note: string; pieces: number; alreadyNoted: boolean } | null;
 };
 
 export type WorkerTotal = {
@@ -360,6 +366,7 @@ type LoadedInvoice = {
   id: string;
   invoiceNo: number;
   isVoid: boolean;
+  notes: string | null;
   customer: { name: string } | null;
   jobOrders: Array<{
     id: string;
@@ -389,6 +396,19 @@ type LoadedJob = LoadedInvoice["jobOrders"][number];
 function jobLabel(j: LoadedJob): string {
   const model = j.abayaModel?.code ? `موديل ${j.abayaModel.code}` : null;
   return [`#${j.jobNo}`, model ?? j.productStyle].filter(Boolean).join(" · ");
+}
+
+/** An alteration piece («تعديل» / Walter type) — the only pieces an alteration line may close. */
+function isAlterationPiece(j: LoadedJob): boolean {
+  const text = `${j.productStyle} ${j.customStyleText ?? ""} ${j.abayaModel?.name ?? ""}`;
+  return j.abayaType?.code === "WALTER" || /تعديل|ولف/.test(text);
+}
+
+/** "إصلاح مجاني — ahsan — 30-09-2026 — 2 قطعة (دفتر التعديل)" */
+export function freeRepairNote(workerName: string, date: Date, pieces: number): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const day = `${p(date.getDate())}-${p(date.getMonth() + 1)}-${date.getFullYear()}`;
+  return `إصلاح مجاني — ${workerName} — ${day} — ${pieces} قطعة (دفتر التعديل)`;
 }
 
 function jobMatchesModel(j: LoadedJob, modelText: string | null): boolean {
@@ -454,6 +474,7 @@ export async function resolveSheet(
       id: true,
       invoiceNo: true,
       isVoid: true,
+      notes: true,
       customer: { select: { name: true } },
       jobOrders: { select: jobSelect, orderBy: { jobNo: "asc" } },
     },
@@ -476,6 +497,7 @@ export async function resolveSheet(
       candidates: [],
       pieces: [],
       entries: [],
+      freeRepair: null,
     };
     out.push(resolved);
     if (row.ignore) {
@@ -484,12 +506,16 @@ export async function resolveSheet(
     }
 
     // 1) invoice — the number as read, else a plausible alternative reading.
+    // An alteration line prefers an invoice that has alteration pieces.
+    const isAlterationRow = input.kind === "ALTERATION" || modelWord(row.modelText) === "ALTERATION";
+    const fits = (a: LoadedInvoice) =>
+      isAlterationRow ? a.jobOrders.some(isAlterationPiece) : a.jobOrders.some((j) => jobMatchesModel(j, row.modelText));
     const primary = parseInt(digitsOnly(row.invoiceNo), 10);
     let inv = Number.isFinite(primary) ? invoiceByNo.get(primary) : undefined;
-    if (!inv || inv.isVoid || !inv.jobOrders.some((j) => jobMatchesModel(j, row.modelText))) {
+    if (!inv || inv.isVoid || !fits(inv)) {
       const alt = row.invoiceAlternatives
         .map((s) => invoiceByNo.get(parseInt(digitsOnly(s), 10)))
-        .find((a) => a && !a.isVoid && a.jobOrders.some((j) => jobMatchesModel(j, row.modelText)));
+        .find((a) => a && !a.isVoid && fits(a));
       if (alt) {
         reasons.push(
           inv
@@ -506,7 +532,6 @@ export async function resolveSheet(
     }
 
     // 2) entries — worker, kind of work, amount.
-    const isAlterationRow = input.kind === "ALTERATION" || modelWord(row.modelText) === "ALTERATION";
     for (const e of row.entries) {
       const problems: string[] = [];
       const w = e.workerId ? workerById.get(e.workerId) : undefined;
@@ -551,8 +576,21 @@ export async function resolveSheet(
       if (row.jobIds?.length) {
         chosen = usable.filter((j) => row.jobIds!.includes(j.id));
         if (chosen.length !== row.jobIds.length) errors.push("قطعة مختارة لا تتبع هذه الفاتورة");
+      } else if (isAlterationRow && !usable.some(isAlterationPiece)) {
+        chosen = [];
+        if (input.kind === "ALTERATION") {
+          // A tailored abaya that came back for a specific free repair.
+          const date = notebookDate(row.dateText, now) ?? input.sheetDate;
+          const note = freeRepairNote(altWorker?.name ?? settings.alterationWorkerName, date, want);
+          resolved.freeRepair = { note, pieces: want, alreadyNoted: (inv.notes ?? "").includes(note) };
+          reasons.push(
+            "فاتورة تفصيل بدون قطعة تعديل — غالبًا عباية رجعت لإصلاح مجاني. عند الاعتماد تنكتب ملاحظة على الفاتورة فقط، ولا تتغير المراحل",
+          );
+        } else {
+          errors.push(`الفاتورة ${inv.invoiceNo} ما فيها قطعة تعديل — تأكد من الرقم، أو اختر القطعة بنفسك`);
+        }
       } else {
-        const byModel = usable.filter((j) => jobMatchesModel(j, row.modelText));
+        const byModel = usable.filter((j) => (isAlterationRow ? isAlterationPiece(j) : jobMatchesModel(j, row.modelText)));
         const pool = byModel.length ? byModel : usable;
         if (!byModel.length && row.modelText && usable.length) {
           reasons.push(`ما فيه قطعة «${row.modelText}» في الفاتورة — اختر القطعة`);
@@ -567,7 +605,9 @@ export async function resolveSheet(
           reasons.push(`الورقة تقول ${want} قطع والفاتورة فيها ${pool.length}`);
         }
       }
-      if (!chosen.length) errors.push("ما فيه قطعة على هذه الفاتورة");
+      if (!chosen.length && !resolved.freeRepair && !errors.some((e) => e.includes("قطعة تعديل"))) {
+        errors.push("ما فيه قطعة على هذه الفاتورة");
+      }
 
       // 4) per piece: what each stage gets.
       const rowDate =
@@ -759,6 +799,10 @@ export async function resolveSheet(
     if (errors.length) {
       resolved.status = "error";
       reasons.unshift(...errors);
+    } else if (resolved.freeRepair) {
+      // Always worth a look: no stage changes, only a note on the invoice.
+      resolved.status = resolved.freeRepair.alreadyNoted ? "done" : "warn";
+      if (resolved.freeRepair.alreadyNoted) reasons.unshift("الإصلاح مكتوب على الفاتورة من قبل — لن يتكرر");
     } else if (!anyNew && resolved.pieces.length) {
       resolved.status = "done";
       reasons.unshift("مسجّل من قبل — لن يتكرر");

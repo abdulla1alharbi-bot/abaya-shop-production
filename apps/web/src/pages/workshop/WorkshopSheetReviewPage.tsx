@@ -233,6 +233,13 @@ function RowCard({
         </div>
       ) : null}
 
+      {!row.ignore && resolved?.freeRepair ? (
+        <div className="mt-2 rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          <span className="font-semibold">إصلاح مجاني: </span>
+          {resolved.freeRepair.alreadyNoted ? "مكتوب على الفاتورة من قبل" : "يُكتب على الفاتورة"} — «{resolved.freeRepair.note}». المراحل لا تتغير.
+        </div>
+      ) : null}
+
       {!row.ignore && resolved?.pieces.length ? (
         <div className="mt-2 space-y-1">
           {resolved.pieces.map((p) => (
@@ -313,7 +320,12 @@ export function WorkshopSheetReviewPage() {
   const [day, setDay] = useState("");
   const [plan, setPlan] = useState<SheetPlan | null>(null);
   const [dirty, setDirty] = useState(0);
-  const [approved, setApproved] = useState<{ linesApplied: number; totalFils: number; readyPieces: number } | null>(null);
+  const [approved, setApproved] = useState<{
+    linesApplied: number;
+    totalFils: number;
+    readyPieces: number;
+    freeRepairNotes?: number;
+  } | null>(null);
 
   const sheet = sheetQuery.data?.sheet;
   const readOnly = !sheet || sheet.status !== "DRAFT" || approved !== null;
@@ -349,7 +361,10 @@ export function WorkshopSheetReviewPage() {
 
   const approve = useMutation({
     mutationFn: async () => {
-      const res = await api.post<{ success: boolean; data: { linesApplied: number; totalFils: number; readyPieces: number } }>(
+      const res = await api.post<{
+        success: boolean;
+        data: { linesApplied: number; totalFils: number; readyPieces: number; freeRepairNotes?: number };
+      }>(
         `/workshop-sheets/${id}/approve`,
         { sheetDate: dateInputToIso(day), rows },
         { timeout: 120_000 },
@@ -431,7 +446,8 @@ export function WorkshopSheetReviewPage() {
 
       {approved ? (
         <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
-          تم الاعتماد: {approved.linesApplied} سطر أجر بمجموع {formatAED(approved.totalFils)}، و{approved.readyPieces} قطعة صارت جاهزة.
+          تم الاعتماد: {approved.linesApplied} سطر أجر بمجموع {formatAED(approved.totalFils)}، و{approved.readyPieces} قطعة صارت جاهزة
+          {approved.freeRepairNotes ? `، و${approved.freeRepairNotes} ملاحظة «إصلاح مجاني» انكتبت على الفواتير` : ""}.
         </div>
       ) : sheet.status === "APPROVED" ? (
         <div className="rounded-lg border bg-muted/40 p-3 text-sm">

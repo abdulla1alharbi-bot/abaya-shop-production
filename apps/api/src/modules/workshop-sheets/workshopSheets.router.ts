@@ -352,6 +352,7 @@ workshopSheetsRouter.post(
             linesApplied: result.linesApplied,
             totalFils: result.totalFils,
             readyPieces: result.readyJobIds.length,
+            freeRepairNotes: result.notesWritten,
           }),
         },
       })
@@ -359,7 +360,13 @@ workshopSheetsRouter.post(
 
     res.status(200).json({
       success: true,
-      data: { sheet: approved, linesApplied: result.linesApplied, totalFils: result.totalFils, readyPieces: result.readyJobIds.length },
+      data: {
+        sheet: approved,
+        linesApplied: result.linesApplied,
+        totalFils: result.totalFils,
+        readyPieces: result.readyJobIds.length,
+        freeRepairNotes: result.notesWritten,
+      },
     });
   }),
 );

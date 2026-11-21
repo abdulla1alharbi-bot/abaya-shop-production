@@ -358,6 +358,8 @@ export function InvoiceDetail() {
   const isVoid = Boolean(data.isVoid);
   const deliveryDate = data.deliveryDate as string | null | undefined;
   const invoiceNo = data.invoiceNo as number;
+  /** Free-text notes, e.g. «إصلاح مجاني — ahsan — …» written by the alteration notebook. */
+  const invoiceNotes = ((data.notes as string | null | undefined) ?? "").trim();
   const hideMoney =
     isWorker || Boolean((data as { financialsRedacted?: boolean }).financialsRedacted);
 
@@ -723,6 +725,21 @@ export function InvoiceDetail() {
               </tbody>
             </table>
           </div>
+        </section>
+      ) : null}
+
+      {invoiceNotes ? (
+        <section
+          className="rounded-2xl border border-amber-300/70 bg-amber-50/60 p-4 text-start dark:border-amber-800 dark:bg-amber-950/30"
+          dir="rtl"
+          aria-label="ملاحظات الفاتورة"
+        >
+          <h2 className="mb-1.5 text-sm font-semibold">ملاحظات الفاتورة</h2>
+          <ul className="space-y-1 text-sm">
+            {invoiceNotes.split("\n").map((line, i) =>
+              line.trim() ? <li key={i}>{line.trim()}</li> : null,
+            )}
+          </ul>
         </section>
       ) : null}
 

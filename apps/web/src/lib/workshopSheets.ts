@@ -57,6 +57,8 @@ export type ResolvedRow = {
   candidates: Array<{ id: string; jobNo: number; label: string; stage: string }>;
   pieces: PlanPiece[];
   entries: Array<{ key: string; workerName: string | null; work: WorkKind | null; amountFils: number | null; problems: string[] }>;
+  /** A tailored abaya back for a free repair: only a note goes on the invoice. */
+  freeRepair: { note: string; pieces: number; alreadyNoted: boolean } | null;
 };
 export type WorkerTotal = { workerId: string; workerName: string; pieces: number; totalFils: number; newFils: number };
 export type SheetPlan = {

@@ -20,7 +20,7 @@ import type { ResolveResult } from "./sheetResolve.js";
 const conflict = (jobNo: number) =>
   new AppError(409, `القطعة #${jobNo} تغيّرت بعد القراءة — اضغط «تحقق» وراجعها مرة ثانية`, "SHEET_STALE");
 
-export type ApplyResult = { linesApplied: number; totalFils: number; readyJobIds: string[] };
+export type ApplyResult = { linesApplied: number; totalFils: number; readyJobIds: string[]; notesWritten: number };
 
 export async function applySheet(
   db: PrismaClient,
@@ -30,11 +30,24 @@ export async function applySheet(
   const readyJobIds: string[] = [];
   let linesApplied = 0;
   let totalFils = 0;
+  let notesWritten = 0;
 
   await db.$transaction(
     async (tx: Prisma.TransactionClient) => {
       for (const row of args.plan.rows) {
         if (row.status !== "ok" && row.status !== "warn") continue;
+        // A free repair on a tailored abaya: a note on the invoice, no stage touched.
+        if (row.freeRepair && !row.freeRepair.alreadyNoted && row.invoice) {
+          const inv = await tx.invoice.findUnique({ where: { id: row.invoice.id }, select: { notes: true } });
+          const current = inv?.notes ?? "";
+          if (!current.includes(row.freeRepair.note)) {
+            await tx.invoice.update({
+              where: { id: row.invoice.id },
+              data: { notes: current ? `${current}\n${row.freeRepair.note}` : row.freeRepair.note },
+            });
+            notesWritten += 1;
+          }
+        }
         for (const piece of row.pieces) {
           const job = await tx.jobOrder.findUnique({
             where: { id: piece.jobId },
@@ -184,5 +197,5 @@ export async function applySheet(
   );
 
   for (const jobId of readyJobIds) await notifyIfInvoiceFullyReady(db, jobId);
-  return { linesApplied, totalFils, readyJobIds };
+  return { linesApplied, totalFils, readyJobIds, notesWritten };
 }

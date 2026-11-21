@@ -75,7 +75,24 @@ before(async () => {
   await make("A", 1);
   await make("B", 3);
   await make("C", 1, { abayaTypeId: walter.id, productStyle: "تعديل" });
-  await make("D", 2);
+  await make("D", 2, { abayaTypeId: walter.id, productStyle: "تعديل" });
+  // A tailoring-only invoice (an abaya can come back to it for a free repair)…
+  await make("E", 2);
+  // …and a mixed one: one tailored abaya plus two alteration pieces.
+  const mixed = await api.call<{ invoice: { id: string; invoiceNo: number }; jobOrders: Array<{ id: string }> }>(
+    "POST",
+    "/invoices/tailoring-checkout",
+    {
+      customerId: cust.data.id,
+      items: [
+        { productStyle: "عباية سادة", dueDate: due, costFils: 0, totalFils: 30000 },
+        { productStyle: "تعديل", abayaTypeId: walter.id, dueDate: due, costFils: 0, totalFils: 2000 },
+        { productStyle: "تعديل", abayaTypeId: walter.id, dueDate: due, costFils: 0, totalFils: 2000 },
+      ],
+    },
+  );
+  assert.equal(mixed.status, 201, JSON.stringify(mixed.error));
+  inv.F = { no: mixed.data.invoice.invoiceNo, id: mixed.data.invoice.id, jobs: mixed.data.jobOrders.map((j) => j.id) };
 });
 
 after(async () => {
@@ -267,13 +284,75 @@ describe("alteration notebook", () => {
   });
 });
 
+describe("free repair on a tailored abaya", () => {
+  test("a notebook line on a tailoring-only invoice only writes a note; a mixed invoice closes only its alteration pieces", async () => {
+    const book = (
+      await read("ALTERATION", Buffer.from("fake-photo-repairs"), {
+        sheetDateText: null,
+        rows: [
+          line(String(inv.E!.no), [], { pieces: 2, dateText: "30-9" }),
+          line(String(inv.F!.no), [], { pieces: 2, dateText: "30-9" }),
+        ],
+      })
+    ).data;
+    const [e, f] = book.plan.rows as Array<Plan["rows"][number] & { freeRepair: { note: string } | null }>;
+    assert.equal(e!.status, "warn");
+    assert.equal(e!.pieces.length, 0, "no stage is touched on a free repair");
+    assert.match(e!.freeRepair!.note, /إصلاح مجاني — Ahsan — 30-09-\d{4} — 2 قطعة/);
+    assert.deepEqual(
+      f!.pieces.map((p) => p.jobId).sort(),
+      inv.F!.jobs.slice(1).sort(),
+      "only the two alteration pieces are taken",
+    );
+
+    const r = await api.call<{ freeRepairNotes: number }>("POST", `/workshop-sheets/${book.sheet.id}/approve`, {
+      sheetDate: book.sheet.sheetDate,
+      rows: book.rows,
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.error));
+    assert.equal(r.data.freeRepairNotes, 1);
+
+    const invE = await api.call<{ notes: string | null }>("GET", `/invoices/${inv.E!.id}`);
+    assert.match(invE.data.notes ?? "", /إصلاح مجاني/);
+    for (const id of inv.E!.jobs) {
+      const j = await job(id);
+      assert.ok(j.workStages.every((s) => s.status !== "DONE"), "tailoring stages stay open");
+    }
+    const tailored = await job(inv.F!.jobs[0]!);
+    assert.ok(tailored.workStages.every((s) => s.status !== "DONE"), "the tailored abaya on the mixed invoice is untouched");
+    for (const id of inv.F!.jobs.slice(1)) assert.equal((await job(id)).stage, "READY");
+
+    // The same notebook again: the note is not written twice.
+    const again = (
+      await read("ALTERATION", Buffer.from("fake-photo-repairs-2"), {
+        sheetDateText: null,
+        rows: [line(String(inv.E!.no), [], { pieces: 2, dateText: "30-9" })],
+      })
+    ).data;
+    assert.equal(again.plan.rows[0]!.status, "done");
+    await api.call("DELETE", `/workshop-sheets/${again.sheet.id}`);
+  });
+
+  test("a W line on a work sheet pointing at a tailoring-only invoice is red", async () => {
+    const ws = (
+      await read("WORK", Buffer.from("fake-photo-w-on-tailoring"), {
+        sheetDateText: "D: 20-11-26 - 21-11-26",
+        rows: [line(String(inv.E!.no), [entry("Jahid", "Jahid", 10)], { modelText: "W" })],
+      })
+    ).data;
+    assert.equal(ws.plan.rows[0]!.status, "error");
+    assert.ok(ws.plan.rows[0]!.reasons.some((x) => x.includes("قطعة تعديل")));
+    await api.call("DELETE", `/workshop-sheets/${ws.sheet.id}`);
+  });
+});
+
 describe("history and the photo", () => {
   test("approved sheets are listed, and the photo is never public", async () => {
     const list = await api.call<Array<{ id: string; status: string; kind: string }>>("GET", "/workshop-sheets");
     assert.equal(list.status, 200);
     assert.deepEqual(
       list.data.map((s) => `${s.kind}:${s.status}`).sort(),
-      ["ALTERATION:APPROVED", "WORK:APPROVED"],
+      ["ALTERATION:APPROVED", "ALTERATION:APPROVED", "WORK:APPROVED"],
     );
     const img = await fetch(`${api.base}/api/workshop-sheets/${workSheet.sheet.id}/image`, {
       headers: { authorization: `Bearer ${api.token}` },
