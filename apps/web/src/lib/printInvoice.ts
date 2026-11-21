@@ -144,10 +144,12 @@ const PRINT_ON_LOAD = "<script>window.onload = function () { window.focus(); win
 // ─── Shop copy ───────────────────────────────────────────────────────────────
 // Printed right after the customer copy, on its own page (the thermal driver
 // cuts between pages). It replaces the paper work-sheet the shop used to fill by
-// hand: invoice no., dates, the pieces ordered, and one blank abaya outline the
-// worker writes the measurements on, plus room for notes. Retail-only invoices
-// have no work to note, so they print the customer copy alone.
+// hand: invoice no., dates, and each piece ordered with its own abaya outline,
+// the measurements taken at the POS marked at their places, plus room for
+// notes. Retail-only invoices have no work to note, so they print the customer
+// copy alone.
 
+/** Body fields are numbers from the POS; typed loosely since old snapshots vary. */
 type Measurements = {
   sizeType?: string;
   standardSize?: string;
@@ -155,6 +157,12 @@ type Measurements = {
   fabricName?: string;
   fabricColor?: string;
   colorNote?: string;
+  shoulder?: unknown;
+  chest?: unknown;
+  waist?: unknown;
+  hip?: unknown;
+  length?: unknown;
+  sleeve?: unknown;
 };
 
 function parseMeasurements(raw?: string | null): Measurements {
@@ -174,16 +182,54 @@ function latestDue(jobs: JobOrder[]): string | null {
   return dues.reduce((a, b) => (new Date(b) > new Date(a) ? b : a));
 }
 
-/**
- * The blank abaya outline from the shop's paper form: shoulders across the top,
- * body narrowing to the waist and flaring to the hem. Deliberately unlabeled:
- * the worker writes each measurement at its place by hand.
- */
-const ABAYA_SKETCH = `<svg class="sketch" viewBox="0 0 260 300" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000">
-    <path d="M40 12 H220 V48 H182 Q148 150 238 286 H22 Q112 150 78 48 H40 Z" stroke-width="2" />
-  </svg>`;
+/** A measurement as printed: "56", "56.5"; null when not taken. */
+function measureText(v: unknown): string | null {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return String(Math.round(n * 100) / 100);
+}
 
-function jobSheetHtml(job: JobOrder, deliveryDate: string | null): string {
+/** "باط 24", or "باط ____" for the worker to fill in when the seller left it empty. */
+function markText(label: string, v: unknown): string {
+  const t = measureText(v);
+  return t ? `${label} <tspan class="v">${esc(t)}</tspan>` : `${label} ____`;
+}
+
+/**
+ * The abaya outline from the shop's paper form (shoulders across the top, body
+ * narrowing to the waist and flaring to the hem) with each measurement at its
+ * place, under the shop's own names — the same ones the POS form uses:
+ * طول الكم across the top bar, عرض الكم at its end, باط under the shoulders,
+ * خصر at the middle, وسع الذيل at the hem, طول down the side.
+ * `uid` keeps the arrowhead id unique when a page holds several sketches.
+ */
+function abayaSketch(m: Measurements, uid: string): string {
+  const arrow = `ar${uid}`;
+  const chest = measureText(m.chest);
+  return `<svg class="sketch" viewBox="-44 -26 330 330" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="${arrow}" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#000" /></marker></defs>
+    <path d="M40 12 H220 V48 H182 Q148 150 238 286 H22 Q112 150 78 48 H40 Z" fill="none" stroke="#000" stroke-width="2" />
+    <g stroke="#000" stroke-width="1.2" stroke-dasharray="4 3" marker-start="url(#${arrow})" marker-end="url(#${arrow})">
+      <line x1="40" y1="0" x2="220" y2="0" />
+      <line x1="28" y1="14" x2="28" y2="46" />
+      <line x1="88" y1="70" x2="172" y2="70" />
+      <line x1="90" y1="160" x2="170" y2="160" />
+      <line x1="38" y1="272" x2="222" y2="272" />
+      <line x1="250" y1="14" x2="250" y2="284" />
+    </g>
+    <g fill="#000" font-size="16" text-anchor="middle">
+      <text x="130" y="-8">${markText("طول الكم", m.sleeve)}</text>
+      <text x="-8" y="26" font-size="14">عرض الكم</text>
+      <text x="-8" y="48">${chest ? `<tspan class="v">${esc(chest)}</tspan>` : "____"}</text>
+      <text x="130" y="94">${markText("باط", m.shoulder)}</text>
+      <text x="130" y="186">${markText("خصر", m.waist)}</text>
+      <text x="130" y="262">${markText("وسع الذيل", m.hip)}</text>
+      <text x="274" y="150" transform="rotate(-90 274 150)">${markText("طول", m.length)}</text>
+    </g>
+  </svg>`;
+}
+
+function jobSheetHtml(job: JobOrder, deliveryDate: string | null, uid: string): string {
   const m = parseMeasurements(job.measurements);
   const fabric = [m.fabricRollCode, m.fabricName, m.fabricColor].filter(Boolean).join(" · ");
   const ownDue = job.dueDate && job.dueDate !== deliveryDate ? job.dueDate : null;
@@ -196,6 +242,7 @@ function jobSheetHtml(job: JobOrder, deliveryDate: string | null): string {
       ${m.colorNote ? `<div class="row"><span>اللون</span><span>${esc(m.colorNote)}</span></div>` : ""}
       ${m.sizeType === "STANDARD" && m.standardSize ? `<div class="row b"><span>مقاس جاهز</span><span>${esc(m.standardSize)}</span></div>` : ""}
       ${job.notes ? `<div class="job-notes">${esc(job.notes)}</div>` : ""}
+      ${abayaSketch(m, uid)}
     </div>`;
 }
 
@@ -236,9 +283,8 @@ function shopCopyHtml(inv: InvoiceData, jobs: JobOrder[], shopName: string, copy
   ${inv.customer?.mobile ? `<div class="row"><span>الجوال</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
   ${inv.notes ? `<div class="job-notes">${esc(inv.notes)}</div>` : ""}
   <hr />
-  ${jobs.map((j) => jobSheetHtml(j, delivery)).join('<hr />')}
+  ${jobs.map((j, i) => jobSheetHtml(j, delivery, `${copyNo}-${i}`)).join('<hr class="solid" />')}
   <hr class="solid" />
-  ${ABAYA_SKETCH}
   <div class="notes-title">ملاحظات على الشغل / Work notes</div>
   <div class="write-line"></div><div class="write-line"></div><div class="write-line"></div><div class="write-line"></div>
 </div>`;
@@ -258,7 +304,9 @@ const SHOP_COPY_CSS = `
     .shop-copy .row.due { font-size: 14px; font-weight: 900; }
     .shop-copy .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
     .shop-copy .job-style { font-weight: 800; font-size: 13px; margin: 2px 0; word-break: break-word; }
-    .shop-copy .sketch { display: block; width: 62mm; height: auto; margin: 6px auto; }
+    .shop-copy .job { break-inside: avoid; page-break-inside: avoid; }
+    .shop-copy .sketch { display: block; width: 66mm; height: auto; margin: 6px auto 2px; }
+    .shop-copy .sketch .v { font-size: 22px; font-weight: 900; }
     .shop-copy .notes-title { font-weight: 800; font-size: 11px; margin-top: 4px; }
     .shop-copy .job-notes { margin-top: 3px; padding: 3px 4px; border: 1px solid #000; font-size: 12px; font-weight: 700; word-break: break-word; }
     .shop-copy .write-line { height: 7mm; border-bottom: 1px dotted #000; }
