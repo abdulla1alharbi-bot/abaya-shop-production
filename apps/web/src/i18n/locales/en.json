@@ -129,7 +129,8 @@
     "transfer": "Transfer",
     "card": "Card",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "clearSearch": "Clear search"
   },
   "auth": {
     "login": {
@@ -619,6 +620,8 @@
     "allCategories": "All",
     "selectCustomerFirst": "Please select a customer first",
     "noProducts": "No products",
+    "searchPlaceholder": "Search by product name…",
+    "noSearchResults": "No product named “{{term}}”",
     "intake": {
       "title": "New tailoring order",
       "titleEdit": "Edit tailoring",
@@ -949,7 +952,9 @@
     "createdFromJobSuffix": " · order #{{jobNo}}",
     "conversionsDesc": "Record each tailoring piece converted to a ready-made product with invoice and product link.",
     "description": "Shelf products only (ready sale at cashier). Does not include tailoring models or fabric rolls.",
-    "emptyMessage": "No ready-made products yet."
+    "emptyMessage": "No ready-made products yet.",
+    "searchPlaceholder": "Search by product name…",
+    "noSearchResults": "No product named “{{term}}”"
   },
   "models": {
     "title": "Tailoring Models",

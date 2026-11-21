@@ -129,7 +129,8 @@
     "transfer": "تحويل",
     "card": "بطاقة",
     "yes": "نعم",
-    "no": "لا"
+    "no": "لا",
+    "clearSearch": "مسح البحث"
   },
   "auth": {
     "login": {
@@ -619,6 +620,8 @@
     "allCategories": "الكل",
     "selectCustomerFirst": "Please select a customer first",
     "noProducts": "لا منتجات",
+    "searchPlaceholder": "ابحث باسم المنتج…",
+    "noSearchResults": "لا يوجد منتج بهذا الاسم: «{{term}}»",
     "intake": {
       "title": "طلب تفصيل",
       "titleEdit": "تعديل تفصيل",
@@ -949,7 +952,9 @@
     "createdFromJobSuffix": " · طلب #{{jobNo}}",
     "conversionsDesc": "سجّل كل قطعة تفصيل محولة إلى منتج جاهز مع رابط الفاتورة والمنتج.",
     "description": "منتجات الرفوف فقط (بيع جاهز لدى الكاشير). لا تشمل موديلات التفصيل أو لفات القماش.",
-    "emptyMessage": "لا توجد منتجات جاهزة بعد."
+    "emptyMessage": "لا توجد منتجات جاهزة بعد.",
+    "searchPlaceholder": "ابحث باسم المنتج…",
+    "noSearchResults": "لا يوجد منتج بهذا الاسم: «{{term}}»"
   },
   "models": {
     "title": "موديلات التفصيل",

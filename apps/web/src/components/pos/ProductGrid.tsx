@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SearchInput } from "@/components/shared/SearchInput";
 import { Card, CardContent } from "@/components/ui/card";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api } from "@/lib/api";
 import { formatAED } from "@/lib/money";
 import { useCartStore } from "@/store/cartStore";
@@ -26,6 +28,8 @@ interface ProductRow {
 
 export function ProductGrid() {
   const [categoryId, setCategoryId] = useState<string | "ALL">("ALL");
+  const [search, setSearch] = useState("");
+  const nameSearch = useDebouncedValue(search.trim());
   const addRetailItem = useCartStore((s) => s.addRetailItem);
   const posCustomerId = useCartStore((s) => s.posCustomerId);
   const canAdd = Boolean(posCustomerId);
@@ -40,10 +44,12 @@ export function ProductGrid() {
   });
 
   const { data: products, isLoading } = useQuery({
-    queryKey: ["products", "pos", categoryId],
+    queryKey: ["products", "pos", categoryId, nameSearch],
     queryFn: async () => {
-      const params =
-        categoryId === "ALL" ? {} : { categoryId };
+      const params = {
+        ...(categoryId === "ALL" ? {} : { categoryId }),
+        ...(nameSearch ? { name: nameSearch } : {}),
+      };
       const res = await api.get<{
         success: boolean;
         data: { items: ProductRow[] };
@@ -52,6 +58,8 @@ export function ProductGrid() {
       });
       return res.data.data.items;
     },
+    // Keep the current cards while the next search loads (no flicker per keystroke).
+    placeholderData: keepPreviousData,
   });
 
   const catButtons = useMemo(() => {
@@ -77,6 +85,12 @@ export function ProductGrid() {
             {t("pos.selectCustomerBeforeProducts")}
           </p>
         ) : null}
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={t("pos.searchPlaceholder")}
+          className="mb-3"
+        />
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           {catButtons.map((c) => (
             <button
@@ -99,7 +113,9 @@ export function ProductGrid() {
         ) : !products?.length ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
             <Package className="h-10 w-10 opacity-50" />
-            <p className="text-sm">{t("pos.noProducts")}</p>
+            <p className="text-sm">
+              {nameSearch ? t("pos.noSearchResults", { term: nameSearch }) : t("pos.noProducts")}
+            </p>
           </div>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">

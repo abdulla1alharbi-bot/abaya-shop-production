@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PackagePlus, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SearchInput } from "@/components/shared/SearchInput";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,18 +45,28 @@ export function ReadyMadeProductsPage() {
   const [stockFor, setStockFor] = useState<ReadyMadeRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [search, setSearch] = useState("");
+  const nameSearch = useDebouncedValue(search.trim());
   const canDelete = can("readyMade.delete");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["products", "ready-made", { showDeleted }],
+    queryKey: ["products", "ready-made", { showDeleted, nameSearch }],
     queryFn: async () => {
       const res = await api.get<{ success: boolean; data: { items: ReadyMadeRow[] } }>("/products", {
         // "Deleted" is a soft delete (isActive=false): past invoices still point at
         // the product, so it is hidden rather than removed.
-        params: { limit: 300, retailOnly: "true", ...(showDeleted ? {} : { activeOnly: "true" }) },
+        params: {
+          limit: 300,
+          retailOnly: "true",
+          ...(showDeleted ? {} : { activeOnly: "true" }),
+          ...(nameSearch ? { name: nameSearch } : {}),
+        },
       });
       return res.data.data.items;
     },
+    // Keep the current rows on screen while the next search loads, instead of
+    // flashing "Loading…" on every keystroke.
+    placeholderData: keepPreviousData,
   });
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -117,15 +129,23 @@ export function ReadyMadeProductsPage() {
         }
       />
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            className="h-4 w-4"
-            checked={showDeleted}
-            onChange={(e) => setShowDeleted(e.target.checked)}
+        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder={t("readyMade.searchPlaceholder")}
+            className="sm:w-72"
           />
-          {t("readyMade.showDeleted")}
-        </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={showDeleted}
+              onChange={(e) => setShowDeleted(e.target.checked)}
+            />
+            {t("readyMade.showDeleted")}
+          </label>
+        </div>
         {canDelete && selectedIds.length > 0 ? (
           <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-1.5">
             <span className="text-sm font-medium">{t("readyMade.selectedCount", { count: selectedIds.length })}</span>
@@ -191,7 +211,9 @@ export function ReadyMadeProductsPage() {
             ) : !data?.length ? (
               <tr>
                 <td colSpan={canDelete ? 10 : 9} className="px-4 py-8 text-center text-muted-foreground">
-                  {t("readyMade.emptyMessage", { defaultValue: "No ready-made products yet." })}
+                  {nameSearch
+                    ? t("readyMade.noSearchResults", { term: nameSearch })
+                    : t("readyMade.emptyMessage", { defaultValue: "No ready-made products yet." })}
                 </td>
               </tr>
             ) : (

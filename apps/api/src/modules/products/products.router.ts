@@ -46,6 +46,14 @@ productsRouter.get(
         { barcode: icontains(search) },
       ];
     }
+    // Name-only search for the ready-made screens (the owner asked for the name,
+    // not the code). Every typed word has to appear in the English or the Arabic
+    // name, in any order, so "سوداء عباية" still finds "عباية سوداء". It runs on
+    // the server because the list itself is capped at 100 rows.
+    const nameWords = (queryParamString(q, "name") ?? "").trim().split(/\s+/).filter(Boolean);
+    if (nameWords.length) {
+      where.AND = nameWords.map((w) => ({ OR: [{ name: icontains(w) }, { nameAr: icontains(w) }] }));
+    }
 
     const [total, rows] = await Promise.all([
       prisma.product.count({ where: where as never }),
