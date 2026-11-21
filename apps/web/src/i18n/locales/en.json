@@ -344,7 +344,17 @@
     "lineTotalShort": "Line total {{total}}",
     "tooltipFuture": "After completing previous stages",
     "tooltipUncheckReopen": "Uncheck to reopen this stage",
-    "tooltipClickComplete": "Click to complete this stage"
+    "tooltipClickComplete": "Click to complete this stage",
+    "extraWorkTitle": "Extra work",
+    "extraWorkHint": "ARI and PUSSOS — paid to the worker, never holds the piece back from Ready.",
+    "extraWorkEmpty": "No extra work on this piece.",
+    "extraWorkType": "Type",
+    "extraWorkAmount": "Wage (AED)",
+    "extraWorkDate": "Date",
+    "extraWorkAdd": "Add",
+    "extraWorkDelete": "Remove",
+    "extraWorkDeleteConfirm": "Remove this line? Its wage comes off the worker's balance.",
+    "extraWorkNeedAmount": "Enter the wage"
   },
   "workshopBoard": {
     "title": "Workshop Tasks",
@@ -1739,6 +1749,8 @@
     "HAND_EMBROIDERY": "Handwork",
     "MACHINE_EMBROIDERY": "Embroidery",
     "FINISHING": "Handwork",
+    "ARI": "ARI",
+    "PUSSOS": "PUSSOS",
     "CUSTOM": "Other"
   },
   "dashboard": {

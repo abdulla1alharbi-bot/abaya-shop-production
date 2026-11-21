@@ -344,7 +344,17 @@
     "lineTotalShort": "إجمالي السطر {{total}}",
     "tooltipFuture": "بعد إتمام المراحل السابقة",
     "tooltipUncheckReopen": "إلغاء التمييز لإعادة فتح المرحلة",
-    "tooltipClickComplete": "اضغط لإتمام المرحلة"
+    "tooltipClickComplete": "اضغط لإتمام المرحلة",
+    "extraWorkTitle": "شغل إضافي",
+    "extraWorkHint": "ARI و PUSSOS — أجره يُحسب للعامل، ولا يوقف القطعة عن «جاهز».",
+    "extraWorkEmpty": "لا يوجد شغل إضافي على هذه القطعة.",
+    "extraWorkType": "النوع",
+    "extraWorkAmount": "الأجر (درهم)",
+    "extraWorkDate": "التاريخ",
+    "extraWorkAdd": "إضافة",
+    "extraWorkDelete": "حذف",
+    "extraWorkDeleteConfirm": "حذف هذا الشغل؟ سيُخصم أجره من حساب العامل.",
+    "extraWorkNeedAmount": "اكتب الأجر"
   },
   "workshopBoard": {
     "title": "مهام الورشة",
@@ -1763,6 +1773,8 @@
     "HAND_EMBROIDERY": "عمل يدوي",
     "MACHINE_EMBROIDERY": "تطريز",
     "FINISHING": "الشغل اليدوي",
+    "ARI": "ARI",
+    "PUSSOS": "PUSSOS",
     "CUSTOM": "أخرى"
   },
   "dashboard": {

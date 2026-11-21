@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { getCustomerFacingShopName, getShopTimezone } from "../config/shop.js";
 import { type DateKey, dayRangeUtc, shopWallClock } from "./shopTime.js";
+import { extraWorkWagesWhere } from "./extraWorkWages.js";
 
 /**
  * The end-of-day figures the owner asked to receive without opening the app:
@@ -103,6 +104,7 @@ export async function buildDailyReport(
     invoicesToday,
     expenseAgg,
     wageStages,
+    extraWork,
     newJobs,
     ordersReady,
     piecesDelivered,
@@ -150,6 +152,11 @@ export async function buildDailyReport(
         ],
       },
       select: { stageKey: true, wageFils: true },
+    }),
+    // «شغل إضافي» (ARI / PUSSOS) is a wage but not a stage — same as the dashboard.
+    db.productionEntry.findMany({
+      where: extraWorkWagesWhere(range),
+      select: { workType: true, totalFils: true },
     }),
     // A cancelled sale is not work the shop took in, so voided invoices are
     // excluded here exactly as they are from the money figures. Walk-in job
@@ -227,6 +234,13 @@ export async function buildDailyReport(
     row.count += 1;
     row.wagesFils += w.wageFils;
     byStage.set(w.stageKey, row);
+  }
+  for (const e of extraWork) {
+    wagesFils += e.totalFils;
+    const row = byStage.get(e.workType) ?? { stageKey: e.workType, count: 0, wagesFils: 0 };
+    row.count += 1;
+    row.wagesFils += e.totalFils;
+    byStage.set(e.workType, row);
   }
 
   const expensesFils = expenseAgg._sum.amountFils ?? 0;

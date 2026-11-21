@@ -72,8 +72,23 @@ export const WORK_TYPES = [
   "HAND_EMBROIDERY",
   "MACHINE_EMBROIDERY",
   "FINISHING",
+  "ARI",
+  "PUSSOS",
   "CUSTOM",
 ] as const;
+
+/**
+ * Workshop work that is NOT a pipeline stage: only some pieces get it, so it
+ * never blocks a piece from becoming READY. Recorded as a ProductionEntry on
+ * the job (its wage counts like any stage wage) — see the job's «شغل إضافي».
+ * The shop's own names, kept as written on the workshop sheet.
+ */
+export const EXTRA_WORK_TYPES = ["ARI", "PUSSOS"] as const;
+export type ExtraWorkType = (typeof EXTRA_WORK_TYPES)[number];
+
+export function isExtraWorkType(workType: string): workType is ExtraWorkType {
+  return (EXTRA_WORK_TYPES as readonly string[]).includes(workType);
+}
 
 export const WORK_TYPE_LABELS: Record<string, string> = {
   CUTTING: "قص",
@@ -83,6 +98,8 @@ export const WORK_TYPE_LABELS: Record<string, string> = {
   HAND_EMBROIDERY: "تطريز يدوي",
   MACHINE_EMBROIDERY: "تطريز ماكينة",
   FINISHING: "الشغل اليدوي",
+  ARI: "ARI",
+  PUSSOS: "PUSSOS",
   CUSTOM: "أخرى",
 };
 

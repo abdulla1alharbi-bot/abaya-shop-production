@@ -10,7 +10,7 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "tsx --test test/unit/money.test.ts",
-    "test:integration": "tsx --test --test-concurrency=1 test/integration/money.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 test/integration/money.test.ts test/integration/extraWork.test.ts",
     "prisma": "prisma"
   },
   "dependencies": {

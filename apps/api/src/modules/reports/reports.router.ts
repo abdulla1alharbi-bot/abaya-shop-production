@@ -12,6 +12,7 @@ import {
   queryParamString,
 } from "../../utils/queryParams.js";
 import { dailyReportRouter } from "./daily-report.router.js";
+import { extraWorkWageSelect, extraWorkWagesWhere } from "../../utils/extraWorkWages.js";
 
 export const reportsRouter = Router();
 reportsRouter.use(authMiddleware);
@@ -334,6 +335,20 @@ reportsRouter.get(
       cur.completedTasks += 1;
       cur.totalWageFils += s.wageFils;
       byWorker.set(mapKey, cur);
+    }
+
+    // «شغل إضافي» (ARI / PUSSOS) is not a stage but is workshop wage all the same.
+    const extraWork = await prisma.productionEntry.findMany({
+      where: extraWorkWagesWhere({ gte: from, lte: to }),
+      select: extraWorkWageSelect,
+    });
+    for (const e of extraWork) {
+      const cur =
+        byWorker.get(e.workerId) ??
+        ({ workerId: e.workerId, name: e.worker.name, completedTasks: 0, totalWageFils: 0 } as Agg);
+      cur.completedTasks += 1;
+      cur.totalWageFils += e.totalFils;
+      byWorker.set(e.workerId, cur);
     }
 
     const rows = [...byWorker.values()].sort((a, b) => b.totalWageFils - a.totalWageFils);
@@ -809,6 +824,15 @@ reportsRouter.get(
       totalWagesFils = wageAgg._sum.wageFils ?? 0;
     }
 
+    // «شغل إضافي» (ARI / PUSSOS): a workshop wage that is not a stage. Few rows,
+    // so they are always fetched; they join the wage total either way.
+    const extraWork = await prisma.productionEntry.findMany({
+      where: extraWorkWagesWhere({ gte: from, lte: to }),
+      select: extraWorkWageSelect,
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+    });
+    totalWagesFils += extraWork.reduce((s, e) => s + e.totalFils, 0);
+
     const netProfitFils = totalIncomeFils - totalExpensesFils - totalWagesFils;
 
     type EntryRow = {
@@ -865,6 +889,16 @@ reportsRouter.get(
           description: `أجر ${stageLabel} — طلب #${jobNo} — ${workerName}`,
           amountFils: w.wageFils,
           date: d.toISOString(),
+        });
+      }
+      for (const e of extraWork) {
+        const jobPart = e.jobOrder ? ` — طلب #${e.jobOrder.jobNo}` : "";
+        entries.push({
+          id: `wage:x:${e.id}`,
+          type: "wage",
+          description: `أجر ${e.workType}${jobPart} — ${e.worker.name}`,
+          amountFils: e.totalFils,
+          date: e.date.toISOString(),
         });
       }
     } else {

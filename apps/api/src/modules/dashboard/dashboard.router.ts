@@ -25,6 +25,7 @@ import {
 } from "../../utils/jobUrgency.js";
 import { findOverdueJobs, summarizeOverdueBacklog } from "../../utils/overdueBacklog.js";
 import { parsePageLimit, queryParamString } from "../../utils/queryParams.js";
+import { extraWorkWageSelect, extraWorkWagesWhere } from "../../utils/extraWorkWages.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(authMiddleware);
@@ -190,7 +191,7 @@ dashboardRouter.get(
     const endOfTodayExclusive = endExclusiveNextLocalDay(now);
     const todayRange = { gte: startOfToday, lt: endOfTodayExclusive };
 
-    const [payments, invoicesToday, expenses, wageStages] = await Promise.all([
+    const [payments, invoicesToday, expenses, wageStages, extraWork] = await Promise.all([
       prisma.payment.findMany({
         where: { createdAt: todayRange, invoice: { isVoid: false } },
         select: {
@@ -258,7 +259,34 @@ dashboardRouter.get(
         },
         orderBy: { completedAt: "desc" },
       }),
+      prisma.productionEntry.findMany({
+        where: extraWorkWagesWhere(todayRange),
+        select: extraWorkWageSelect,
+        orderBy: { date: "desc" },
+      }),
     ]);
+
+    // Stage wages and «شغل إضافي» (ARI / PUSSOS) in one list, newest first.
+    const wageItems = [
+      ...wageStages.map((w) => ({
+        id: w.id,
+        amountFils: w.wageFils,
+        stageKey: w.stageKey,
+        workerName: w.worker?.name ?? w.workerNameSnapshot ?? "—",
+        jobNo: w.jobOrder?.jobNo ?? null,
+        productStyle: w.jobOrder?.productStyle ?? null,
+        at: w.completedAt ? w.completedAt.toISOString() : null,
+      })),
+      ...extraWork.map((e) => ({
+        id: e.id,
+        amountFils: e.totalFils,
+        stageKey: e.workType,
+        workerName: e.worker.name,
+        jobNo: e.jobOrder?.jobNo ?? null,
+        productStyle: e.jobOrder?.productStyle ?? null,
+        at: e.date.toISOString(),
+      })),
+    ].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
 
     let tailoringFils = 0;
     let tailoringPieces = 0;
@@ -332,16 +360,8 @@ dashboardRouter.get(
           })),
         },
         wages: {
-          totalFils: sum(wageStages, (w) => w.wageFils),
-          items: wageStages.map((w) => ({
-            id: w.id,
-            amountFils: w.wageFils,
-            stageKey: w.stageKey,
-            workerName: w.worker?.name ?? w.workerNameSnapshot ?? "—",
-            jobNo: w.jobOrder?.jobNo ?? null,
-            productStyle: w.jobOrder?.productStyle ?? null,
-            at: w.completedAt ? w.completedAt.toISOString() : null,
-          })),
+          totalFils: sum(wageItems, (w) => w.amountFils),
+          items: wageItems,
         },
       },
     });
@@ -371,6 +391,7 @@ dashboardRouter.get(
       expensesTodayAgg,
       paymentsTodayAgg,
       wagesTodayAgg,
+      extraWorkTodayAgg,
       allRolls,
       customersBalanceAgg,
       invoicesBalanceAgg,
@@ -429,6 +450,10 @@ dashboardRouter.get(
         },
         _sum: { wageFils: true },
       }),
+      prisma.productionEntry.aggregate({
+        where: extraWorkWagesWhere({ gte: startOfToday, lt: endOfTodayExclusive }),
+        _sum: { totalFils: true },
+      }),
       prisma.fabricRoll.findMany({
         select: { id: true, rollCode: true, name: true, availableMeters: true, lowStockAt: true },
       }),
@@ -478,7 +503,7 @@ dashboardRouter.get(
     await alertUncontactedReadyInvoices(prisma);
 
     const paymentsTodayFils = paymentsTodayAgg._sum.amountFils ?? 0;
-    const wagesTodayFils = wagesTodayAgg._sum.wageFils ?? 0;
+    const wagesTodayFils = (wagesTodayAgg._sum.wageFils ?? 0) + (extraWorkTodayAgg._sum.totalFils ?? 0);
     const expensesTodayFils = expensesTodayAgg._sum.amountFils ?? 0;
     const netTodayFils = paymentsTodayFils - expensesTodayFils - wagesTodayFils;
 

@@ -40,9 +40,11 @@ import {
   patchWorkStageBodyWithOptionalWageAed,
   patchWorkStageHandler,
 } from "./patchWorkStage.handler.js";
+import { registerExtraWorkRoutes } from "./extraWork.routes.js";
 
 export const jobOrdersRouter = Router();
 jobOrdersRouter.use(authMiddleware);
+registerExtraWorkRoutes(jobOrdersRouter);
 
 function isWorkshopSupervisorRestricted(perms: string[]): boolean {
   return perms.includes("jobProcess.assignWorkers") && !perms.includes("jobProcess.adminEdit");

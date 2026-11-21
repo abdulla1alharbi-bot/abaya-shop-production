@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Input } from "@/components/ui/input";
 import { type WorkshopWorkStageRow } from "./WorkshopTaskSheet";
+import { JobExtraWorkPanel } from "./JobExtraWorkPanel";
 import { fromLocalDatetimeValue, toLocalDatetimeValue } from "@/lib/datetimeLocal";
 import { stageKindClasses, workStageRowKind } from "@/lib/invoiceTailoringUi";
 
@@ -620,6 +621,8 @@ export function JobProcessPieceTable({
       {saveAdminRow.error ? (
         <p className="mt-2 text-xs text-destructive">{apiErrorMessage(saveAdminRow.error)}</p>
       ) : null}
+
+      <JobExtraWorkPanel jobId={jobId} layoutVariant={layoutVariant} onChanged={onInvalidateExtras} />
     </div>
   );
 }
