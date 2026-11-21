@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Search } from "lucide-react";
@@ -60,14 +60,33 @@ export function WorkshopBoardPage() {
   const { t } = useTranslation();
   const { lang } = useLangStore();
   const [search, setSearch] = useState("");
+  /** Search goes to the server, so pieces beyond the first 500 can be found too. */
+  const query = useDeferredValue(search.trim());
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["workshop", "board"],
+    queryKey: ["workshop", "board", query],
     queryFn: async () => {
       const res = await api.get<{ success: boolean; data: { items: JobRow[] } }>("/job-orders", {
-        params: { limit: 500, open: "true" },
+        params: { limit: 500, open: "true", ...(query ? { q: query } : {}) },
       });
       return res.data.data.items;
+    },
+    refetchInterval: 60_000,
+    placeholderData: (prev) => prev,
+  });
+
+  /**
+   * Real totals over every open piece. The list above holds at most 500, so its own
+   * length cannot be the count — with ~1,600 open pieces every figure sat at 500.
+   */
+  const { data: summary } = useQuery({
+    queryKey: ["workshop", "board-summary"],
+    queryFn: async () => {
+      const res = await api.get<{
+        success: boolean;
+        data: { byStage: Record<string, number>; inWork: number; ready: number; overdue: number };
+      }>("/job-orders/board-summary");
+      return res.data.data;
     },
     refetchInterval: 60_000,
   });
@@ -76,9 +95,11 @@ export function WorkshopBoardPage() {
 
   const active = useMemo(() => (data ?? []).filter((j) => BOARD_STAGE_SET.has(j.stage)), [data]);
 
+  // The server already filtered by the search; this only keeps the visible list in
+  // step with the box while the next answer is on its way.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return active;
+    if (!q || q === query.toLowerCase()) return active;
     return active.filter(
       (j) =>
         String(j.jobNo).includes(q) ||
@@ -86,17 +107,20 @@ export function WorkshopBoardPage() {
         j.customer?.mobile?.toLowerCase().includes(q) ||
         j.productStyle?.toLowerCase().includes(q),
     );
-  }, [active, search]);
+  }, [active, search, query]);
 
   const stats = useMemo(() => {
+    if (summary) return { total: summary.inWork, overdue: summary.overdue, ready: summary.ready };
     let overdue = 0;
     let ready = 0;
     for (const j of active) {
       if (isOverdue(j)) overdue += 1;
       if (j.stage === "READY") ready += 1;
     }
-    return { total: active.length, overdue, ready };
-  }, [active]);
+    return { total: active.length - ready, overdue, ready };
+  }, [active, summary]);
+
+  const searching = search.trim().length > 0;
 
   const byStage = useMemo(() => {
     const map = new Map<string, JobRow[]>();
@@ -158,14 +182,20 @@ export function WorkshopBoardPage() {
             <div className="flex gap-3 overflow-x-auto pb-3">
               {visibleStages.map((stageKey) => {
                 const jobs = byStage.get(stageKey) ?? [];
+                const realCount = !searching && summary ? (summary.byStage[stageKey] ?? 0) : jobs.length;
                 return (
                   <div key={stageKey} className="flex w-64 shrink-0 flex-col rounded-xl border border-border bg-muted/20">
                     <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
                       <span className="text-sm font-semibold">{jobStageLabel(stageKey, lang)}</span>
                       <span className="rounded-full bg-background px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                        {jobs.length}
+                        {realCount}
                       </span>
                     </div>
+                    {realCount > jobs.length ? (
+                      <p className="border-b border-border/60 px-3 py-1.5 text-[11px] text-muted-foreground">
+                        {t("workshopBoard.showingOf", { shown: jobs.length, total: realCount })}
+                      </p>
+                    ) : null}
                     <div className="flex flex-col gap-2 p-2">
                       {jobs.length === 0 ? (
                         <p className="px-1 py-4 text-center text-[11px] text-muted-foreground/70">—</p>

@@ -361,7 +361,8 @@
     "title": "Workshop Tasks",
     "desc": "All active orders grouped by stage — auto-refreshes every minute. Click any order to open it.",
     "searchPlaceholder": "Search by job no, customer or mobile",
-    "empty": "No active workshop orders right now."
+    "empty": "No active workshop orders right now.",
+    "showingOf": "Showing {{shown}} of {{total}} — search to find a piece"
   },
   "audit": {
     "title": "Audit Log",

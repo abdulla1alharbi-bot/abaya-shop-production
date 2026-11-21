@@ -76,6 +76,27 @@ async function dashboardWagesToday(): Promise<{ totalFils: number; items: Array<
   return r.data.wages;
 }
 
+describe("workshop board totals", () => {
+  test("board-summary counts every open piece, and the list finds a piece by its number", async () => {
+    const sum = await api.call<{ byStage: Record<string, number>; inWork: number; ready: number; overdue: number }>(
+      "GET",
+      "/job-orders/board-summary",
+    );
+    assert.equal(sum.status, 200, JSON.stringify(sum.error));
+    const total = Object.values(sum.data.byStage).reduce((a, b) => a + b, 0);
+    assert.equal(sum.data.inWork + sum.data.ready, total);
+    assert.equal(typeof sum.data.overdue, "number");
+
+    const j = await job();
+    const list = await api.call<{ items: Array<{ id: string }> }>(
+      "GET",
+      `/job-orders?open=true&limit=500&q=${(j as unknown as { jobNo: number }).jobNo}`,
+    );
+    assert.equal(list.status, 200);
+    assert.ok(list.data.items.some((x) => x.id === jobId), "search by job number finds the piece");
+  });
+});
+
 describe("extra work (ARI / PUSSOS)", () => {
   test("adding a line pays the worker and leaves the piece's stage alone", async () => {
     const before = await job();

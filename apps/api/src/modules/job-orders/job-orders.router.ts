@@ -41,10 +41,13 @@ import {
   patchWorkStageHandler,
 } from "./patchWorkStage.handler.js";
 import { registerExtraWorkRoutes } from "./extraWork.routes.js";
+import { registerBoardSummaryRoute } from "./boardSummary.routes.js";
 
 export const jobOrdersRouter = Router();
 jobOrdersRouter.use(authMiddleware);
 registerExtraWorkRoutes(jobOrdersRouter);
+// Before GET "/:id", or "/board-summary" would be taken for a job id.
+registerBoardSummaryRoute(jobOrdersRouter);
 
 function isWorkshopSupervisorRestricted(perms: string[]): boolean {
   return perms.includes("jobProcess.assignWorkers") && !perms.includes("jobProcess.adminEdit");
@@ -119,11 +122,14 @@ jobOrdersRouter.get(
     const and: Prisma.JobOrderWhereInput[] = [];
 
     if (search) {
+      const asNumber = /^\d{1,9}$/.test(search) ? Number(search) : null;
       and.push({
         OR: [
           { productStyle: icontains(search) },
           { customer: { name: icontains(search) } },
           { customer: { mobile: icontains(search) } },
+          // The board's search box promises "order number" too.
+          ...(asNumber !== null ? [{ jobNo: asNumber }, { invoice: { invoiceNo: asNumber } }] : []),
         ],
       });
     }
