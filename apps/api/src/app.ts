@@ -27,6 +27,7 @@ import { productsRouter } from "./modules/products/products.router.js";
 import { productionRouter } from "./modules/production/production.router.js";
 import { reportsRouter } from "./modules/reports/reports.router.js";
 import { settingsRouter } from "./modules/settings/settings.router.js";
+import { workshopSheetsRouter, workshopSheetsSettingsRouter } from "./modules/workshop-sheets/workshopSheets.router.js";
 import { usersRouter } from "./modules/users/users.router.js";
 import { workersRouter } from "./modules/workers/workers.router.js";
 import { uploadRouter } from "./modules/upload/upload.router.js";
@@ -101,6 +102,11 @@ app.get("/health", async (_req, res) => {
   }
 });
 
+// Workshop sheet photos carry wages and invoice numbers: never served statically,
+// only through the authenticated GET /api/workshop-sheets/:id/image.
+app.use("/uploads/private", (_req, res) => {
+  res.status(404).end();
+});
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/api/auth", authRouter);
@@ -120,6 +126,8 @@ app.use("/api/upload", uploadRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/income", incomeRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/settings/workshop-sheets", workshopSheetsSettingsRouter);
+app.use("/api/workshop-sheets", workshopSheetsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/payroll", payrollRouter);

@@ -18,6 +18,8 @@ const OWNER_PASSWORD = "Test-Owner-123!";
 
 export type Api = {
   base: string;
+  /** Owner's bearer token, for requests `call` cannot make (multipart uploads, raw responses). */
+  token: string;
   call: <T = Record<string, unknown>>(
     method: string,
     route: string,
@@ -122,5 +124,5 @@ export async function startApi(): Promise<Api> {
       child.kill();
     });
 
-  return { base, call, stop };
+  return { base, token, call, stop };
 }

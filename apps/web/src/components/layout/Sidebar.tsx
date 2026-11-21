@@ -19,6 +19,7 @@ import {
   UserCog,
   Users,
   Wallet,
+  ScanText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -146,6 +147,7 @@ const navGroups: Array<{ id: string; titleKey: string; items: NavEntry[] }> = [
         badgeTone: "warning",
       },
       { to: "/invoices", labelKey: "nav.items.workshopTracking", icon: FileText, permission: "jobProcess.view" },
+      { to: "/workshop/sheets", labelKey: "nav.items.workshopSheets", icon: ScanText, permission: "workshopSheets.import" },
       { to: "/workers", labelKey: "nav.items.workers", icon: Users, permission: "workers.view" },
       { to: "/payroll", labelKey: "nav.items.payroll", icon: Wallet, permission: "workers.wages" },
       { to: "/workshop/capacity", labelKey: "nav.items.workshopCapacity", icon: Activity, permission: "jobProcess.view" },

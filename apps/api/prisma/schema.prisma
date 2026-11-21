@@ -48,6 +48,8 @@ model User {
   voidedInvoices Invoice[] @relation("InvoiceVoidedBy")
   invoiceReturns InvoiceReturn[] @relation("InvoiceReturnCreatedBy")
   customerNotices InvoiceCustomerNotice[]
+  workshopSheetsRead     WorkshopSheet[] @relation("WorkshopSheetCreatedBy")
+  workshopSheetsApproved WorkshopSheet[] @relation("WorkshopSheetApprovedBy")
 }
 
 model RefreshToken {
@@ -773,11 +775,53 @@ model ProductionEntry {
   approvedBy  String?
   notes       String?
   workStageCredit JobOrderWorkStage? @relation("WorkStageProduction")
+  /// The approved workshop sheet (photo) this wage line was entered from, if any.
+  workshopSheetId String?
+  workshopSheet   WorkshopSheet? @relation(fields: [workshopSheetId], references: [id], onDelete: SetNull)
 
   @@index([workerId])
   @@index([jobOrderId])
   /// Payroll and the wages report both slice production by date.
   @@index([date])
+  @@index([workshopSheetId])
+}
+
+/// A photographed workshop sheet: read by Claude, reviewed and approved by the
+/// owner. Nothing is written to stages or wages until approval; the record (with
+/// its photo) is the history the owner checks to see whether a sheet was entered.
+model WorkshopSheet {
+  id             String    @id @default(cuid())
+  /// WORK (daily work sheet) | ALTERATION (Ahsan's alteration notebook)
+  kind           String
+  /// The date stages and wages from this sheet are completed on.
+  sheetDate      DateTime
+  /// DRAFT (read, not approved) | APPROVED
+  status         String    @default("DRAFT")
+  /// Relative path under uploads/private/workshop-sheets (never served publicly).
+  imagePath      String?
+  /// SHA-256 of the uploaded photo — the same photo uploaded twice is recognised.
+  imageSha256    String?
+  aiModel        String?
+  aiInputTokens  Int?
+  aiOutputTokens Int?
+  /// What the model read, as returned (JSON text) — kept for checking mistakes.
+  readJson       String?
+  /// The reviewed rows exactly as approved (JSON text).
+  approvedJson   String?
+  /// Wage lines and stage completions written on approval.
+  linesApplied   Int       @default(0)
+  totalFils      Int       @default(0)
+  createdById    String
+  createdBy      User      @relation("WorkshopSheetCreatedBy", fields: [createdById], references: [id])
+  approvedById   String?
+  approvedBy     User?     @relation("WorkshopSheetApprovedBy", fields: [approvedById], references: [id])
+  approvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  productionEntries ProductionEntry[]
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([imageSha256])
 }
 
 model Payroll {

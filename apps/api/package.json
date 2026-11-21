@@ -9,12 +9,13 @@
     "start": "node dist/app.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "tsx --test test/unit/money.test.ts",
-    "test:integration": "tsx --test --test-concurrency=1 test/integration/money.test.ts test/integration/extraWork.test.ts",
+    "test": "tsx --test test/unit/money.test.ts test/unit/sheetResolve.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 test/integration/money.test.ts test/integration/extraWork.test.ts test/integration/workshopSheets.test.ts",
     "prisma": "prisma"
   },
   "dependencies": {
     "@abaya-shop/shared": "workspace:*",
+    "@anthropic-ai/sdk": "^1.12.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",

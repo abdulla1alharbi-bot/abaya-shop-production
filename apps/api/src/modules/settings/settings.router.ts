@@ -16,7 +16,7 @@ settingsRouter.use(authMiddleware);
  * setting elsewhere without listing it here silently publishes it to every user
  * holding `settings.view`, which is most of the staff.
  */
-const WRITE_ONLY_KEYS = new Set<string>([SMTP_KEYS.pass]);
+const WRITE_ONLY_KEYS = new Set<string>([SMTP_KEYS.pass, "anthropic_api_key"]);
 
 /** Replaced by a boolean-ish marker so the UI can still show "saved" vs "empty". */
 const REDACTED = "__SET__";
@@ -44,8 +44,11 @@ settingsRouter.patch(
   validateBody(patchBody),
   asyncHandler(async (req, res) => {
     const body = req.body as Record<string, string>;
+    // A write-only value comes back to the client as the REDACTED marker; a form
+    // that echoes it must not overwrite the real secret with the marker.
+    const entries = Object.entries(body).filter(([key, value]) => !(WRITE_ONLY_KEYS.has(key) && value === REDACTED));
     await prisma.$transaction(
-      Object.entries(body).map(([key, value]) =>
+      entries.map(([key, value]) =>
         prisma.setting.upsert({
           where: { key },
           update: { value: String(value) },

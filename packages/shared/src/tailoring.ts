@@ -113,3 +113,18 @@ export const ABAYA_TYPES = [
   { id: "EMBROIDERY", label: "Embroidery / تطريز" },
   { id: "CUSTOM", label: "Custom / تفصيل حسب الطلب" },
 ] as const;
+
+/**
+ * Reading hints sent to Claude with every workshop-sheet photo (setting
+ * `sheet_reader_hints` overrides them; the Settings card shows these when it is
+ * empty). The owner's own rules from the 2026-11 discussion.
+ */
+export const DEFAULT_SHEET_READER_HINTS = [
+  '"Ari" or "Baniyas" written where a name goes means the worker whose job is ARI (his card is "Ari baniyas").',
+  '"Jakir", "Jalin", "Shakil" mean Sakil. "Robel", "Rokel" mean Rubel. "Hasom" means Hasam. "Shajhan", "Shazhan", "Shajahan" mean Sahajahan. "Sodan", "Sobar" mean Sobur. "Mahbob" means mahboob.',
+  "Aman and Imran look alike in this handwriting — when unsure which one, set confidence to low.",
+  "MODEL column words: W = تعديل (alteration), Shda = سادة (plain abaya), Sela = شيلة (shayla), Nikab = نقاب.",
+  'A long horizontal stroke after a number is just a line, not a 7 ("12——" is 12, "2——" is 2).',
+  "A crossed-out name or number does not count; the value written next to or above it replaces it.",
+  '"3P", "5P", "11-P" before an invoice number is the number of pieces; the amount on that line is the total for all of them.',
+].join("\n");

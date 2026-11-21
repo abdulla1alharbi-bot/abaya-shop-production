@@ -38,6 +38,8 @@ import { WorkerDetail } from "@/pages/workers/WorkerDetail";
 import { ShiftsPage } from "@/pages/shifts/ShiftsPage";
 import { WorkshopCapacityPage } from "@/pages/workshop/WorkshopCapacityPage";
 import { WorkshopBoardPage } from "@/pages/workshop/WorkshopBoardPage";
+import { WorkshopSheetsPage } from "@/pages/workshop/WorkshopSheetsPage";
+import { WorkshopSheetReviewPage } from "@/pages/workshop/WorkshopSheetReviewPage";
 import { OverdueJobsPage } from "@/pages/workshop/OverdueJobsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { homeRouteForUser } from "@/lib/homeRoute";
@@ -138,6 +140,22 @@ export default function App() {
             element={
               <RequirePermission permission="dashboard.view">
                 <OverdueJobsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/workshop/sheets"
+            element={
+              <RequirePermission permission="workshopSheets.import">
+                <WorkshopSheetsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/workshop/sheets/:id"
+            element={
+              <RequirePermission permission="workshopSheets.import">
+                <WorkshopSheetReviewPage />
               </RequirePermission>
             }
           />

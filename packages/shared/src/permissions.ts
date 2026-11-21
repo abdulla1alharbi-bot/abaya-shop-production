@@ -92,6 +92,11 @@ export const ALL_PERMISSIONS = [
   "jobProcess.convertToReady",
   /** Undo a mistaken conversion: deletes the created stock item. Owner-only. */
   "jobProcess.revertConversion",
+  /**
+   * Photograph a workshop sheet, have Claude read it, review and approve it —
+   * approval completes stages and writes wages in bulk. Owner-only by default.
+   */
+  "workshopSheets.import",
 
   "reports.sales",
   "reports.wages",
@@ -386,6 +391,7 @@ export const PERMISSION_GROUPS_AR: Record<string, string> = {
   "jobProcess.adminEdit": "الورشة — تصحيح مراحل مكتملة (إداري)",
   "jobProcess.markReady": "الورشة — تحويل طلب إلى جاهز مباشرةً",
   "jobProcess.inspect": "الورشة — فحص الجودة (تمرير أو رفض)",
+  "workshopSheets.import": "الورشة — قراءة ورقة الورشة بالصورة واعتمادها",
 
   "reports.sales": "التقارير — مبيعات وفواتير",
   "reports.wages": "التقارير — أجور ورشة",
