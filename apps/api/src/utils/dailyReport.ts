@@ -2,11 +2,13 @@ import type { PrismaClient } from "@prisma/client";
 import { getCustomerFacingShopName, getShopTimezone } from "../config/shop.js";
 import { type DateKey, dayRangeUtc, shopWallClock } from "./shopTime.js";
 import { extraWorkWagesWhere } from "./extraWorkWages.js";
+import { SALES_DAY_INVOICE_SELECT, type SalesDayRow, buildSalesDay } from "./salesDay.js";
 
 /**
  * The end-of-day figures the owner asked to receive without opening the app:
- * how much tailoring was sold, how much cash actually came in (deposits vs
- * collections on older invoices), what the workshop finished, and what was spent.
+ * how much money came in (new orders / delivery / payments on older invoices,
+ * the same split and table as the sales report), plus a line each for the
+ * workshop, expenses and what customers still owe.
  *
  * Every definition here is deliberately the SAME one the dashboard's "today" strip
  * uses (`GET /api/dashboard/today`) — a nightly email that disagrees with the screen
@@ -17,20 +19,11 @@ import { extraWorkWagesWhere } from "./extraWorkWages.js";
 
 /** Invoice line rollups are keyed off "does this line have a job order" — same as the dashboard. */
 
-/** How many of today's invoices to list line-by-line in the email before summarising. */
-const INVOICE_LIST_LIMIT = 25;
+/** How many invoices to list line-by-line in the email before summarising. */
+const INVOICE_LIST_LIMIT = 40;
 
 export type DailyReportMethodRow = { method: string; count: number; totalFils: number };
 export type DailyReportStageRow = { stageKey: string; count: number; wagesFils: number };
-export type DailyReportInvoiceRow = {
-  invoiceNo: number;
-  customerName: string | null;
-  totalFils: number;
-  paidFils: number;
-  balanceFils: number;
-  tailoringFils: number;
-  pieces: number;
-};
 
 export type DailyReport = {
   dateKey: DateKey;
@@ -51,10 +44,12 @@ export type DailyReport = {
     totalFils: number;
     count: number;
     byMethod: DailyReportMethodRow[];
-    /** Paid against an invoice raised today — the deposit/down-payment at the counter. */
-    depositsFils: number;
-    /** Paid against an invoice from an earlier day — collections on delivery or on debt. */
-    settlementsFils: number;
+    /** Paid on invoices raised today: new orders (طلبيات جديدة). */
+    newFils: number;
+    /** Paid on older invoices delivered today (ديلفري). */
+    deliveryFils: number;
+    /** Paid on older invoices without delivery (دفعات على فواتير قديمة). */
+    oldPaymentFils: number;
   };
   workshop: {
     stagesCompleted: number;
@@ -72,9 +67,10 @@ export type DailyReport = {
   netFils: number;
   /** Debt position at the moment the report is built — not a today-only figure. */
   outstanding: { totalFils: number; invoiceCount: number };
-  invoices: DailyReportInvoiceRow[];
-  /** True when today produced more invoices than `invoices` lists. */
-  invoicesTruncated: boolean;
+  /** Every invoice issued, delivered or paid today — the sales report's table (see salesDay.ts). */
+  rows: SalesDayRow[];
+  /** How many rows there were before the list was cut to INVOICE_LIST_LIMIT. */
+  rowCount: number;
 };
 
 async function getCurrency(db: PrismaClient): Promise<string> {
@@ -102,6 +98,7 @@ export async function buildDailyReport(
     currency,
     payments,
     invoicesToday,
+    deliveredOlder,
     expenseAgg,
     wageStages,
     extraWork,
@@ -117,17 +114,14 @@ export async function buildDailyReport(
       select: {
         amountFils: true,
         method: true,
-        invoice: { select: { createdAt: true } },
+        invoice: { select: SALES_DAY_INVOICE_SELECT },
       },
     }),
     db.invoice.findMany({
       where: { isVoid: false, createdAt: range },
       select: {
-        invoiceNo: true,
-        totalFils: true,
+        ...SALES_DAY_INVOICE_SELECT,
         paidFils: true,
-        balanceFils: true,
-        customer: { select: { name: true } },
         items: {
           select: {
             qty: true,
@@ -139,6 +133,11 @@ export async function buildDailyReport(
         },
       },
       orderBy: { createdAt: "asc" },
+    }),
+    // Older invoices handed over today: the «ديلفري» rows, even when nothing was paid.
+    db.invoice.findMany({
+      where: { isVoid: false, deliveredAt: range, createdAt: { lt: from } },
+      select: SALES_DAY_INVOICE_SELECT,
     }),
     db.expense.aggregate({ where: { date: range }, _sum: { amountFils: true }, _count: true }),
     db.jobOrderWorkStage.findMany({
@@ -178,18 +177,13 @@ export async function buildDailyReport(
   let salesTotal = 0;
   let salesPaid = 0;
   let salesBalance = 0;
-  const invoiceRows: DailyReportInvoiceRow[] = [];
 
   for (const inv of invoicesToday) {
     salesTotal += inv.totalFils;
     salesPaid += inv.paidFils;
     salesBalance += inv.balanceFils;
-    let rowTailoring = 0;
-    let rowPieces = 0;
     for (const item of inv.items) {
-      rowPieces += item.qty;
       if (item.jobOrder) {
-        rowTailoring += item.totalFils;
         tailoringFils += item.totalFils;
         tailoringPieces += item.qty;
       } else {
@@ -197,34 +191,18 @@ export async function buildDailyReport(
         readyMadePieces += item.qty;
       }
     }
-    if (invoiceRows.length < INVOICE_LIST_LIMIT) {
-      invoiceRows.push({
-        invoiceNo: inv.invoiceNo,
-        customerName: inv.customer?.name ?? null,
-        totalFils: inv.totalFils,
-        paidFils: inv.paidFils,
-        balanceFils: inv.balanceFils,
-        tailoringFils: rowTailoring,
-        pieces: rowPieces,
-      });
-    }
   }
 
   const byMethod = new Map<string, DailyReportMethodRow>();
   let collectionsTotal = 0;
-  let depositsFils = 0;
-  let settlementsFils = 0;
   for (const p of payments) {
     collectionsTotal += p.amountFils;
     const row = byMethod.get(p.method) ?? { method: p.method, count: 0, totalFils: 0 };
     row.count += 1;
     row.totalFils += p.amountFils;
     byMethod.set(p.method, row);
-    // Same-day invoice ⇒ money taken when the order was written up (deposit or paid
-    // in full); older invoice ⇒ money collected later, on handover or chase.
-    if (p.invoice.createdAt >= from && p.invoice.createdAt < to) depositsFils += p.amountFils;
-    else settlementsFils += p.amountFils;
   }
+  const day = buildSalesDay({ from, to, issued: invoicesToday, delivered: deliveredOlder, payments });
 
   const byStage = new Map<string, DailyReportStageRow>();
   let wagesFils = 0;
@@ -264,8 +242,9 @@ export async function buildDailyReport(
       totalFils: collectionsTotal,
       count: payments.length,
       byMethod: [...byMethod.values()].sort((a, b) => b.totalFils - a.totalFils),
-      depositsFils,
-      settlementsFils,
+      newFils: day.newFils,
+      deliveryFils: day.deliveryFils,
+      oldPaymentFils: day.oldPaymentFils,
     },
     workshop: {
       stagesCompleted: wageStages.length,
@@ -281,7 +260,7 @@ export async function buildDailyReport(
       totalFils: outstandingAgg._sum.balanceFils ?? 0,
       invoiceCount: outstandingAgg._count,
     },
-    invoices: invoiceRows,
-    invoicesTruncated: invoicesToday.length > invoiceRows.length,
+    rows: day.rows.slice(0, INVOICE_LIST_LIMIT),
+    rowCount: day.rows.length,
   };
 }

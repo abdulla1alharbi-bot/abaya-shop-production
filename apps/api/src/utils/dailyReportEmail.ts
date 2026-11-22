@@ -1,5 +1,5 @@
-import { JOB_STAGE_LABELS } from "@abaya-shop/shared";
 import type { DailyReport } from "./dailyReport.js";
+import type { SalesDayKind } from "./salesDay.js";
 
 /**
  * Renders the nightly report as an Arabic, right-to-left email.
@@ -47,171 +47,129 @@ function esc(value: string): string {
 
 export function dailyReportSubject(report: DailyReport): string {
   const name = report.shopName ? `${report.shopName} — ` : "";
-  return `${name}تقرير يوم ${report.dateKey}: تفصيل ${money(report.sales.tailoring.totalFils, report.currency)} · مقبوض ${money(report.collections.totalFils, report.currency)}`;
+  return `${name}تقرير يوم ${report.dateKey}: دخل اليوم ${money(report.collections.totalFils, report.currency)}`;
 }
 
 const FONT = "'Segoe UI', Tahoma, Arial, sans-serif";
 
-function headline(label: string, value: string, hint: string, accent: string): string {
+const KIND: Record<SalesDayKind, { label: string; bg: string; fg: string }> = {
+  NEW: { label: "طلبية جديدة", bg: "#e0e7ff", fg: "#3730a3" },
+  DELIVERY: { label: "ديلفري", bg: "#ffedd5", fg: "#9a3412" },
+  OLD_PAYMENT: { label: "فاتورة قديمة", bg: "#fef3c7", fg: "#92400e" },
+};
+
+/** Amount without the currency, for the table cells: "1,058.00". */
+function amount(fils: number): string {
+  return money(fils, "").trim();
+}
+
+function methodsLine(report: DailyReport): string {
+  const by = new Map(report.collections.byMethod.map((m) => [m.method, m.totalFils]));
+  return ["CASH", "CARD", "TRANSFER"].map((m) => `${METHOD_LABELS[m]} ${amount(by.get(m) ?? 0)}`).join(" · ");
+}
+
+function splitBox(label: string, fils: number, bg: string, border: string): string {
   return `
-    <td width="50%" style="padding:6px;" valign="top">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;background:#ffffff;">
-        <tr><td style="padding:14px 16px;border-top:3px solid ${accent};border-radius:10px 10px 0 0;">
-          <div style="font-size:12px;color:#6b7280;">${esc(label)}</div>
-          <div style="font-size:22px;font-weight:700;color:#111827;padding-top:4px;" dir="ltr">${esc(value)}</div>
-          <div style="font-size:12px;color:#6b7280;padding-top:4px;">${esc(hint)}</div>
+    <td width="33%" style="padding:3px;" valign="top">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${bg};border:2px solid ${border};border-radius:10px;">
+        <tr><td align="center" style="padding:8px 4px;">
+          <div style="font-size:11px;font-weight:700;color:#111827;line-height:1.3;">${esc(label)}</div>
+          <div style="font-size:16px;font-weight:800;color:#111827;padding-top:3px;" dir="ltr">${esc(amount(fils))}</div>
         </td></tr>
       </table>
     </td>`;
 }
 
-function sectionTitle(text: string): string {
-  return `<tr><td style="padding:22px 6px 8px;font-size:15px;font-weight:700;color:#111827;">${esc(text)}</td></tr>`;
-}
-
-function rowsTable(rows: Array<[string, string]>): string {
-  const body = rows
-    .map(
-      ([label, value], i) => `
-        <tr style="background:${i % 2 ? "#fafafa" : "#ffffff"};">
-          <td style="padding:9px 14px;font-size:13px;color:#374151;">${esc(label)}</td>
-          <td style="padding:9px 14px;font-size:13px;color:#111827;font-weight:600;text-align:left;" dir="ltr">${esc(value)}</td>
-        </tr>`,
-    )
-    .join("");
-  return `
-    <tr><td style="padding:0 6px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-        ${body}
-      </table>
-    </td></tr>`;
-}
-
-function invoicesTable(report: DailyReport): string {
-  if (report.invoices.length === 0) {
-    return rowsTable([["فواتير اليوم", "لا توجد فواتير"]]);
+function rowsTable(report: DailyReport): string {
+  if (report.rows.length === 0) {
+    return `<tr><td style="padding:14px 6px;font-size:13px;color:#6b7280;">ما فيه فواتير ولا مبالغ اليوم.</td></tr>`;
   }
-  const head = `
-    <tr style="background:#f3f4f6;">
-      <th align="right" style="padding:8px 10px;font-size:12px;color:#6b7280;font-weight:600;">الفاتورة</th>
-      <th align="right" style="padding:8px 10px;font-size:12px;color:#6b7280;font-weight:600;">الزبونة</th>
-      <th align="left"  style="padding:8px 10px;font-size:12px;color:#6b7280;font-weight:600;">الإجمالي</th>
-      <th align="left"  style="padding:8px 10px;font-size:12px;color:#6b7280;font-weight:600;">مدفوع</th>
-      <th align="left"  style="padding:8px 10px;font-size:12px;color:#6b7280;font-weight:600;">متبقي</th>
-    </tr>`;
-  const body = report.invoices
-    .map(
-      (inv, i) => `
-      <tr style="background:${i % 2 ? "#fafafa" : "#ffffff"};">
-        <td style="padding:8px 10px;font-size:13px;color:#111827;" dir="ltr" align="right">#${inv.invoiceNo}</td>
-        <td style="padding:8px 10px;font-size:13px;color:#374151;">${esc(inv.customerName ?? "—")}</td>
-        <td style="padding:8px 10px;font-size:13px;color:#111827;text-align:left;" dir="ltr">${esc(money(inv.totalFils, report.currency))}</td>
-        <td style="padding:8px 10px;font-size:13px;color:#047857;text-align:left;" dir="ltr">${esc(money(inv.paidFils, report.currency))}</td>
-        <td style="padding:8px 10px;font-size:13px;color:${inv.balanceFils > 0 ? "#b45309" : "#6b7280"};text-align:left;" dir="ltr">${esc(money(inv.balanceFils, report.currency))}</td>
-      </tr>`,
-    )
+  const th = (text: string, align: "right" | "left") =>
+    `<th align="${align}" style="padding:7px 5px;font-size:11px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">${text}</th>`;
+  const body = report.rows
+    .map((r) => {
+      const k = KIND[r.kind];
+      return `
+      <tr>
+        <td style="padding:7px 5px;font-size:12px;color:#111827;border-bottom:1px solid #f3f4f6;" dir="ltr" align="right">#${r.invoiceNo}</td>
+        <td style="padding:7px 5px;border-bottom:1px solid #f3f4f6;"><span style="font-size:10.5px;font-weight:700;background:${k.bg};color:${k.fg};padding:1px 6px;border-radius:5px;white-space:nowrap;">${k.label}</span></td>
+        <td style="padding:7px 5px;font-size:12px;color:#374151;text-align:left;border-bottom:1px solid #f3f4f6;" dir="ltr">${esc(amount(r.totalFils))}</td>
+        <td style="padding:7px 5px;font-size:12px;text-align:left;border-bottom:1px solid #f3f4f6;${r.receivedFils ? "font-weight:800;color:#111827;" : "color:#a1a1aa;"}" dir="ltr">${esc(amount(r.receivedFils))}</td>
+        <td style="padding:7px 5px;font-size:12px;color:#374151;text-align:left;border-bottom:1px solid #f3f4f6;" dir="ltr">${esc(amount(r.balanceFils))}</td>
+      </tr>`;
+    })
     .join("");
-  const more = report.invoicesTruncated
-    ? `<tr><td colspan="5" style="padding:8px 10px;font-size:12px;color:#6b7280;">… وباقي فواتير اليوم (${report.sales.invoiceCount} إجمالاً) في التطبيق.</td></tr>`
-    : "";
+  const more =
+    report.rowCount > report.rows.length
+      ? `<tr><td colspan="5" style="padding:7px 5px;font-size:11px;color:#6b7280;">… وباقي الفواتير (${report.rowCount} إجمالاً) في تقرير المبيعات بالتطبيق.</td></tr>`
+      : "";
   return `
-    <tr><td style="padding:0 6px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-        ${head}${body}${more}
+    <tr><td style="padding:12px 6px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>${th("الفاتورة", "right")}${th("النوع", "right")}${th("الإجمالي", "left")}${th("دخل", "left")}${th("الباقي", "left")}</tr>
+        ${body}${more}
+        <tr>
+          <td colspan="3" style="padding:8px 5px;font-size:12.5px;font-weight:800;border-top:2px solid #111827;">المجموع (${report.rowCount} فاتورة)</td>
+          <td style="padding:8px 5px;font-size:12.5px;font-weight:800;border-top:2px solid #111827;text-align:left;" dir="ltr">${esc(amount(report.collections.totalFils))}</td>
+          <td style="border-top:2px solid #111827;"></td>
+        </tr>
       </table>
     </td></tr>`;
 }
 
 export function renderDailyReportHtml(report: DailyReport): string {
   const c = report.currency;
-  const s = report.sales;
   const col = report.collections;
   const w = report.workshop;
-
-  const methodRows: Array<[string, string]> =
-    col.byMethod.length > 0
-      ? col.byMethod.map(
-          (m) => [`${METHOD_LABELS[m.method] ?? m.method} (${m.count} عملية)`, money(m.totalFils, c)] as [string, string],
-        )
-      : [["لم تُسجَّل أي دفعة اليوم", money(0, c)]];
-
-  const stageRows: Array<[string, string]> =
-    w.byStage.length > 0
-      ? w.byStage.map(
-          (st) =>
-            [`${JOB_STAGE_LABELS[st.stageKey] ?? st.stageKey} — ${st.count} قطعة`, money(st.wagesFils, c)] as [
-              string,
-              string,
-            ],
-        )
-      : [["لم تُنجَز أي مرحلة اليوم", money(0, c)]];
 
   return `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f3f4f6;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:16px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:12px 0;">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" dir="rtl" style="max-width:640px;font-family:${FONT};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" dir="rtl" style="max-width:560px;font-family:${FONT};background:#ffffff;border-radius:14px;">
 
-  <tr><td style="padding:0 6px 4px;">
-    <div style="font-size:19px;font-weight:700;color:#111827;">${esc(report.shopName ?? "تقرير آخر اليوم")}</div>
-    <div style="font-size:13px;color:#6b7280;padding-top:2px;">تقرير آخر اليوم · ${esc(arabicDate(report.dateKey))}</div>
+  <tr><td style="padding:14px 12px 0;">
+    <div style="font-size:18px;font-weight:700;color:#111827;">تقرير آخر اليوم</div>
+    <div style="font-size:12.5px;color:#6b7280;padding-top:2px;">${esc(report.shopName ? `${report.shopName} · ` : "")}${esc(arabicDate(report.dateKey))}</div>
   </td></tr>
 
-  <tr><td style="padding:10px 0 0;">
+  <tr><td style="padding:12px 9px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ecfdf5;border:2px solid #10b981;border-radius:12px;">
+      <tr><td align="center" style="padding:12px;">
+        <div style="font-size:13px;font-weight:700;color:#111827;">💵 المبلغ اللي دخل اليوم</div>
+        <div style="font-size:30px;font-weight:900;color:#111827;" dir="ltr">${esc(money(col.totalFils, c))}</div>
+        <div style="font-size:12px;color:#374151;padding-top:2px;">${esc(methodsLine(report))}</div>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:6px 6px 0;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        ${headline("تفصيل اليوم", money(s.tailoring.totalFils, c), `${s.tailoring.pieces} قطعة تفصيل`, "#7c3aed")}
-        ${headline("المقبوض من الزبائن", money(col.totalFils, c), `${col.count} دفعة`, "#047857")}
-      </tr>
-      <tr>
-        ${headline("جاهز (بيع مباشر)", money(s.readyMade.totalFils, c), `${s.readyMade.pieces} قطعة`, "#0369a1")}
-        ${headline("أجور الورشة اليوم", money(w.wagesFils, c), `${w.stagesCompleted} مرحلة منجزة`, "#b45309")}
+        ${splitBox("🧾 طلبيات جديدة", col.newFils, "#eef2ff", "#6366f1")}
+        ${splitBox("📦 ديلفري", col.deliveryFils, "#fff7ed", "#f97316")}
+        ${splitBox("💳 دفعات على فواتير قديمة", col.oldPaymentFils, "#fffbeb", "#f59e0b")}
       </tr>
     </table>
   </td></tr>
 
-  ${sectionTitle("المبيعات المسجّلة اليوم")}
-  ${rowsTable([
-    ["عدد الفواتير", String(s.invoiceCount)],
-    ["إجمالي الفواتير", money(s.totalFils, c)],
-    ["منها تفصيل", `${money(s.tailoring.totalFils, c)} · ${s.tailoring.pieces} قطعة`],
-    ["منها جاهز", `${money(s.readyMade.totalFils, c)} · ${s.readyMade.pieces} قطعة`],
-    ["مدفوع على فواتير اليوم", money(s.paidFils, c)],
-    ["متبقٍ على فواتير اليوم", money(s.balanceFils, c)],
-  ])}
+  ${rowsTable(report)}
 
-  ${sectionTitle("المقبوضات (ما دخل الصندوق فعلاً)")}
-  ${rowsTable([
-    ["إجمالي المقبوض", money(col.totalFils, c)],
-    ["عربون / دفعات على فواتير اليوم", money(col.depositsFils, c)],
-    ["تحصيل على فواتير سابقة (استلام/سداد)", money(col.settlementsFils, c)],
-    ...methodRows,
-  ])}
+  <tr><td style="padding:14px 9px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px;">
+      <tr><td style="padding:8px 10px;font-size:12.5px;color:#111827;line-height:1.9;">
+        <div style="font-size:11px;font-weight:700;color:#6b7280;">معلومات إضافية</div>
+        🧵 الورشة: ${w.stagesCompleted} مرحلة انتهت · أجور ${esc(money(w.wagesFils, c))}<br>
+        🧾 المصروفات: ${esc(money(report.expenses.totalFils, c))}${report.expenses.count ? ` (${report.expenses.count} بند)` : ""}<br>
+        ⏳ الباقي على كل العملاء: ${esc(money(report.outstanding.totalFils, c))} على ${report.outstanding.invoiceCount} فاتورة
+      </td></tr>
+    </table>
+  </td></tr>
 
-  ${sectionTitle("شغل الورشة")}
-  ${rowsTable([
-    ["قطع دخلت التفصيل اليوم", String(w.newJobs)],
-    ["مراحل أُنجزت", String(w.stagesCompleted)],
-    ["أجور تلك المراحل", money(w.wagesFils, c)],
-    ["طلبات أصبحت جاهزة", String(w.ordersReady)],
-    ["قطع سُلِّمت للزبائن", String(w.piecesDelivered)],
-    ...stageRows,
-  ])}
-
-  ${sectionTitle("المصروفات والصافي")}
-  ${rowsTable([
-    ["مصروفات اليوم", `${money(report.expenses.totalFils, c)} · ${report.expenses.count} بند`],
-    ["صافي الحركة النقدية (مقبوض − مصروف)", money(report.netFils, c)],
-    ["إجمالي المتبقي على الزبائن (كل الفواتير)", `${money(report.outstanding.totalFils, c)} · ${report.outstanding.invoiceCount} فاتورة`],
-  ])}
-
-  ${sectionTitle("فواتير اليوم")}
-  ${invoicesTable(report)}
-
-  <tr><td style="padding:18px 6px 6px;font-size:11px;color:#9ca3af;line-height:1.7;">
-    التقرير يُحتسب بتوقيت ${esc(report.timeZone)} من منتصف الليل إلى منتصف الليل، ويطابق شاشة «اليوم» في التطبيق.
-    الفواتير الملغاة غير محسوبة. «أجور الورشة» هي أجور كل المراحل التي أُنجزت اليوم.
+  <tr><td style="padding:12px 12px 14px;font-size:11px;color:#9ca3af;line-height:1.7;">
+    اليوم يُحسب بتوقيت ${esc(report.timeZone)} من منتصف الليل إلى منتصف الليل، ويطابق تقرير المبيعات في التطبيق.
+    «ديلفري» = فاتورة قديمة انسلّمت اليوم. «فاتورة قديمة» = دفعة على فاتورة قديمة بدون تسليم.
   </td></tr>
 
 </table>
@@ -221,28 +179,26 @@ export function renderDailyReportHtml(report: DailyReport): string {
 
 export function renderDailyReportText(report: DailyReport): string {
   const c = report.currency;
-  const s = report.sales;
   const col = report.collections;
   const w = report.workshop;
   const lines = [
     `${report.shopName ?? "تقرير آخر اليوم"} — ${arabicDate(report.dateKey)}`,
     "",
-    `تفصيل اليوم: ${money(s.tailoring.totalFils, c)} (${s.tailoring.pieces} قطعة)`,
-    `جاهز: ${money(s.readyMade.totalFils, c)} (${s.readyMade.pieces} قطعة)`,
-    `إجمالي فواتير اليوم: ${money(s.totalFils, c)} عبر ${s.invoiceCount} فاتورة — متبقٍ ${money(s.balanceFils, c)}`,
+    `المبلغ اللي دخل اليوم: ${money(col.totalFils, c)}`,
+    `  ${methodsLine(report)}`,
+    `  طلبيات جديدة: ${money(col.newFils, c)}`,
+    `  ديلفري: ${money(col.deliveryFils, c)}`,
+    `  دفعات على فواتير قديمة: ${money(col.oldPaymentFils, c)}`,
     "",
-    `المقبوض من الزبائن: ${money(col.totalFils, c)} (${col.count} دفعة)`,
-    `  عربون/دفعات على فواتير اليوم: ${money(col.depositsFils, c)}`,
-    `  تحصيل على فواتير سابقة: ${money(col.settlementsFils, c)}`,
-    ...col.byMethod.map((m) => `  ${METHOD_LABELS[m.method] ?? m.method}: ${money(m.totalFils, c)}`),
+    ...report.rows.map(
+      (r) =>
+        `#${r.invoiceNo} · ${KIND[r.kind].label} · إجمالي ${amount(r.totalFils)} · دخل ${amount(r.receivedFils)} · باقي ${amount(r.balanceFils)}`,
+    ),
+    ...(report.rowCount > report.rows.length ? [`… وباقي الفواتير (${report.rowCount} إجمالاً) في التطبيق`] : []),
     "",
-    `شغل الورشة: ${w.stagesCompleted} مرحلة منجزة بأجور ${money(w.wagesFils, c)}`,
-    `  قطع جديدة: ${w.newJobs} · طلبات جاهزة: ${w.ordersReady} · مُسلَّم: ${w.piecesDelivered}`,
-    ...w.byStage.map((st) => `  ${JOB_STAGE_LABELS[st.stageKey] ?? st.stageKey}: ${st.count} قطعة — ${money(st.wagesFils, c)}`),
-    "",
-    `المصروفات: ${money(report.expenses.totalFils, c)} (${report.expenses.count} بند)`,
-    `صافي الحركة النقدية: ${money(report.netFils, c)}`,
-    `إجمالي المتبقي على الزبائن: ${money(report.outstanding.totalFils, c)} على ${report.outstanding.invoiceCount} فاتورة`,
+    `الورشة: ${w.stagesCompleted} مرحلة انتهت · أجور ${money(w.wagesFils, c)}`,
+    `المصروفات: ${money(report.expenses.totalFils, c)}`,
+    `الباقي على كل العملاء: ${money(report.outstanding.totalFils, c)} على ${report.outstanding.invoiceCount} فاتورة`,
   ];
   return lines.join("\n");
 }

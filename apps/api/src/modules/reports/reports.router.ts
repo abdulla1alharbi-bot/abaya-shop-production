@@ -5,6 +5,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requirePermission } from "../../middleware/rbac.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { computeInvoiceFulfillment } from "../../utils/invoiceFulfillment.js";
+import { SALES_DAY_INVOICE_SELECT, buildSalesDay } from "../../utils/salesDay.js";
 import {
   parseDateRangeOrDefault,
   parseOptionalDate,
@@ -200,26 +201,12 @@ reportsRouter.get(
       createdAt: { gte: from, lte: to },
     };
 
-    // The sales report, as the owner reads it: every invoice that brought money
-    // in the range, or was issued or delivered in it, in one table, each tagged
-    //   NEW         issued in the range (طلبية جديدة)
-    //   DELIVERY    issued before, delivered in the range (ديلفري)
-    //   OLD_PAYMENT issued before, paid in the range without delivery (دفعة على فاتورة قديمة)
-    // Money counted is the payments taken in the range: the same rows the
-    // financial-activity report counts as income.
+    // The sales report as the owner reads it; see utils/salesDay.ts. The nightly
+    // email builds the same rows, so the two always agree.
     const paymentWhere: Prisma.PaymentWhereInput = {
       createdAt: { gte: from, lte: to },
       invoice: { isVoid: false },
     };
-    const rowInvoiceSelect = {
-      id: true,
-      invoiceNo: true,
-      createdAt: true,
-      deliveredAt: true,
-      totalFils: true,
-      balanceFils: true,
-      customer: { select: { name: true, mobile: true } },
-    } as const;
 
     const [invoiceRows, sums, paymentRows, paymentSum, deliveredRows] = await Promise.all([
       prisma.invoice.findMany({
@@ -240,65 +227,17 @@ reportsRouter.get(
         where: paymentWhere,
         orderBy: { createdAt: "desc" },
         take: 2000,
-        select: { amountFils: true, invoice: { select: rowInvoiceSelect } },
+        select: { amountFils: true, invoice: { select: SALES_DAY_INVOICE_SELECT } },
       }),
       prisma.payment.aggregate({ where: paymentWhere, _sum: { amountFils: true }, _count: { _all: true } }),
       prisma.invoice.findMany({
         where: { isVoid: false, deliveredAt: { gte: from, lte: to }, createdAt: { lt: from } },
         take: 500,
-        select: rowInvoiceSelect,
+        select: SALES_DAY_INVOICE_SELECT,
       }),
     ]);
 
-    type DayKind = "NEW" | "DELIVERY" | "OLD_PAYMENT";
-    type DayRow = {
-      invoiceId: string;
-      invoiceNo: number;
-      customer: { name: string; mobile: string } | null;
-      createdAt: string;
-      deliveredAt: string | null;
-      totalFils: number;
-      balanceFils: number;
-      receivedFils: number;
-      kind: DayKind;
-    };
-    const rowsById = new Map<string, DayRow>();
-    const rowFor = (inv: {
-      id: string;
-      invoiceNo: number;
-      createdAt: Date;
-      deliveredAt: Date | null;
-      totalFils: number;
-      balanceFils: number;
-      customer: { name: string; mobile: string } | null;
-    }): DayRow => {
-      let row = rowsById.get(inv.id);
-      if (!row) {
-        const deliveredInRange = inv.deliveredAt !== null && inv.deliveredAt >= from && inv.deliveredAt <= to;
-        row = {
-          invoiceId: inv.id,
-          invoiceNo: inv.invoiceNo,
-          customer: inv.customer,
-          createdAt: inv.createdAt.toISOString(),
-          deliveredAt: inv.deliveredAt?.toISOString() ?? null,
-          totalFils: inv.totalFils,
-          balanceFils: inv.balanceFils,
-          receivedFils: 0,
-          kind: inv.createdAt >= from ? "NEW" : deliveredInRange ? "DELIVERY" : "OLD_PAYMENT",
-        };
-        rowsById.set(inv.id, row);
-      }
-      return row;
-    };
-    for (const inv of invoiceRows) rowFor(inv);
-    for (const inv of deliveredRows) rowFor(inv);
-    for (const p of paymentRows) rowFor(p.invoice).receivedFils += p.amountFils;
-
-    const kindOrder: Record<DayKind, number> = { NEW: 0, DELIVERY: 1, OLD_PAYMENT: 2 };
-    const rows = [...rowsById.values()].sort(
-      (a, b) => kindOrder[a.kind] - kindOrder[b.kind] || a.invoiceNo - b.invoiceNo,
-    );
-    const receivedBy = (k: DayKind) => rows.filter((r) => r.kind === k).reduce((s, r) => s + r.receivedFils, 0);
+    const day = buildSalesDay({ from, to, issued: invoiceRows, delivered: deliveredRows, payments: paymentRows });
 
     const items = invoiceRows.map((inv) => {
       const fulfillmentStatus = computeInvoiceFulfillment(
@@ -327,11 +266,11 @@ reportsRouter.get(
           totalRemainingFils: sums._sum.balanceFils ?? 0,
           /** Every payment taken in the range, whatever day its invoice was issued. */
           receivedFils: paymentSum._sum.amountFils ?? 0,
-          receivedNewFils: receivedBy("NEW"),
-          receivedDeliveryFils: receivedBy("DELIVERY"),
-          receivedOldPaymentFils: receivedBy("OLD_PAYMENT"),
+          receivedNewFils: day.newFils,
+          receivedDeliveryFils: day.deliveryFils,
+          receivedOldPaymentFils: day.oldPaymentFils,
         },
-        rows,
+        rows: day.rows,
         /** More payments than were read: the split above may fall short of receivedFils. */
         rowsTruncated: paymentSum._count._all > paymentRows.length || invoiceRows.length < (sums._count._all ?? 0),
       },
