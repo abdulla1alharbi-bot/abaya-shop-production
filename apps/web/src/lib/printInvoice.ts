@@ -189,10 +189,20 @@ function measureText(v: unknown): string | null {
   return String(Math.round(n * 100) / 100);
 }
 
-/** "باط 24", or "باط ____" for the worker to fill in when the seller left it empty. */
-function markText(label: string, v: unknown): string {
+/** The sketch's SVG coordinate box: x, y, width, height. Labels are placed in it by percent. */
+const SKETCH_BOX = { x: -50, y: -30, w: 352, h: 322 };
+
+/**
+ * One measurement label, centred on point (x, y) of the sketch: "باط 24", or
+ * "باط ____" for the worker to fill in when the seller left it empty. `stacked`
+ * puts the number under the name, for the narrow spots at the sides.
+ */
+function sketchLabel(label: string, v: unknown, x: number, y: number, stacked = false): string {
   const t = measureText(v);
-  return t ? `${label} <tspan class="v">${esc(t)}</tspan>` : `${label} ____`;
+  const value = t ? `<b class="v">${esc(t)}</b>` : "____";
+  const left = (((x - SKETCH_BOX.x) / SKETCH_BOX.w) * 100).toFixed(2);
+  const top = (((y - SKETCH_BOX.y) / SKETCH_BOX.h) * 100).toFixed(2);
+  return `<div class="lbl${stacked ? " stack" : ""}" style="left:${left}%;top:${top}%">${label}${stacked ? "<br />" : " "}${value}</div>`;
 }
 
 /**
@@ -201,35 +211,39 @@ function markText(label: string, v: unknown): string {
  * place, under the shop's own names — the same ones the POS form uses:
  * طول الكم across the top bar, عرض الكم at its end, باط under the shoulders,
  * خصر at the middle, وسع الذيل at the hem, طول down the side.
- * `uid` keeps the arrowhead id unique when a page holds several sketches.
+ *
+ * Built only from what the counter's E-POS thermal driver is known to print:
+ * plain solid SVG paths (the old blank outline) and ordinary horizontal HTML
+ * text (the receipt itself). A first version used SVG text, a rotated label,
+ * dashed strokes and arrow markers; the driver silently dropped the whole print
+ * job, customer copy included, though it rendered fine on screen. Keep it plain.
  */
-function abayaSketch(m: Measurements, uid: string): string {
-  const arrow = `ar${uid}`;
-  const chest = measureText(m.chest);
-  return `<svg class="sketch" viewBox="-44 -26 330 330" xmlns="http://www.w3.org/2000/svg">
-    <defs><marker id="${arrow}" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#000" /></marker></defs>
-    <path d="M40 12 H220 V48 H182 Q148 150 238 286 H22 Q112 150 78 48 H40 Z" fill="none" stroke="#000" stroke-width="2" />
-    <g stroke="#000" stroke-width="1.2" stroke-dasharray="4 3" marker-start="url(#${arrow})" marker-end="url(#${arrow})">
-      <line x1="40" y1="0" x2="220" y2="0" />
-      <line x1="28" y1="14" x2="28" y2="46" />
-      <line x1="88" y1="70" x2="172" y2="70" />
-      <line x1="90" y1="160" x2="170" y2="160" />
-      <line x1="38" y1="272" x2="222" y2="272" />
-      <line x1="250" y1="14" x2="250" y2="284" />
-    </g>
-    <g fill="#000" font-size="16" text-anchor="middle">
-      <text x="130" y="-8">${markText("طول الكم", m.sleeve)}</text>
-      <text x="-8" y="26" font-size="14">عرض الكم</text>
-      <text x="-8" y="48">${chest ? `<tspan class="v">${esc(chest)}</tspan>` : "____"}</text>
-      <text x="130" y="94">${markText("باط", m.shoulder)}</text>
-      <text x="130" y="186">${markText("خصر", m.waist)}</text>
-      <text x="130" y="262">${markText("وسع الذيل", m.hip)}</text>
-      <text x="274" y="150" transform="rotate(-90 274 150)">${markText("طول", m.length)}</text>
-    </g>
-  </svg>`;
+function abayaSketch(m: Measurements): string {
+  // Each dimension: the line, then a short tick across each end.
+  const dims = [
+    "M40 2 H220 M40 -4 V8 M220 -4 V8", // طول الكم, over the top bar
+    "M28 12 V48 M22 12 H34 M22 48 H34", // عرض الكم, at the bar's end
+    "M86 70 H174 M86 64 V76 M174 64 V76", // باط
+    "M88 160 H172 M88 154 V166 M172 154 V166", // خصر
+    "M34 274 H226 M34 268 V280 M226 268 V280", // وسع الذيل
+    "M246 12 V286 M240 12 H252 M240 286 H252", // طول
+  ].join(" ");
+  const { x, y, w, h } = SKETCH_BOX;
+  return `<div class="sketch">
+    <svg viewBox="${x} ${y} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000">
+      <path d="M40 12 H220 V48 H182 Q148 150 238 286 H22 Q112 150 78 48 H40 Z" stroke-width="2" />
+      <path d="${dims}" stroke-width="1.2" />
+    </svg>
+    ${sketchLabel("طول الكم", m.sleeve, 130, -16)}
+    ${sketchLabel("عرض الكم", m.chest, -14, 30, true)}
+    ${sketchLabel("باط", m.shoulder, 130, 90)}
+    ${sketchLabel("خصر", m.waist, 130, 180)}
+    ${sketchLabel("وسع الذيل", m.hip, 130, 258)}
+    ${sketchLabel("طول", m.length, 278, 149, true)}
+  </div>`;
 }
 
-function jobSheetHtml(job: JobOrder, deliveryDate: string | null, uid: string): string {
+function jobSheetHtml(job: JobOrder, deliveryDate: string | null): string {
   const m = parseMeasurements(job.measurements);
   const fabric = [m.fabricRollCode, m.fabricName, m.fabricColor].filter(Boolean).join(" · ");
   const ownDue = job.dueDate && job.dueDate !== deliveryDate ? job.dueDate : null;
@@ -242,7 +256,7 @@ function jobSheetHtml(job: JobOrder, deliveryDate: string | null, uid: string): 
       ${m.colorNote ? `<div class="row"><span>اللون</span><span>${esc(m.colorNote)}</span></div>` : ""}
       ${m.sizeType === "STANDARD" && m.standardSize ? `<div class="row b"><span>مقاس جاهز</span><span>${esc(m.standardSize)}</span></div>` : ""}
       ${job.notes ? `<div class="job-notes">${esc(job.notes)}</div>` : ""}
-      ${abayaSketch(m, uid)}
+      ${abayaSketch(m)}
     </div>`;
 }
 
@@ -283,7 +297,7 @@ function shopCopyHtml(inv: InvoiceData, jobs: JobOrder[], shopName: string, copy
   ${inv.customer?.mobile ? `<div class="row"><span>الجوال</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
   ${inv.notes ? `<div class="job-notes">${esc(inv.notes)}</div>` : ""}
   <hr />
-  ${jobs.map((j, i) => jobSheetHtml(j, delivery, `${copyNo}-${i}`)).join('<hr class="solid" />')}
+  ${jobs.map((j) => jobSheetHtml(j, delivery)).join('<hr class="solid" />')}
   <hr class="solid" />
   <div class="notes-title">ملاحظات على الشغل / Work notes</div>
   <div class="write-line"></div><div class="write-line"></div><div class="write-line"></div><div class="write-line"></div>
@@ -305,8 +319,11 @@ const SHOP_COPY_CSS = `
     .shop-copy .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
     .shop-copy .job-style { font-weight: 800; font-size: 13px; margin: 2px 0; word-break: break-word; }
     .shop-copy .job { break-inside: avoid; page-break-inside: avoid; }
-    .shop-copy .sketch { display: block; width: 66mm; height: auto; margin: 6px auto 2px; }
-    .shop-copy .sketch .v { font-size: 22px; font-weight: 900; }
+    .shop-copy .sketch { position: relative; width: 66mm; margin: 6px auto 2px; }
+    .shop-copy .sketch svg { display: block; width: 100%; height: auto; }
+    .shop-copy .sketch .lbl { position: absolute; width: 26mm; margin: -2.4mm 0 0 -13mm; text-align: center; font-size: 11px; line-height: 1.2; white-space: nowrap; }
+    .shop-copy .sketch .lbl.stack { margin-top: -4.6mm; }
+    .shop-copy .sketch .v { font-size: 15px; font-weight: 900; }
     .shop-copy .notes-title { font-weight: 800; font-size: 11px; margin-top: 4px; }
     .shop-copy .job-notes { margin-top: 3px; padding: 3px 4px; border: 1px solid #000; font-size: 12px; font-weight: 700; word-break: break-word; }
     .shop-copy .write-line { height: 7mm; border-bottom: 1px dotted #000; }
