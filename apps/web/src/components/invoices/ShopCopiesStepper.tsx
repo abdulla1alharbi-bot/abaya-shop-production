@@ -6,24 +6,20 @@ import { SHOP_COPIES_MAX } from "@/lib/printInvoice";
 /**
  * How many shop copies to print with this invoice, picked by the seller at the
  * print button: one order needs a sheet per worker, another needs just one.
- * `english` counts the English workshop sheets instead, for workers who don't
- * read Arabic.
  */
 export function ShopCopiesStepper({
   value,
   onChange,
   className,
-  english = false,
 }: {
   value: number;
   onChange: (n: number) => void;
   className?: string;
-  english?: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <div className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-1.5 ${className ?? ""}`}>
-      <span className="text-sm font-medium">{t(english ? "pos.pay.englishCopies" : "pos.pay.shopCopies")}</span>
+      <span className="text-sm font-medium">{t("pos.pay.shopCopies")}</span>
       <div className="flex items-center gap-1">
         <Button
           type="button"

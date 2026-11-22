@@ -1,6 +1,8 @@
 /**
  * Generates a printable UAE VAT tax invoice in a new browser window and opens
- * the browser's native print dialog.
+ * the browser's native print dialog. Everything printed is in English, at the
+ * owner's request (2026-11-22): the customer copy and the workshop sheets.
+ * Text the seller typed (names, notes, item descriptions) prints as typed.
  *
  * Two layouts, chosen by the `invoice_paper` setting:
  *   - "receipt80" (default): 80mm thermal roll — the shop's counter printer.
@@ -83,10 +85,23 @@ type InvoiceData = {
   jobOrders?: JobOrder[];
 };
 
+/**
+ * Drops the Arabic half of the app's own bilingual labels ("موديل / Model" →
+ * "Model"), which the POS writes into item descriptions. Only an Arabic phrase
+ * joined to the rest by a slash goes; other Arabic the seller typed stays.
+ */
+function englishOnly(text: string): string {
+  const ar = "[\\u0600-\\u06FF][\\u0600-\\u06FF ]*";
+  return text
+    .replace(new RegExp(`${ar}\\s*/\\s*`, "g"), "")
+    .replace(new RegExp(`\\s*/\\s*${ar}`, "g"), "")
+    .trim();
+}
+
 function itemLabel(item: InvoiceItem): string {
-  if (item.description) return item.description;
-  if (item.product?.nameAr) return item.product.nameAr;
+  if (item.description) return englishOnly(item.description);
   if (item.product?.name) return item.product.name;
+  if (item.product?.nameAr) return item.product.nameAr;
   return "—";
 }
 
@@ -95,7 +110,7 @@ function qtyLabel(q: number): string {
 }
 
 function methodLabel(m: string): string {
-  const map: Record<string, string> = { CASH: "كاش / Cash", TRANSFER: "تحويل / Transfer", CARD: "بطاقة / Card" };
+  const map: Record<string, string> = { CASH: "Cash", TRANSFER: "Transfer", CARD: "Card" };
   return map[m] ?? m;
 }
 
@@ -192,59 +207,31 @@ function measureText(v: unknown): string | null {
 /** The sketch's SVG coordinate box: x, y, width, height. Labels are placed in it by percent. */
 const SKETCH_BOX = { x: -50, y: -30, w: 352, h: 322 };
 
-/**
- * The shop copy comes in two languages: Arabic, and English for the workers
- * who don't read Arabic. Only the printed words change; what the seller typed
- * (model, notes, customer) prints as typed.
- */
-type SheetLang = "ar" | "en";
-
-const SHEET_WORDS = {
-  ar: {
-    copyTag: "نسخة المحل / Shop copy",
-    date: "Date / التاريخ",
-    due: "D.Date / التسليم",
-    customer: "العميل",
-    cashCustomer: "عميل نقدي",
-    mobile: "الجوال",
-    job: "قطعة / Job",
-    pieceDue: "تسليم القطعة",
-    fabric: "القماش",
-    color: "اللون",
-    readySize: "مقاس جاهز",
-    workNotes: "ملاحظات على الشغل / Work notes",
-    sleeve: "طول الكم",
-    sleeveWidth: "عرض الكم",
-    armhole: "باط",
-    waist: "خصر",
-    hem: "وسع الذيل",
-    length: "طول",
-  },
-  en: {
-    copyTag: "WORKSHOP COPY (EN)",
-    date: "Date",
-    due: "Delivery",
-    customer: "Customer",
-    cashCustomer: "Cash customer",
-    mobile: "Mobile",
-    job: "Job",
-    pieceDue: "Piece delivery",
-    fabric: "Fabric",
-    color: "Colour",
-    readySize: "Ready size",
-    workNotes: "Work notes",
-    sleeve: "Sleeve L.",
-    sleeveWidth: "Sleeve W.",
-    armhole: "Armhole",
-    waist: "Waist",
-    hem: "Hem",
-    length: "Length",
-  },
+/** The words printed on the workshop sheet. */
+const W = {
+  copyTag: "WORKSHOP COPY",
+  date: "Date",
+  due: "Delivery",
+  customer: "Customer",
+  cashCustomer: "Cash customer",
+  mobile: "Mobile",
+  job: "Job",
+  pieceDue: "Piece delivery",
+  fabric: "Fabric",
+  color: "Colour",
+  readySize: "Ready size",
+  workNotes: "Work notes",
+  sleeve: "Sleeve L.",
+  sleeveWidth: "Sleeve W.",
+  armhole: "Armhole",
+  waist: "Waist",
+  hem: "Hem",
+  length: "Length",
 } as const;
 
 /**
- * One measurement label, centred on point (x, y) of the sketch: "باط 24", or
- * "باط ____" for the worker to fill in when the seller left it empty. `stacked`
+ * One measurement label, centred on point (x, y) of the sketch: "Waist 24", or
+ * "Waist ____" for the worker to fill in when the seller left it empty. `stacked`
  * puts the number under the name, for the narrow spots at the sides.
  */
 function sketchLabel(label: string, v: unknown, x: number, y: number, stacked = false): string {
@@ -258,18 +245,15 @@ function sketchLabel(label: string, v: unknown, x: number, y: number, stacked = 
 /**
  * The abaya outline from the shop's paper form (shoulders across the top, body
  * narrowing to the waist and flaring to the hem) with each measurement at its
- * place, under the shop's own names — the same ones the POS form uses:
- * طول الكم across the top bar, عرض الكم at its end, باط under the shoulders,
- * خصر at the middle, وسع الذيل at the hem, طول down the side.
+ * place. The POS form's names map to: طول الكم = Sleeve L. (top bar),
+ * عرض الكم = Sleeve W. (its end), باط = Armhole, خصر = Waist, وسع الذيل = Hem,
+ * طول = Length (down the side).
  *
- * Built only from what the counter's E-POS thermal driver is known to print:
- * plain solid SVG paths (the old blank outline) and ordinary horizontal HTML
- * text (the receipt itself). A first version used SVG text, a rotated label,
- * dashed strokes and arrow markers; the driver silently dropped the whole print
- * job, customer copy included, though it rendered fine on screen. Keep it plain.
+ * Plain solid paths with HTML labels over them. (A day when nothing printed was
+ * once blamed on SVG text, dashes and markers; it turned out to be a stuck
+ * Windows print queue on the counter PC.)
  */
-function abayaSketch(m: Measurements, lang: SheetLang): string {
-  const w = SHEET_WORDS[lang];
+function abayaSketch(m: Measurements): string {
   // Each dimension: the line, then a short tick across each end.
   const dims = [
     "M40 2 H220 M40 -4 V8 M220 -4 V8", // طول الكم, over the top bar
@@ -285,34 +269,33 @@ function abayaSketch(m: Measurements, lang: SheetLang): string {
       <path d="M40 12 H220 V48 H182 Q148 150 238 286 H22 Q112 150 78 48 H40 Z" stroke-width="2" />
       <path d="${dims}" stroke-width="1.2" />
     </svg>
-    ${sketchLabel(w.sleeve, m.sleeve, 130, -16)}
-    ${sketchLabel(w.sleeveWidth, m.chest, -14, 30, true)}
-    ${sketchLabel(w.armhole, m.shoulder, 130, lang === "en" ? 98 : 90, lang === "en")}
-    ${sketchLabel(w.waist, m.waist, 130, 180)}
-    ${sketchLabel(w.hem, m.hip, 130, 258)}
-    ${sketchLabel(w.length, m.length, 278, 149, true)}
+    ${sketchLabel(W.sleeve, m.sleeve, 130, -16)}
+    ${sketchLabel(W.sleeveWidth, m.chest, -14, 30, true)}
+    ${sketchLabel(W.armhole, m.shoulder, 130, 98, true)}
+    ${sketchLabel(W.waist, m.waist, 130, 180)}
+    ${sketchLabel(W.hem, m.hip, 130, 258)}
+    ${sketchLabel(W.length, m.length, 278, 149, true)}
   </div>`;
 }
 
-function jobSheetHtml(job: JobOrder, deliveryDate: string | null, lang: SheetLang): string {
-  const w = SHEET_WORDS[lang];
+function jobSheetHtml(job: JobOrder, deliveryDate: string | null): string {
   const m = parseMeasurements(job.measurements);
   const fabric = [m.fabricRollCode, m.fabricName, m.fabricColor].filter(Boolean).join(" · ");
   const ownDue = job.dueDate && job.dueDate !== deliveryDate ? job.dueDate : null;
   return `
     <div class="job">
-      <div class="row b"><span>${w.job}</span><span class="num">#${job.jobNo}</span></div>
-      ${job.productStyle ? `<div class="job-style">${esc(job.productStyle)}</div>` : ""}
-      ${ownDue ? `<div class="row"><span>${w.pieceDue}</span><span class="num">${formatDateTime(ownDue)}</span></div>` : ""}
-      ${fabric ? `<div class="row"><span>${w.fabric}</span><span>${esc(fabric)}</span></div>` : ""}
-      ${m.colorNote ? `<div class="row"><span>${w.color}</span><span>${esc(m.colorNote)}</span></div>` : ""}
-      ${m.sizeType === "STANDARD" && m.standardSize ? `<div class="row b"><span>${w.readySize}</span><span>${esc(m.standardSize)}</span></div>` : ""}
+      <div class="row b"><span>${W.job}</span><span class="num">#${job.jobNo}</span></div>
+      ${job.productStyle ? `<div class="job-style">${esc(englishOnly(job.productStyle))}</div>` : ""}
+      ${ownDue ? `<div class="row"><span>${W.pieceDue}</span><span class="num">${formatDateTime(ownDue)}</span></div>` : ""}
+      ${fabric ? `<div class="row"><span>${W.fabric}</span><span>${esc(fabric)}</span></div>` : ""}
+      ${m.colorNote ? `<div class="row"><span>${W.color}</span><span>${esc(m.colorNote)}</span></div>` : ""}
+      ${m.sizeType === "STANDARD" && m.standardSize ? `<div class="row b"><span>${W.readySize}</span><span>${esc(m.standardSize)}</span></div>` : ""}
       ${job.notes ? `<div class="job-notes">${esc(job.notes)}</div>` : ""}
-      ${abayaSketch(m, lang)}
+      ${abayaSketch(m)}
     </div>`;
 }
 
-/** Shop copies per print: the seller picks 0–5 at the print button (Arabic default 1, English default 0). */
+/** Shop copies per print: the seller picks 0–5 at the print button, default 1. */
 export const SHOP_COPIES_DEFAULT = 1;
 export const SHOP_COPIES_MAX = 5;
 
@@ -327,39 +310,31 @@ export function clampShopCopies(n: number | undefined): number {
  * across people (cutter, tailor, embroiderer), each keeping a sheet; they are
  * numbered so a missing one shows.
  */
-function shopCopiesHtml(inv: InvoiceData, shopName: string, copies: number, lang: SheetLang): string {
+function shopCopiesHtml(inv: InvoiceData, shopName: string, copies: number): string {
   const jobs = inv.jobOrders ?? [];
   if (jobs.length === 0 || copies <= 0) return "";
-  return Array.from({ length: copies }, (_, i) => shopCopyHtml(inv, jobs, shopName, i + 1, copies, lang)).join("");
+  return Array.from({ length: copies }, (_, i) => shopCopyHtml(inv, jobs, shopName, i + 1, copies)).join("");
 }
 
-function shopCopyHtml(
-  inv: InvoiceData,
-  jobs: JobOrder[],
-  shopName: string,
-  copyNo: number,
-  copies: number,
-  lang: SheetLang,
-): string {
-  const w = SHEET_WORDS[lang];
+function shopCopyHtml(inv: InvoiceData, jobs: JobOrder[], shopName: string, copyNo: number, copies: number): string {
   const delivery = inv.deliveryDate ?? latestDue(jobs);
   return `
-<div class="shop-copy" dir="${lang === "en" ? "ltr" : "rtl"}">
+<div class="shop-copy">
   <div class="c">
     <div class="shop">${esc(shopName)}</div>
-    <div class="copy-tag">${w.copyTag}${copies > 1 ? ` <span class="num">${copyNo}/${copies}</span>` : ""}</div>
+    <div class="copy-tag">${W.copyTag}${copies > 1 ? ` <span class="num">${copyNo}/${copies}</span>` : ""}</div>
     <div class="inv-no num">#${inv.invoiceNo}</div>
   </div>
   <hr />
-  <div class="row"><span>${w.date}</span><span class="num">${formatDate(inv.createdAt)}</span></div>
-  <div class="row due"><span>${w.due}</span><span class="num">${delivery ? formatDateTime(delivery) : "________"}</span></div>
-  <div class="row"><span>${w.customer}</span><span class="b">${esc(inv.customer?.name ?? w.cashCustomer)}</span></div>
-  ${inv.customer?.mobile ? `<div class="row"><span>${w.mobile}</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
+  <div class="row"><span>${W.date}</span><span class="num">${formatDate(inv.createdAt)}</span></div>
+  <div class="row due"><span>${W.due}</span><span class="num">${delivery ? formatDateTime(delivery) : "________"}</span></div>
+  <div class="row"><span>${W.customer}</span><span class="b">${esc(inv.customer?.name ?? W.cashCustomer)}</span></div>
+  ${inv.customer?.mobile ? `<div class="row"><span>${W.mobile}</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
   ${inv.notes ? `<div class="job-notes">${esc(inv.notes)}</div>` : ""}
   <hr />
-  ${jobs.map((j) => jobSheetHtml(j, delivery, lang)).join('<hr class="solid" />')}
+  ${jobs.map((j) => jobSheetHtml(j, delivery)).join('<hr class="solid" />')}
   <hr class="solid" />
-  <div class="notes-title">${w.workNotes}</div>
+  <div class="notes-title">${W.workNotes}</div>
   <div class="write-line"></div><div class="write-line"></div><div class="write-line"></div><div class="write-line"></div>
 </div>`;
 }
@@ -374,7 +349,7 @@ const SHOP_COPY_CSS = `
     .shop-copy { break-before: page; page-break-before: always; width: 100%; max-width: 72mm; margin: 0 auto; padding-top: 3mm; font-size: 12px; line-height: 1.35; color: #000; }
     .shop-copy .c { text-align: center; }
     .shop-copy .b { font-weight: 700; }
-    .shop-copy .shop { font-size: 17px; font-weight: 800; }
+    .shop-copy .shop { font-size: 15px; font-weight: 800; }
     .shop-copy .copy-tag { display: inline-block; margin: 4px 0 2px; padding: 1px 10px; border: 2px solid #000; font-weight: 900; font-size: 13px; }
     .shop-copy .inv-no { font-size: 26px; font-weight: 900; }
     .shop-copy hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
@@ -384,7 +359,7 @@ const SHOP_COPY_CSS = `
     .shop-copy .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
     .shop-copy .job-style { font-weight: 800; font-size: 13px; margin: 2px 0; word-break: break-word; }
     .shop-copy .job { break-inside: avoid; page-break-inside: avoid; }
-    .shop-copy .sketch { position: relative; width: 66mm; margin: 6px auto 2px; }
+    .shop-copy .sketch { position: relative; width: 100%; max-width: 66mm; margin: 6px auto 2px; }
     .shop-copy .sketch svg { display: block; width: 100%; height: auto; }
     .shop-copy .sketch .lbl { position: absolute; width: 26mm; margin: -2.4mm 0 0 -13mm; text-align: center; font-size: 11px; line-height: 1.2; white-space: nowrap; }
     .shop-copy .sketch .lbl.stack { margin-top: -4.6mm; }
@@ -401,17 +376,16 @@ type Ctx = {
   vatRate: string;
   vatNo: string;
   shopCopies: number;
-  englishCopies: number;
 };
 
 function paymentStatusBadge(inv: InvoiceData): string {
-  if (inv.balanceFils <= 0) return '<span class="badge badge-paid">مدفوع بالكامل / Fully Paid</span>';
-  if (inv.paidFils > 0) return '<span class="badge badge-partial">مدفوع جزئياً / Partially Paid</span>';
-  return '<span class="badge badge-unpaid">غير مدفوع / Unpaid</span>';
+  if (inv.balanceFils <= 0) return '<span class="badge badge-paid">Fully Paid</span>';
+  if (inv.paidFils > 0) return '<span class="badge badge-partial">Partially Paid</span>';
+  return '<span class="badge badge-unpaid">Unpaid</span>';
 }
 
 /** 80mm thermal roll: ~72mm printable, black only, one narrow column. */
-function receiptHtml({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies }: Ctx): string {
+function receiptHtml({ inv, shopName, vatRate, vatNo, shopCopies }: Ctx): string {
   const itemRows = inv.items
     .map(
       (item) => `
@@ -436,10 +410,10 @@ function receiptHtml({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies 
     .join("");
 
   return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
-  <title>فاتورة ضريبية رقم ${inv.invoiceNo}</title>
+  <title>Tax Invoice ${inv.invoiceNo}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     @page { margin: 0; }
@@ -447,19 +421,21 @@ function receiptHtml({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies 
     body {
       width: 72mm;
       margin: 0 auto;
-      padding: 3mm 2mm 6mm;
+      /* The roll printer clips about 3mm on the left; the extra left padding keeps
+         the first characters of dates and amounts on the paper. */
+      padding: 3mm 2mm 6mm 5mm;
       font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
       font-size: 12px;
       line-height: 1.35;
       color: #000;
-      direction: rtl;
+      direction: ltr;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     .c { text-align: center; }
     .b { font-weight: 700; }
     small { font-size: 10px; }
-    .shop { font-size: 17px; font-weight: 800; }
+    .shop { font-size: 15px; font-weight: 800; }
     .meta { font-size: 11px; }
     .title { margin: 6px 0 2px; font-size: 13px; font-weight: 800; }
     .inv-no { font-size: 22px; font-weight: 900; }
@@ -486,40 +462,39 @@ ${SHOP_COPY_CSS}
     ${inv.branch?.address ? `<div class="meta">${esc(inv.branch.address)}</div>` : ""}
     ${inv.branch?.phone ? `<div class="meta num">${esc(inv.branch.phone)}</div>` : ""}
     ${vatNo ? `<div class="meta">TRN: <span class="num">${esc(vatNo)}</span></div>` : ""}
-    <div class="title">فاتورة ضريبية / Tax Invoice</div>
+    <div class="title">Tax Invoice</div>
     <div class="inv-no num">#${inv.invoiceNo}</div>
   </div>
   <hr />
-  <div class="row"><span>التاريخ / Date</span><span class="num">${formatDateTime(inv.createdAt)}</span></div>
-  ${inv.deliveryDate ? `<div class="row b"><span>موعد التسليم / Delivery</span><span class="num">${formatDateTime(inv.deliveryDate)}</span></div>` : ""}
-  <div class="row"><span>العميل / Customer</span><span class="b">${esc(inv.customer?.name ?? "عميل نقدي")}</span></div>
-  ${inv.customer?.mobile ? `<div class="row"><span>الجوال / Mobile</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
+  <div class="row"><span>Date</span><span class="num">${formatDateTime(inv.createdAt)}</span></div>
+  ${inv.deliveryDate ? `<div class="row b"><span>Delivery</span><span class="num">${formatDateTime(inv.deliveryDate)}</span></div>` : ""}
+  <div class="row"><span>Customer</span><span class="b">${esc(inv.customer?.name ?? "Cash customer")}</span></div>
+  ${inv.customer?.mobile ? `<div class="row"><span>Mobile</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
   <hr />
   ${itemRows || '<div class="c">—</div>'}
   <hr class="solid" />
-  <div class="row"><span>المجموع الفرعي / Subtotal</span><span class="num">${fils(inv.subtotalFils)}</span></div>
-  ${inv.discountFils > 0 ? `<div class="row"><span>خصم / Discount</span><span class="num">-${fils(inv.discountFils)}</span></div>` : ""}
-  <div class="row"><span>ضريبة ${esc(vatRate)}% / VAT</span><span class="num">${fils(inv.vatFils)}</span></div>
-  <div class="row total"><span>الإجمالي / Total</span><span class="num">${aed(inv.totalFils)}</span></div>
+  <div class="row"><span>Subtotal</span><span class="num">${fils(inv.subtotalFils)}</span></div>
+  ${inv.discountFils > 0 ? `<div class="row"><span>Discount</span><span class="num">-${fils(inv.discountFils)}</span></div>` : ""}
+  <div class="row"><span>VAT ${esc(vatRate)}%</span><span class="num">${fils(inv.vatFils)}</span></div>
+  <div class="row total"><span>Total</span><span class="num">${aed(inv.totalFils)}</span></div>
   <hr />
-  ${inv.payments.length > 0 ? `<div class="section">المدفوعات / Payments</div>${paymentRows}` : ""}
-  <div class="row b"><span>المدفوع / Paid</span><span class="num">${fils(inv.paidFils)}</span></div>
-  ${inv.balanceFils > 0 ? `<div class="row balance"><span>المتبقي / Balance</span><span class="num">${aed(inv.balanceFils)}</span></div>` : ""}
+  ${inv.payments.length > 0 ? `<div class="section">Payments</div>${paymentRows}` : ""}
+  <div class="row b"><span>Paid</span><span class="num">${fils(inv.paidFils)}</span></div>
+  ${inv.balanceFils > 0 ? `<div class="row balance"><span>Balance</span><span class="num">${aed(inv.balanceFils)}</span></div>` : ""}
   <div class="c">${paymentStatusBadge(inv)}</div>
-  ${inv.notes ? `<div class="notes"><b>ملاحظات:</b> ${esc(inv.notes)}</div>` : ""}
+  ${inv.notes ? `<div class="notes"><b>Notes:</b> ${esc(inv.notes)}</div>` : ""}
   <div class="c footer">
-    فاتورة ضريبية — الإمارات العربية المتحدة<br/>
-    شكراً لزيارتكم / Thank you
+    Tax Invoice — United Arab Emirates<br/>
+    Thank you for your visit
   </div>
-${shopCopiesHtml(inv, shopName, shopCopies, "ar")}
-${shopCopiesHtml(inv, shopName, englishCopies, "en")}
+${shopCopiesHtml(inv, shopName, shopCopies)}
 ${PRINT_ON_LOAD}
 </body>
 </html>`;
 }
 
 /** Full-page A4 invoice. */
-function a4Html({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies }: Ctx): string {
+function a4Html({ inv, shopName, vatRate, vatNo, shopCopies }: Ctx): string {
   const itemRows = inv.items
     .map(
       (item) => `
@@ -546,11 +521,11 @@ function a4Html({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies }: Ct
     .join("");
 
   return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>فاتورة ضريبية رقم ${inv.invoiceNo}</title>
+  <title>Tax Invoice ${inv.invoiceNo}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -558,13 +533,13 @@ function a4Html({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies }: Ct
       font-size: 13px;
       color: #111;
       background: #fff;
-      direction: rtl;
+      direction: ltr;
     }
     .page { max-width: 750px; margin: 0 auto; padding: 24px; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 16px; }
     .shop-name { font-size: 22px; font-weight: 800; }
     .shop-meta { font-size: 11px; color: #555; margin-top: 4px; }
-    .invoice-title { text-align: left; }
+    .invoice-title { text-align: right; }
     .invoice-title h2 { font-size: 20px; font-weight: 800; color: #1a1a1a; }
     .invoice-title .inv-no { font-size: 28px; font-weight: 900; color: #000; letter-spacing: -1px; }
     .invoice-title .meta { font-size: 11px; color: #555; margin-top: 4px; }
@@ -604,41 +579,41 @@ ${SHOP_COPY_CSS}
   <div class="header">
     <div>
       <div class="shop-name">${esc(shopName)}</div>
-      ${vatNo ? `<div class="shop-meta">رقم التسجيل الضريبي / VAT TRN: ${esc(vatNo)}</div>` : ""}
+      ${vatNo ? `<div class="shop-meta">VAT TRN: ${esc(vatNo)}</div>` : ""}
       ${inv.branch?.name ? `<div class="shop-meta">${esc(inv.branch.name)}</div>` : ""}
     </div>
-    <div class="invoice-title" dir="ltr">
-      <h2>فاتورة ضريبية / Tax Invoice</h2>
+    <div class="invoice-title">
+      <h2>Tax Invoice</h2>
       <div class="inv-no">#${inv.invoiceNo}</div>
       <div class="meta">
-        التاريخ: ${formatDate(inv.createdAt)}<br/>
-        ${inv.deliveryDate ? `موعد التسليم: ${formatDateTime(inv.deliveryDate)}` : ""}
+        Date: ${formatDate(inv.createdAt)}<br/>
+        ${inv.deliveryDate ? `Delivery: ${formatDateTime(inv.deliveryDate)}` : ""}
       </div>
     </div>
   </div>
 
   <div class="parties">
     <div>
-      <div class="party-label">المورد / Supplier</div>
+      <div class="party-label">Supplier</div>
       <div class="party-name">${esc(shopName)}</div>
       ${vatNo ? `<div class="party-meta">TRN: ${esc(vatNo)}</div>` : ""}
     </div>
-    <div dir="ltr" style="text-align:left;">
-      <div class="party-label">العميل / Customer</div>
-      <div class="party-name">${esc(inv.customer?.name ?? "عميل نقدي / Cash Customer")}</div>
+    <div>
+      <div class="party-label">Customer</div>
+      <div class="party-name">${esc(inv.customer?.name ?? "Cash Customer")}</div>
       ${inv.customer?.mobile ? `<div class="party-meta">${esc(inv.customer.mobile)}</div>` : ""}
     </div>
   </div>
 
-  <div class="section-title">البنود / Line Items</div>
+  <div class="section-title">Line Items</div>
   <table>
     <thead>
       <tr>
-        <th class="text-start" style="width:40%">الصنف / Description</th>
-        <th class="text-center" style="width:10%">الكمية / Qty</th>
-        <th class="text-end" style="width:18%">سعر الوحدة / Unit</th>
-        <th class="text-end" style="width:14%">خصم / Disc</th>
-        <th class="text-end" style="width:18%">المجموع / Total</th>
+        <th class="text-start" style="width:40%">Description</th>
+        <th class="text-center" style="width:10%">Qty</th>
+        <th class="text-end" style="width:18%">Unit</th>
+        <th class="text-end" style="width:14%">Disc</th>
+        <th class="text-end" style="width:18%">Total</th>
       </tr>
     </thead>
     <tbody>
@@ -650,26 +625,26 @@ ${SHOP_COPY_CSS}
     <div>
       ${
         inv.payments.length > 0
-          ? `<div class="section-title">المدفوعات / Payments</div>
+          ? `<div class="section-title">Payments</div>
              <table>
-               <thead><tr><th class="text-start">طريقة / Method</th><th class="text-end">المبلغ / Amount</th><th>مرجع</th><th>تاريخ</th></tr></thead>
+               <thead><tr><th class="text-start">Method</th><th class="text-end">Amount</th><th>Reference</th><th>Date</th></tr></thead>
                <tbody>${paymentRows}</tbody>
              </table>`
-          : '<div class="section-title">المدفوعات / Payments</div><p class="text-muted" style="padding:8px;">لا توجد دفعات مسجّلة</p>'
+          : '<div class="section-title">Payments</div><p class="text-muted" style="padding:8px;">No payments recorded</p>'
       }
-      ${inv.notes ? `<div style="margin-top:8px;padding:8px;background:#f8f8f8;border-radius:4px;font-size:11px;"><strong>ملاحظات:</strong> ${esc(inv.notes)}</div>` : ""}
+      ${inv.notes ? `<div style="margin-top:8px;padding:8px;background:#f8f8f8;border-radius:4px;font-size:11px;"><strong>Notes:</strong> ${esc(inv.notes)}</div>` : ""}
     </div>
 
     <div class="totals-box">
-      <div class="section-title">الإجماليات / Totals</div>
-      <div class="totals-row"><span>المجموع الفرعي / Subtotal</span><span>${aed(inv.subtotalFils)}</span></div>
-      ${inv.discountFils > 0 ? `<div class="totals-row"><span>خصم / Discount</span><span>- ${aed(inv.discountFils)}</span></div>` : ""}
-      <div class="totals-row"><span>ضريبة القيمة المضافة ${esc(vatRate)}% / VAT</span><span>${aed(inv.vatFils)}</span></div>
-      <div class="totals-row total"><span>الإجمالي / Total</span><span>${aed(inv.totalFils)}</span></div>
-      <div class="totals-row"><span>المدفوع / Paid</span><span>${aed(inv.paidFils)}</span></div>
+      <div class="section-title">Totals</div>
+      <div class="totals-row"><span>Subtotal</span><span>${aed(inv.subtotalFils)}</span></div>
+      ${inv.discountFils > 0 ? `<div class="totals-row"><span>Discount</span><span>- ${aed(inv.discountFils)}</span></div>` : ""}
+      <div class="totals-row"><span>VAT ${esc(vatRate)}%</span><span>${aed(inv.vatFils)}</span></div>
+      <div class="totals-row total"><span>Total</span><span>${aed(inv.totalFils)}</span></div>
+      <div class="totals-row"><span>Paid</span><span>${aed(inv.paidFils)}</span></div>
       ${
         inv.balanceFils > 0
-          ? `<div class="totals-row balance"><span>الرصيد المستحق / Balance Due</span><span>${aed(inv.balanceFils)}</span></div>`
+          ? `<div class="totals-row balance"><span>Balance Due</span><span>${aed(inv.balanceFils)}</span></div>`
           : ""
       }
       <div style="margin-top:10px;text-align:center;">${paymentStatusBadge(inv)}</div>
@@ -677,13 +652,11 @@ ${SHOP_COPY_CSS}
   </div>
 
   <div class="footer">
-    هذه فاتورة ضريبية صادرة وفق متطلبات الهيئة الاتحادية للضرائب — الإمارات العربية المتحدة<br/>
     This is a tax invoice issued in accordance with UAE Federal Tax Authority requirements.<br/>
     VAT Rate: ${esc(vatRate)}% | Currency: AED | Invoice No: ${inv.invoiceNo} | Date: ${formatDate(inv.createdAt)}
   </div>
 </div>
-${shopCopiesHtml(inv, shopName, shopCopies, "ar")}
-${shopCopiesHtml(inv, shopName, englishCopies, "en")}
+${shopCopiesHtml(inv, shopName, shopCopies)}
 ${PRINT_ON_LOAD}
 </body>
 </html>`;
@@ -698,7 +671,7 @@ export async function printInvoice(
   data: Record<string, unknown>,
   shopSettings?: Record<string, string>,
   win?: Window | null,
-  opts?: { shopCopies?: number; englishCopies?: number },
+  opts?: { shopCopies?: number },
 ): Promise<void> {
   const target = win ?? openPrintWindow();
   if (!target) return;
@@ -718,7 +691,6 @@ export async function printInvoice(
     vatRate,
     vatNo,
     shopCopies: clampShopCopies(opts?.shopCopies),
-    englishCopies: clampShopCopies(opts?.englishCopies ?? 0),
   };
   const html = paper === "a4" ? a4Html(ctx) : receiptHtml(ctx);
 

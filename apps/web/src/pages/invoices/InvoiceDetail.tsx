@@ -193,7 +193,6 @@ export function InvoiceDetail() {
   const canViewCost = can("reports.financial");
   const canPrint = can("invoices.print");
   const [shopCopies, setShopCopies] = useState(SHOP_COPIES_DEFAULT);
-  const [englishCopies, setEnglishCopies] = useState(0);
   const UNCLAIMED_DAYS = 120;
   const scrollToAnchor = useCallback((eid: string) => {
     document.getElementById(eid)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -534,10 +533,7 @@ export function InvoiceDetail() {
             </Button>
           ) : null}
           {canPrint && data && jobOrders.length > 0 ? (
-            <>
-              <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} className="h-14 rounded-xl" />
-              <ShopCopiesStepper value={englishCopies} onChange={setEnglishCopies} className="h-14 rounded-xl" english />
-            </>
+            <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} className="h-14 rounded-xl" />
           ) : null}
           {canPrint && data ? (
             <Button
@@ -545,7 +541,7 @@ export function InvoiceDetail() {
               variant="outline"
               size="lg"
               className="h-14 rounded-xl"
-              onClick={() => void printInvoice(data, settings, undefined, { shopCopies, englishCopies })}
+              onClick={() => void printInvoice(data, settings, undefined, { shopCopies })}
             >
               <Printer className="me-2 h-5 w-5" />
               {t("invoiceDetail.printInvoice")}

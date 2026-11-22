@@ -99,7 +99,6 @@ function GlobalInvoiceQuickViewModal({
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState(false);
   const [shopCopies, setShopCopies] = useState(SHOP_COPIES_DEFAULT);
-  const [englishCopies, setEnglishCopies] = useState(0);
   const { t } = useTranslation();
   const paymentStatus = usePaymentStatus();
 
@@ -108,7 +107,7 @@ function GlobalInvoiceQuickViewModal({
     setPrinting(true);
     setPrintError(false);
     try {
-      await printInvoiceById(invoiceId, { shopCopies, englishCopies });
+      await printInvoiceById(invoiceId, { shopCopies });
     } catch {
       setPrintError(true);
     } finally {
@@ -272,10 +271,7 @@ function GlobalInvoiceQuickViewModal({
               ) : null}
 
               {can("invoices.print") && ((data.jobOrders as unknown[] | undefined)?.length ?? 0) > 0 ? (
-                <>
-                  <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} className="border-t pt-3" />
-                  <ShopCopiesStepper value={englishCopies} onChange={setEnglishCopies} english />
-                </>
+                <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} className="border-t pt-3" />
               ) : null}
               <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap">
                 {can("invoices.print") ? (
