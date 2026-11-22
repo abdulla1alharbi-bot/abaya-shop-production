@@ -12,3 +12,5 @@ coverage
 .turbo
 .idea
 .vscode
+# Per-machine Claude Code permissions; never publish
+.claude/settings.local.json
