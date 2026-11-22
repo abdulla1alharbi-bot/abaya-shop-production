@@ -88,6 +88,20 @@ function usePaymentLabel() {
   };
 }
 
+/** One payment taken in the sales period; `olderInvoice` when its invoice was issued before the period. */
+type SalesPaymentRow = {
+  id: string;
+  createdAt: string;
+  method: string;
+  amountFils: number;
+  reference: string | null;
+  invoiceId: string;
+  invoiceNo: number;
+  invoiceCreatedAt: string;
+  customer: { name: string; mobile: string } | null;
+  olderInvoice: boolean;
+};
+
 type InvoiceReportItem = {
   id: string;
   invoiceNo: number;
@@ -270,7 +284,12 @@ export function ReportsPage() {
             totalSalesFils: number;
             totalPaidFils: number;
             totalRemainingFils: number;
+            receivedFils: number;
+            paymentCount: number;
+            receivedOnOlderFils: number;
           };
+          payments: SalesPaymentRow[];
+          paymentsTruncated: boolean;
         };
       }>("/reports/invoices", { params: salesParams });
       return res.data.data;
@@ -580,6 +599,54 @@ export function ReportsPage() {
                 <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(inv.balanceFils)}</td>
                 <td className="max-w-[140px] px-3 py-2 text-xs">{t(invoiceFulfillmentKey(inv.fulfillmentStatus))}</td>
                 <td className="px-3 py-2 text-xs">{paymentLabelAr(inv)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const methodText = (m: string) =>
+    m === "CASH" ? t("common.cash") : m === "TRANSFER" ? t("common.transfer") : m === "CARD" ? t("common.card") : m;
+
+  /** Every payment taken in the sales period, on new and older invoices alike. */
+  const salesPaymentsTable = (rows: SalesPaymentRow[] | undefined, loading: boolean) => {
+    if (loading) return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
+    if (!rows?.length) return <p className="text-sm text-muted-foreground">{t("reports.noPaymentsInPeriod")}</p>;
+    return (
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead className="border-b bg-muted/50">
+            <tr>
+              <th className="px-3 py-2 text-start">{t("reports.colPaidAt")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colNo")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colCustomer")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colInvoiceDate")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colMethod")}</th>
+              <th className="px-3 py-2 text-end">{t("reports.colAmount2")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id} className="border-b border-border/50">
+                <td className="whitespace-nowrap px-3 py-2 text-xs">{new Date(p.createdAt).toLocaleString()}</td>
+                <td className="px-3 py-2 font-mono">#{p.invoiceNo}</td>
+                <td className="px-3 py-2">{p.customer?.name ?? "—"}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
+                  {new Date(p.invoiceCreatedAt).toLocaleDateString()}{" "}
+                  {p.olderInvoice ? (
+                    <span className="ms-1 rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                      {t("reports.olderInvoiceTag")}
+                    </span>
+                  ) : (
+                    <span className="ms-1 rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
+                      {t("reports.newInvoiceTag")}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-xs">{methodText(p.method)}</td>
+                <td className="px-3 py-2 text-end font-mono font-semibold tabular-nums">{formatAED(p.amountFils)}</td>
               </tr>
             ))}
           </tbody>
@@ -903,6 +970,28 @@ export function ReportsPage() {
             })}
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+            {salesReportQuery.data?.summary ? (
+              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 rounded-lg border-2 border-emerald-600/40 bg-emerald-50 p-3 dark:bg-emerald-950/30">
+                <p className="text-base">
+                  <span className="text-muted-foreground">{t("reports.receivedInPeriod")} </span>
+                  <span className="text-xl font-bold tabular-nums">
+                    {formatAED(salesReportQuery.data.summary.receivedFils)}
+                  </span>
+                </p>
+                <p className="text-sm">
+                  <span className="text-muted-foreground">{t("reports.receivedOnOlder")} </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatAED(salesReportQuery.data.summary.receivedOnOlderFils)}
+                  </span>
+                </p>
+              </div>
+            ) : null}
+            <h3 className="text-sm font-semibold">{t("reports.paymentsReceivedTitle")}</h3>
+            {salesPaymentsTable(salesReportQuery.data?.payments, salesReportQuery.isLoading)}
+            {salesReportQuery.data?.paymentsTruncated ? (
+              <p className="text-xs text-muted-foreground">{t("reports.paymentsTruncated")}</p>
+            ) : null}
+            <h3 className="pt-2 text-sm font-semibold">{t("reports.invoicesIssuedTitle")}</h3>
             {salesReportQuery.data?.summary ? (
               <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 sm:grid-cols-2 lg:grid-cols-4">
                 <p className="text-sm">

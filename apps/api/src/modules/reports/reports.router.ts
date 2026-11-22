@@ -200,7 +200,15 @@ reportsRouter.get(
       createdAt: { gte: from, lte: to },
     };
 
-    const [invoiceRows, sums] = await Promise.all([
+    // Money received in the range, whatever day its invoice was issued: the owner
+    // reads the sales report as "what came in today", so a balance paid on an
+    // old invoice belongs here too. Same rows as the financial-activity income.
+    const paymentWhere: Prisma.PaymentWhereInput = {
+      createdAt: { gte: from, lte: to },
+      invoice: { isVoid: false },
+    };
+
+    const [invoiceRows, sums, paymentRows, paymentSum] = await Promise.all([
       prisma.invoice.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -215,7 +223,36 @@ reportsRouter.get(
         _sum: { totalFils: true, paidFils: true, balanceFils: true },
         _count: { _all: true },
       }),
+      prisma.payment.findMany({
+        where: paymentWhere,
+        orderBy: { createdAt: "desc" },
+        take: 1000,
+        include: {
+          invoice: {
+            select: { id: true, invoiceNo: true, createdAt: true, customer: { select: { name: true, mobile: true } } },
+          },
+        },
+      }),
+      prisma.payment.aggregate({ where: paymentWhere, _sum: { amountFils: true }, _count: { _all: true } }),
     ]);
+
+    let receivedOnOlderFils = 0;
+    const payments = paymentRows.map((p) => {
+      const olderInvoice = p.invoice.createdAt < from;
+      if (olderInvoice) receivedOnOlderFils += p.amountFils;
+      return {
+        id: p.id,
+        createdAt: p.createdAt.toISOString(),
+        method: p.method,
+        amountFils: p.amountFils,
+        reference: p.reference,
+        invoiceId: p.invoice.id,
+        invoiceNo: p.invoice.invoiceNo,
+        invoiceCreatedAt: p.invoice.createdAt.toISOString(),
+        customer: p.invoice.customer,
+        olderInvoice,
+      };
+    });
 
     const items = invoiceRows.map((inv) => {
       const fulfillmentStatus = computeInvoiceFulfillment(
@@ -242,7 +279,14 @@ reportsRouter.get(
           totalSalesFils: sums._sum.totalFils ?? 0,
           totalPaidFils: sums._sum.paidFils ?? 0,
           totalRemainingFils: sums._sum.balanceFils ?? 0,
+          /** Every payment taken in the range, new invoices and old alike. */
+          receivedFils: paymentSum._sum.amountFils ?? 0,
+          paymentCount: paymentSum._count._all,
+          /** The part of receivedFils paid on invoices issued before the range. */
+          receivedOnOlderFils,
         },
+        payments,
+        paymentsTruncated: paymentSum._count._all > payments.length,
       },
     });
   }),
