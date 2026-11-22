@@ -304,9 +304,14 @@ function shopCopyHtml(inv: InvoiceData, jobs: JobOrder[], shopName: string, copy
 </div>`;
 }
 
-/** Self-contained so it prints the same under the receipt and the A4 layout. */
+/**
+ * Self-contained so it prints the same under the receipt and the A4 layout.
+ * Width follows the receipt body's content box (68mm) rather than a fixed 72mm:
+ * a fixed 72mm stuck 2mm past the printable edge and the roll cut the left side
+ * off (dates, sizes).
+ */
 const SHOP_COPY_CSS = `
-    .shop-copy { break-before: page; page-break-before: always; width: 72mm; margin: 0 auto; padding-top: 3mm; font-size: 12px; line-height: 1.35; color: #000; }
+    .shop-copy { break-before: page; page-break-before: always; width: 100%; max-width: 72mm; margin: 0 auto; padding-top: 3mm; font-size: 12px; line-height: 1.35; color: #000; }
     .shop-copy .c { text-align: center; }
     .shop-copy .b { font-weight: 700; }
     .shop-copy .shop { font-size: 17px; font-weight: 800; }
