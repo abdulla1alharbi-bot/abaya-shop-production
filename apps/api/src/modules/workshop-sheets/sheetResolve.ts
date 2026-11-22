@@ -484,6 +484,12 @@ export async function resolveSheet(
   const totals = new Map<string, WorkerTotal & { jobs: Set<string> }>();
   /** Stages planned by earlier rows of this same sheet — a later row must not plan them again. */
   const plannedStage = new Set<string>();
+  /**
+   * Pieces an earlier row of this sheet already took. One invoice often sits on
+   * several notebook lines (33603: 7 pieces on one day, 5 on another), and each
+   * line means different pieces, so a later line picks the next free ones.
+   */
+  const plannedJobs = new Set<string>();
   const out: ResolvedRow[] = [];
 
   for (const row of input.rows) {
@@ -595,9 +601,19 @@ export async function resolveSheet(
         if (!byModel.length && row.modelText && usable.length) {
           reasons.push(`ما فيه قطعة «${row.modelText}» في الفاتورة — اختر القطعة`);
         }
-        const open = pool.filter((j) => !FINISHED_JOB_STAGES.has(j.stage));
-        const ordered = [...open, ...pool.filter((j) => FINISHED_JOB_STAGES.has(j.stage))];
+        // Unfinished pieces no earlier row took come first, then finished ones,
+        // and only last the pieces an earlier row of this sheet already planned.
+        const free = pool.filter((j) => !plannedJobs.has(j.id));
+        const taken = pool.filter((j) => plannedJobs.has(j.id));
+        const ordered = [
+          ...free.filter((j) => !FINISHED_JOB_STAGES.has(j.stage)),
+          ...free.filter((j) => FINISHED_JOB_STAGES.has(j.stage)),
+          ...taken,
+        ];
         chosen = ordered.slice(0, want);
+        if (taken.length && free.length < want) {
+          reasons.push(`أسطر سابقة في الورقة أخذت ${taken.length} من قطع الفاتورة — ما بقى قطع كافية لهذا السطر`);
+        }
         if (pool.length > want && row.pieces === null && !digitsOnly(row.modelText)) {
           reasons.push(`الفاتورة فيها ${pool.length} قطع — تأكد من القطعة`);
         }
@@ -618,6 +634,7 @@ export async function resolveSheet(
       });
 
       chosen.forEach((job, pieceIdx) => {
+        plannedJobs.add(job.id);
         if (job.productionBatchId) errors.push(`#${job.jobNo} قطعة إنتاج داخلي — أدخلها يدويًا`);
         const completedAt = rowDate.getTime() < job.createdAt.getTime() ? job.createdAt : rowDate;
         const needsPipeline = job.workStages.length === 0;

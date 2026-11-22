@@ -76,6 +76,8 @@ before(async () => {
   await make("B", 3);
   await make("C", 1, { abayaTypeId: walter.id, productStyle: "تعديل" });
   await make("D", 2, { abayaTypeId: walter.id, productStyle: "تعديل" });
+  // Five alteration pieces, done over two notebook lines (like 33603).
+  await make("G", 5, { abayaTypeId: walter.id, productStyle: "تعديل" });
   // A tailoring-only invoice (an abaya can come back to it for a free repair)…
   await make("E", 2);
   // …and a mixed one: one tailored abaya plus two alteration pieces.
@@ -281,6 +283,27 @@ describe("alteration notebook", () => {
       assert.ok(j.workStages.every((s) => s.status === "DONE" && s.workerId === W.Ahsan && s.wageFils === 0));
     }
     assert.equal(await earned("Ahsan"), 0);
+  });
+
+  test("two lines for one invoice on the same notebook take different pieces", async () => {
+    const book = (
+      await read("ALTERATION", Buffer.from("fake-photo-two-lines"), {
+        sheetDateText: null,
+        rows: [
+          line(String(inv.G!.no), [], { pieces: 3, dateText: "23-8" }),
+          line(String(inv.G!.no), [], { pieces: 2, dateText: "25-8" }),
+        ],
+      })
+    ).data;
+    const [first, second] = book.plan.rows;
+    assert.equal(first!.status, "ok", JSON.stringify(first!.reasons));
+    assert.equal(second!.status, "ok", JSON.stringify(second!.reasons));
+    const a = first!.pieces.map((p) => p.jobId);
+    const b = second!.pieces.map((p) => p.jobId);
+    assert.equal(a.length, 3);
+    assert.equal(b.length, 2);
+    assert.deepEqual([...a, ...b].sort(), [...inv.G!.jobs].sort(), "all five pieces, none twice");
+    await api.call("DELETE", `/workshop-sheets/${book.sheet.id}`);
   });
 });
 
