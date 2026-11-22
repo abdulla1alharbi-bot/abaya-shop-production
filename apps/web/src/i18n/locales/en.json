@@ -758,6 +758,7 @@
       "printHint": "Print the invoice and hand it to the customer before work starts.",
       "printInvoice": "Print invoice",
       "shopCopies": "Shop copies",
+      "englishCopies": "English copies (workers)",
       "printing": "Preparing print…",
       "printFailed": "Printing failed. Open the invoice and print it from its page.",
       "openInvoice": "Open invoice",

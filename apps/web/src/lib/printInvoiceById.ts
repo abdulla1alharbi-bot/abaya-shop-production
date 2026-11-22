@@ -10,7 +10,7 @@ import { openPrintWindow, printInvoice } from "./printInvoice";
  * the popup blocker still sees the click. Shop settings come with the invoice
  * (sellers can't read /settings).
  */
-export async function printInvoiceById(invoiceId: string, opts?: { shopCopies?: number }): Promise<void> {
+export async function printInvoiceById(invoiceId: string, opts?: { shopCopies?: number; englishCopies?: number }): Promise<void> {
   const win = openPrintWindow();
   if (!win) return;
   try {

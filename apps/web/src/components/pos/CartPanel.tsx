@@ -65,6 +65,7 @@ export function CartPanel() {
     null,
   );
   const [shopCopies, setShopCopies] = useState(SHOP_COPIES_DEFAULT);
+  const [englishCopies, setEnglishCopies] = useState(0);
   const [creditOverride, setCreditOverride] = useState(false);
 
   const { data: abayaCatalog } = useQuery({
@@ -142,6 +143,7 @@ export function CartPanel() {
 
   const openCheckout = () => {
     setShopCopies(SHOP_COPIES_DEFAULT);
+    setEnglishCopies(0);
     setDeliveryLocal(latestLineDue);
     setPrintError(false);
     setCheckoutOpen(true);
@@ -289,7 +291,10 @@ export function CartPanel() {
     setPrinting(true);
     setPrintError(false);
     try {
-      await printInvoiceById(successData.id, { shopCopies: successData.hasTailoring ? shopCopies : 0 });
+      await printInvoiceById(successData.id, {
+        shopCopies: successData.hasTailoring ? shopCopies : 0,
+        englishCopies: successData.hasTailoring ? englishCopies : 0,
+      });
     } catch {
       setPrintError(true);
     } finally {
@@ -496,7 +501,10 @@ export function CartPanel() {
               </div>
               <div className="flex w-full flex-col gap-2">
                 {can("invoices.print") && successData.hasTailoring ? (
-                  <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} />
+                  <>
+                    <ShopCopiesStepper value={shopCopies} onChange={setShopCopies} />
+                    <ShopCopiesStepper value={englishCopies} onChange={setEnglishCopies} english />
+                  </>
                 ) : null}
                 {can("invoices.print") ? (
                   <Button

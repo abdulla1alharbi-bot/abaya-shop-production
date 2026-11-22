@@ -193,6 +193,56 @@ function measureText(v: unknown): string | null {
 const SKETCH_BOX = { x: -50, y: -30, w: 352, h: 322 };
 
 /**
+ * The shop copy comes in two languages: Arabic, and English for the workers
+ * who don't read Arabic. Only the printed words change; what the seller typed
+ * (model, notes, customer) prints as typed.
+ */
+type SheetLang = "ar" | "en";
+
+const SHEET_WORDS = {
+  ar: {
+    copyTag: "نسخة المحل / Shop copy",
+    date: "Date / التاريخ",
+    due: "D.Date / التسليم",
+    customer: "العميل",
+    cashCustomer: "عميل نقدي",
+    mobile: "الجوال",
+    job: "قطعة / Job",
+    pieceDue: "تسليم القطعة",
+    fabric: "القماش",
+    color: "اللون",
+    readySize: "مقاس جاهز",
+    workNotes: "ملاحظات على الشغل / Work notes",
+    sleeve: "طول الكم",
+    sleeveWidth: "عرض الكم",
+    armhole: "باط",
+    waist: "خصر",
+    hem: "وسع الذيل",
+    length: "طول",
+  },
+  en: {
+    copyTag: "WORKSHOP COPY (EN)",
+    date: "Date",
+    due: "Delivery",
+    customer: "Customer",
+    cashCustomer: "Cash customer",
+    mobile: "Mobile",
+    job: "Job",
+    pieceDue: "Piece delivery",
+    fabric: "Fabric",
+    color: "Colour",
+    readySize: "Ready size",
+    workNotes: "Work notes",
+    sleeve: "Sleeve L.",
+    sleeveWidth: "Sleeve W.",
+    armhole: "Armhole",
+    waist: "Waist",
+    hem: "Hem",
+    length: "Length",
+  },
+} as const;
+
+/**
  * One measurement label, centred on point (x, y) of the sketch: "باط 24", or
  * "باط ____" for the worker to fill in when the seller left it empty. `stacked`
  * puts the number under the name, for the narrow spots at the sides.
@@ -218,7 +268,8 @@ function sketchLabel(label: string, v: unknown, x: number, y: number, stacked = 
  * dashed strokes and arrow markers; the driver silently dropped the whole print
  * job, customer copy included, though it rendered fine on screen. Keep it plain.
  */
-function abayaSketch(m: Measurements): string {
+function abayaSketch(m: Measurements, lang: SheetLang): string {
+  const w = SHEET_WORDS[lang];
   // Each dimension: the line, then a short tick across each end.
   const dims = [
     "M40 2 H220 M40 -4 V8 M220 -4 V8", // طول الكم, over the top bar
@@ -228,39 +279,40 @@ function abayaSketch(m: Measurements): string {
     "M34 274 H226 M34 268 V280 M226 268 V280", // وسع الذيل
     "M246 12 V286 M240 12 H252 M240 286 H252", // طول
   ].join(" ");
-  const { x, y, w, h } = SKETCH_BOX;
+  const box = SKETCH_BOX;
   return `<div class="sketch">
-    <svg viewBox="${x} ${y} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000">
+    <svg viewBox="${box.x} ${box.y} ${box.w} ${box.h}" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000">
       <path d="M40 12 H220 V48 H182 Q148 150 238 286 H22 Q112 150 78 48 H40 Z" stroke-width="2" />
       <path d="${dims}" stroke-width="1.2" />
     </svg>
-    ${sketchLabel("طول الكم", m.sleeve, 130, -16)}
-    ${sketchLabel("عرض الكم", m.chest, -14, 30, true)}
-    ${sketchLabel("باط", m.shoulder, 130, 90)}
-    ${sketchLabel("خصر", m.waist, 130, 180)}
-    ${sketchLabel("وسع الذيل", m.hip, 130, 258)}
-    ${sketchLabel("طول", m.length, 278, 149, true)}
+    ${sketchLabel(w.sleeve, m.sleeve, 130, -16)}
+    ${sketchLabel(w.sleeveWidth, m.chest, -14, 30, true)}
+    ${sketchLabel(w.armhole, m.shoulder, 130, lang === "en" ? 98 : 90, lang === "en")}
+    ${sketchLabel(w.waist, m.waist, 130, 180)}
+    ${sketchLabel(w.hem, m.hip, 130, 258)}
+    ${sketchLabel(w.length, m.length, 278, 149, true)}
   </div>`;
 }
 
-function jobSheetHtml(job: JobOrder, deliveryDate: string | null): string {
+function jobSheetHtml(job: JobOrder, deliveryDate: string | null, lang: SheetLang): string {
+  const w = SHEET_WORDS[lang];
   const m = parseMeasurements(job.measurements);
   const fabric = [m.fabricRollCode, m.fabricName, m.fabricColor].filter(Boolean).join(" · ");
   const ownDue = job.dueDate && job.dueDate !== deliveryDate ? job.dueDate : null;
   return `
     <div class="job">
-      <div class="row b"><span>قطعة / Job</span><span class="num">#${job.jobNo}</span></div>
+      <div class="row b"><span>${w.job}</span><span class="num">#${job.jobNo}</span></div>
       ${job.productStyle ? `<div class="job-style">${esc(job.productStyle)}</div>` : ""}
-      ${ownDue ? `<div class="row"><span>تسليم القطعة</span><span class="num">${formatDateTime(ownDue)}</span></div>` : ""}
-      ${fabric ? `<div class="row"><span>القماش</span><span>${esc(fabric)}</span></div>` : ""}
-      ${m.colorNote ? `<div class="row"><span>اللون</span><span>${esc(m.colorNote)}</span></div>` : ""}
-      ${m.sizeType === "STANDARD" && m.standardSize ? `<div class="row b"><span>مقاس جاهز</span><span>${esc(m.standardSize)}</span></div>` : ""}
+      ${ownDue ? `<div class="row"><span>${w.pieceDue}</span><span class="num">${formatDateTime(ownDue)}</span></div>` : ""}
+      ${fabric ? `<div class="row"><span>${w.fabric}</span><span>${esc(fabric)}</span></div>` : ""}
+      ${m.colorNote ? `<div class="row"><span>${w.color}</span><span>${esc(m.colorNote)}</span></div>` : ""}
+      ${m.sizeType === "STANDARD" && m.standardSize ? `<div class="row b"><span>${w.readySize}</span><span>${esc(m.standardSize)}</span></div>` : ""}
       ${job.notes ? `<div class="job-notes">${esc(job.notes)}</div>` : ""}
-      ${abayaSketch(m)}
+      ${abayaSketch(m, lang)}
     </div>`;
 }
 
-/** Shop copies per print: the seller picks 0–5 at the print button, default 1. */
+/** Shop copies per print: the seller picks 0–5 at the print button (Arabic default 1, English default 0). */
 export const SHOP_COPIES_DEFAULT = 1;
 export const SHOP_COPIES_MAX = 5;
 
@@ -275,31 +327,39 @@ export function clampShopCopies(n: number | undefined): number {
  * across people (cutter, tailor, embroiderer), each keeping a sheet; they are
  * numbered so a missing one shows.
  */
-function shopCopiesHtml(inv: InvoiceData, shopName: string, copies: number): string {
+function shopCopiesHtml(inv: InvoiceData, shopName: string, copies: number, lang: SheetLang): string {
   const jobs = inv.jobOrders ?? [];
   if (jobs.length === 0 || copies <= 0) return "";
-  return Array.from({ length: copies }, (_, i) => shopCopyHtml(inv, jobs, shopName, i + 1, copies)).join("");
+  return Array.from({ length: copies }, (_, i) => shopCopyHtml(inv, jobs, shopName, i + 1, copies, lang)).join("");
 }
 
-function shopCopyHtml(inv: InvoiceData, jobs: JobOrder[], shopName: string, copyNo: number, copies: number): string {
+function shopCopyHtml(
+  inv: InvoiceData,
+  jobs: JobOrder[],
+  shopName: string,
+  copyNo: number,
+  copies: number,
+  lang: SheetLang,
+): string {
+  const w = SHEET_WORDS[lang];
   const delivery = inv.deliveryDate ?? latestDue(jobs);
   return `
-<div class="shop-copy">
+<div class="shop-copy" dir="${lang === "en" ? "ltr" : "rtl"}">
   <div class="c">
     <div class="shop">${esc(shopName)}</div>
-    <div class="copy-tag">نسخة المحل / Shop copy${copies > 1 ? ` <span class="num">${copyNo}/${copies}</span>` : ""}</div>
+    <div class="copy-tag">${w.copyTag}${copies > 1 ? ` <span class="num">${copyNo}/${copies}</span>` : ""}</div>
     <div class="inv-no num">#${inv.invoiceNo}</div>
   </div>
   <hr />
-  <div class="row"><span>Date / التاريخ</span><span class="num">${formatDate(inv.createdAt)}</span></div>
-  <div class="row due"><span>D.Date / التسليم</span><span class="num">${delivery ? formatDateTime(delivery) : "________"}</span></div>
-  <div class="row"><span>العميل</span><span class="b">${esc(inv.customer?.name ?? "عميل نقدي")}</span></div>
-  ${inv.customer?.mobile ? `<div class="row"><span>الجوال</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
+  <div class="row"><span>${w.date}</span><span class="num">${formatDate(inv.createdAt)}</span></div>
+  <div class="row due"><span>${w.due}</span><span class="num">${delivery ? formatDateTime(delivery) : "________"}</span></div>
+  <div class="row"><span>${w.customer}</span><span class="b">${esc(inv.customer?.name ?? w.cashCustomer)}</span></div>
+  ${inv.customer?.mobile ? `<div class="row"><span>${w.mobile}</span><span class="num">${esc(inv.customer.mobile)}</span></div>` : ""}
   ${inv.notes ? `<div class="job-notes">${esc(inv.notes)}</div>` : ""}
   <hr />
-  ${jobs.map((j) => jobSheetHtml(j, delivery)).join('<hr class="solid" />')}
+  ${jobs.map((j) => jobSheetHtml(j, delivery, lang)).join('<hr class="solid" />')}
   <hr class="solid" />
-  <div class="notes-title">ملاحظات على الشغل / Work notes</div>
+  <div class="notes-title">${w.workNotes}</div>
   <div class="write-line"></div><div class="write-line"></div><div class="write-line"></div><div class="write-line"></div>
 </div>`;
 }
@@ -341,6 +401,7 @@ type Ctx = {
   vatRate: string;
   vatNo: string;
   shopCopies: number;
+  englishCopies: number;
 };
 
 function paymentStatusBadge(inv: InvoiceData): string {
@@ -350,7 +411,7 @@ function paymentStatusBadge(inv: InvoiceData): string {
 }
 
 /** 80mm thermal roll: ~72mm printable, black only, one narrow column. */
-function receiptHtml({ inv, shopName, vatRate, vatNo, shopCopies }: Ctx): string {
+function receiptHtml({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies }: Ctx): string {
   const itemRows = inv.items
     .map(
       (item) => `
@@ -450,14 +511,15 @@ ${SHOP_COPY_CSS}
     فاتورة ضريبية — الإمارات العربية المتحدة<br/>
     شكراً لزيارتكم / Thank you
   </div>
-${shopCopiesHtml(inv, shopName, shopCopies)}
+${shopCopiesHtml(inv, shopName, shopCopies, "ar")}
+${shopCopiesHtml(inv, shopName, englishCopies, "en")}
 ${PRINT_ON_LOAD}
 </body>
 </html>`;
 }
 
 /** Full-page A4 invoice. */
-function a4Html({ inv, shopName, vatRate, vatNo, shopCopies }: Ctx): string {
+function a4Html({ inv, shopName, vatRate, vatNo, shopCopies, englishCopies }: Ctx): string {
   const itemRows = inv.items
     .map(
       (item) => `
@@ -620,7 +682,8 @@ ${SHOP_COPY_CSS}
     VAT Rate: ${esc(vatRate)}% | Currency: AED | Invoice No: ${inv.invoiceNo} | Date: ${formatDate(inv.createdAt)}
   </div>
 </div>
-${shopCopiesHtml(inv, shopName, shopCopies)}
+${shopCopiesHtml(inv, shopName, shopCopies, "ar")}
+${shopCopiesHtml(inv, shopName, englishCopies, "en")}
 ${PRINT_ON_LOAD}
 </body>
 </html>`;
@@ -635,7 +698,7 @@ export async function printInvoice(
   data: Record<string, unknown>,
   shopSettings?: Record<string, string>,
   win?: Window | null,
-  opts?: { shopCopies?: number },
+  opts?: { shopCopies?: number; englishCopies?: number },
 ): Promise<void> {
   const target = win ?? openPrintWindow();
   if (!target) return;
@@ -649,7 +712,14 @@ export async function printInvoice(
   const vatRate = s.vat_rate || "5";
   const vatNo = s.vat_number?.trim() || "";
 
-  const ctx: Ctx = { inv, shopName, vatRate, vatNo, shopCopies: clampShopCopies(opts?.shopCopies) };
+  const ctx: Ctx = {
+    inv,
+    shopName,
+    vatRate,
+    vatNo,
+    shopCopies: clampShopCopies(opts?.shopCopies),
+    englishCopies: clampShopCopies(opts?.englishCopies ?? 0),
+  };
   const html = paper === "a4" ? a4Html(ctx) : receiptHtml(ctx);
 
   target.document.open();
