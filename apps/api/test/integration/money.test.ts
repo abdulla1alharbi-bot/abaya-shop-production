@@ -314,3 +314,37 @@ describe("void", () => {
     assert.equal(await customerBalance(c), balance);
   });
 });
+
+describe("sales report", () => {
+  test("money received splits into new orders, delivery and payments on older invoices", async () => {
+    const c = await newCustomer();
+    const oldPaid = await newInvoice(c, { unitFils: 10000 }, [1000]); // paid later, not delivered
+    const oldDelivered = await newInvoice(c, { unitFils: 20000 }, [2000]); // paid and delivered later
+    const untouched = await newInvoice(c, { unitFils: 30000 }); // nothing happens in the window
+    await new Promise((r) => setTimeout(r, 1100));
+    const from = new Date().toISOString();
+
+    assert.equal((await pay(oldPaid.id, 3000)).status, 200);
+    const del = await api.call("POST", `/invoices/${oldDelivered.id}/deliver`, {});
+    assert.equal(del.status, 200, JSON.stringify(del.error));
+    assert.equal((await pay(oldDelivered.id, 4000)).status, 200);
+    const fresh = await newInvoice(c, { unitFils: 5000 }, [5000]);
+
+    const to = new Date(Date.now() + 60_000).toISOString();
+    const r = await api.call<{
+      summary: { receivedFils: number; receivedNewFils: number; receivedDeliveryFils: number; receivedOldPaymentFils: number };
+      rows: Array<{ invoiceId: string; kind: string; receivedFils: number }>;
+    }>("GET", `/reports/invoices?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    assert.equal(r.status, 200, JSON.stringify(r.error));
+    const s = r.data.summary;
+    assert.equal(s.receivedNewFils, 5000);
+    assert.equal(s.receivedDeliveryFils, 4000);
+    assert.equal(s.receivedOldPaymentFils, 3000);
+    assert.equal(s.receivedFils, 12000, "the three parts add up to all money received");
+    const kindOf = (id: string) => r.data.rows.find((x) => x.invoiceId === id)?.kind;
+    assert.equal(kindOf(fresh.id), "NEW");
+    assert.equal(kindOf(oldDelivered.id), "DELIVERY");
+    assert.equal(kindOf(oldPaid.id), "OLD_PAYMENT");
+    assert.equal(kindOf(untouched.id), undefined, "an older invoice with nothing in the window is not listed");
+  });
+});

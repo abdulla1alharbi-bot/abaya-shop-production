@@ -222,53 +222,60 @@ function printReceivables(
 
 // ─── Sales / Invoices list ──────────────────────────────────────────────────
 export type SalesPayload = {
-  invoices: Array<{
-    id: string;
+  rows: Array<{
     invoiceNo: number;
-    createdAt: string;
+    customerName: string | null;
+    kind: "NEW" | "DELIVERY" | "OLD_PAYMENT";
     totalFils: number;
-    paidFils: number;
+    receivedFils: number;
     balanceFils: number;
-    customer: { name: string; mobile: string } | null;
   }>;
-  totals: { totalFils: number; paidFils: number; balanceFils: number; count: number };
+  totals: { receivedFils: number; newFils: number; deliveryFils: number; oldPaymentFils: number };
+};
+
+const SALES_KIND: Record<SalesPayload["rows"][number]["kind"], string> = {
+  NEW: "طلبية جديدة",
+  DELIVERY: "ديلفري",
+  OLD_PAYMENT: "دفعة على فاتورة قديمة",
 };
 
 function printSales(data: SalesPayload, range: ReportRange, shopName: string, vatNo: string): void {
   const t = data.totals;
   const cards = `
     <div class="summary-cards">
-      <div class="card"><div class="label">عدد الفواتير</div><div class="value">${t.count}</div></div>
-      <div class="card green"><div class="label">إجمالي المبيعات</div><div class="value">${aed(t.totalFils)}</div></div>
-      <div class="card"><div class="label">المدفوع</div><div class="value">${aed(t.paidFils)}</div></div>
-      <div class="card red"><div class="label">المتبقي</div><div class="value">${aed(t.balanceFils)}</div></div>
+      <div class="card green"><div class="label">المبلغ اللي دخل</div><div class="value">${aed(t.receivedFils)}</div></div>
+      <div class="card"><div class="label">من طلبيات جديدة</div><div class="value">${aed(t.newFils)}</div></div>
+      <div class="card"><div class="label">من ديلفري</div><div class="value">${aed(t.deliveryFils)}</div></div>
+      <div class="card"><div class="label">دفعات على فواتير قديمة</div><div class="value">${aed(t.oldPaymentFils)}</div></div>
     </div>`;
 
-  const rows = data.invoices
+  const rows = data.rows
     .map(
-      (inv) => `<tr>
-      <td>#${inv.invoiceNo}</td>
-      <td>${formatDate(inv.createdAt)}</td>
-      <td>${esc(inv.customer?.name ?? "—")}</td>
-      <td class="text-end">${aed(inv.totalFils)}</td>
-      <td class="text-end">${aed(inv.paidFils)}</td>
-      <td class="text-end">${aed(inv.balanceFils)}</td>
+      (r) => `<tr>
+      <td>#${r.invoiceNo}</td>
+      <td>${esc(r.customerName ?? "—")}</td>
+      <td>${SALES_KIND[r.kind]}</td>
+      <td class="text-end">${aed(r.totalFils)}</td>
+      <td class="text-end"><b>${aed(r.receivedFils)}</b></td>
+      <td class="text-end">${aed(r.balanceFils)}</td>
     </tr>`,
     )
     .join("");
+  const totalIn = data.rows.reduce((s, r) => s + r.receivedFils, 0);
 
   const body = `
     ${cards}
     <table>
       <thead><tr>
         <th class="text-start">فاتورة</th>
-        <th class="text-start">تاريخ</th>
         <th class="text-start">عميل</th>
+        <th class="text-start">النوع</th>
         <th class="text-end">إجمالي</th>
-        <th class="text-end">مدفوع</th>
+        <th class="text-end">دخل</th>
         <th class="text-end">متبقي</th>
       </tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="text-center muted">لا يوجد.</td></tr>'}</tbody>
+      <tfoot><tr><td colspan="4"><b>المجموع (${data.rows.length} فاتورة)</b></td><td class="text-end"><b>${aed(totalIn)}</b></td><td></td></tr></tfoot>
     </table>`;
 
   openPrintWindow(shellHtml({ shopName, vatNo, title: "تقرير المبيعات", subtitle: rangeSubtitle(range), body }));

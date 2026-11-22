@@ -88,19 +88,28 @@ function usePaymentLabel() {
   };
 }
 
-/** One payment taken in the sales period; `olderInvoice` when its invoice was issued before the period. */
-type SalesPaymentRow = {
-  id: string;
-  createdAt: string;
-  method: string;
-  amountFils: number;
-  reference: string | null;
+/**
+ * One invoice in the sales report: issued in the period (NEW), delivered in it
+ * (DELIVERY), or an older invoice paid in it without delivery (OLD_PAYMENT).
+ */
+type SalesDayRow = {
   invoiceId: string;
   invoiceNo: number;
-  invoiceCreatedAt: string;
   customer: { name: string; mobile: string } | null;
-  olderInvoice: boolean;
+  createdAt: string;
+  deliveredAt: string | null;
+  totalFils: number;
+  balanceFils: number;
+  receivedFils: number;
+  kind: "NEW" | "DELIVERY" | "OLD_PAYMENT";
 };
+
+/** One calendar day, `offset` days from today (0 = today, -1 = yesterday). */
+function dayRange(offset: number): ReportDateRange {
+  const d = new Date();
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
+  return { from: day, to: day };
+}
 
 type InvoiceReportItem = {
   id: string;
@@ -145,8 +154,9 @@ export function ReportsPage() {
 
   const [wagesDraft, setWagesDraft] = useState(defaults);
   const [wagesApplied, setWagesApplied] = useState(defaults);
-  const [salesDraft, setSalesDraft] = useState(defaults);
-  const [salesApplied, setSalesApplied] = useState(defaults);
+  // The sales report opens on today: the owner reads it as "what came in today".
+  const [salesDraft, setSalesDraft] = useState(() => dayRange(0));
+  const [salesApplied, setSalesApplied] = useState(() => dayRange(0));
   const [invDraft, setInvDraft] = useState(defaults);
   const [invApplied, setInvApplied] = useState(defaults);
   const [balDraft, setBalDraft] = useState(defaults);
@@ -285,11 +295,12 @@ export function ReportsPage() {
             totalPaidFils: number;
             totalRemainingFils: number;
             receivedFils: number;
-            paymentCount: number;
-            receivedOnOlderFils: number;
+            receivedNewFils: number;
+            receivedDeliveryFils: number;
+            receivedOldPaymentFils: number;
           };
-          payments: SalesPaymentRow[];
-          paymentsTruncated: boolean;
+          rows: SalesDayRow[];
+          rowsTruncated: boolean;
         };
       }>("/reports/invoices", { params: salesParams });
       return res.data.data;
@@ -607,49 +618,61 @@ export function ReportsPage() {
     );
   };
 
-  const methodText = (m: string) =>
-    m === "CASH" ? t("common.cash") : m === "TRANSFER" ? t("common.transfer") : m === "CARD" ? t("common.card") : m;
+  const salesKindLabel = (k: SalesDayRow["kind"]) =>
+    k === "NEW" ? t("reports.kindNew") : k === "DELIVERY" ? t("reports.kindDelivery") : t("reports.kindOldPayment");
+  const salesKindClass: Record<SalesDayRow["kind"], string> = {
+    NEW: "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-100",
+    DELIVERY: "bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100",
+    OLD_PAYMENT: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100",
+  };
 
-  /** Every payment taken in the sales period, on new and older invoices alike. */
-  const salesPaymentsTable = (rows: SalesPaymentRow[] | undefined, loading: boolean) => {
+  /** Every invoice of the sales period in one table, with what it brought in. */
+  const salesDayTable = (rows: SalesDayRow[] | undefined, loading: boolean) => {
     if (loading) return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
-    if (!rows?.length) return <p className="text-sm text-muted-foreground">{t("reports.noPaymentsInPeriod")}</p>;
+    if (!rows?.length) return <p className="text-sm text-muted-foreground">{t("reports.noInvoicesInPeriod")}</p>;
+    const totalIn = rows.reduce((s, r) => s + r.receivedFils, 0);
     return (
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[620px] text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
-              <th className="px-3 py-2 text-start">{t("reports.colPaidAt")}</th>
               <th className="px-3 py-2 text-start">{t("reports.colNo")}</th>
               <th className="px-3 py-2 text-start">{t("reports.colCustomer")}</th>
-              <th className="px-3 py-2 text-start">{t("reports.colInvoiceDate")}</th>
-              <th className="px-3 py-2 text-start">{t("reports.colMethod")}</th>
-              <th className="px-3 py-2 text-end">{t("reports.colAmount2")}</th>
+              <th className="px-3 py-2 text-start">{t("reports.colKind")}</th>
+              <th className="px-3 py-2 text-end">{t("reports.colTotal")}</th>
+              <th className="px-3 py-2 text-end">{t("reports.colReceived")}</th>
+              <th className="px-3 py-2 text-end">{t("reports.colRemaining")}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((p) => (
-              <tr key={p.id} className="border-b border-border/50">
-                <td className="whitespace-nowrap px-3 py-2 text-xs">{new Date(p.createdAt).toLocaleString()}</td>
-                <td className="px-3 py-2 font-mono">#{p.invoiceNo}</td>
-                <td className="px-3 py-2">{p.customer?.name ?? "—"}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
-                  {new Date(p.invoiceCreatedAt).toLocaleDateString()}{" "}
-                  {p.olderInvoice ? (
-                    <span className="ms-1 rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-                      {t("reports.olderInvoiceTag")}
-                    </span>
-                  ) : (
-                    <span className="ms-1 rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
-                      {t("reports.newInvoiceTag")}
-                    </span>
-                  )}
+            {rows.map((r) => (
+              <tr key={r.invoiceId} className="border-b border-border/50">
+                <td className="px-3 py-2 font-mono">#{r.invoiceNo}</td>
+                <td className="px-3 py-2">{r.customer?.name ?? "—"}</td>
+                <td className="px-3 py-2">
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${salesKindClass[r.kind]}`}>
+                    {salesKindLabel(r.kind)}
+                  </span>
                 </td>
-                <td className="px-3 py-2 text-xs">{methodText(p.method)}</td>
-                <td className="px-3 py-2 text-end font-mono font-semibold tabular-nums">{formatAED(p.amountFils)}</td>
+                <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(r.totalFils)}</td>
+                <td
+                  className={`px-3 py-2 text-end font-mono tabular-nums ${r.receivedFils ? "font-bold" : "text-muted-foreground"}`}
+                >
+                  {formatAED(r.receivedFils)}
+                </td>
+                <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(r.balanceFils)}</td>
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-foreground font-bold">
+              <td className="px-3 py-2" colSpan={4}>
+                {t("reports.salesTotalRow", { count: rows.length })}
+              </td>
+              <td className="px-3 py-2 text-end font-mono tabular-nums">{formatAED(totalIn)}</td>
+              <td />
+            </tr>
+          </tfoot>
         </table>
       </div>
     );
@@ -897,128 +920,130 @@ export function ReportsPage() {
               {t("reports.salesDialogDesc")}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-wrap items-end gap-2 border-b px-4 py-3 sm:px-6">
-            <div className="flex-1">
-              <ReportDateRangeBar
-                from={salesDraft.from}
-                to={salesDraft.to}
-                onFromChange={(v) => setSalesDraft((d) => ({ ...d, from: v }))}
-                onToChange={(v) => setSalesDraft((d) => ({ ...d, to: v }))}
-                onApply={() => setSalesApplied(normalizeReportRange(salesDraft.from, salesDraft.to))}
-                isFetching={salesReportQuery.isFetching}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!salesReportQuery.data}
-              onClick={() => {
-                const d = salesReportQuery.data;
-                if (!d) return;
-                printReport(
-                  "sales",
-                  {
-                    invoices: d.items.map((i) => ({
-                      id: i.id,
-                      invoiceNo: i.invoiceNo,
-                      createdAt: i.createdAt,
-                      totalFils: i.totalFils,
-                      paidFils: i.paidFils,
-                      balanceFils: i.balanceFils,
-                      customer: i.customer,
-                    })),
-                    totals: {
-                      totalFils: d.summary.totalSalesFils,
-                      paidFils: d.summary.totalPaidFils,
-                      balanceFils: d.summary.totalRemainingFils,
-                      count: d.summary.invoiceCount,
-                    },
-                  },
-                  rangeToParams(salesApplied),
-                  shopSettings,
+          <div className="space-y-2 border-b px-4 py-3 sm:px-6">
+            <div className="flex flex-wrap items-center gap-2">
+              {([
+                [0, "reports.today"],
+                [-1, "reports.yesterday"],
+              ] as const).map(([offset, label]) => {
+                const r = dayRange(offset);
+                const on = rangeKey(salesApplied) === rangeKey(r);
+                return (
+                  <Button
+                    key={label}
+                    type="button"
+                    size="sm"
+                    variant={on ? "default" : "outline"}
+                    className="rounded-full px-4"
+                    onClick={() => {
+                      setSalesDraft(r);
+                      setSalesApplied(r);
+                    }}
+                  >
+                    {t(label)}
+                  </Button>
                 );
-              }}
-            >
-              <Printer className="me-1 h-4 w-4" />
-              {t("reports.printPdf")}
-            </Button>
-            {csvButton(!salesReportQuery.data, () => {
-              const d = salesReportQuery.data;
-              if (!d) return;
-              exportRowsAsCsv(
-                "sales-invoices",
-                [
-                  t("reports.colNo"),
-                  t("reports.colCustomer"),
-                  t("reports.colMobile"),
-                  t("reports.colInvoiceDate"),
-                  t("reports.colTotal"),
-                  t("reports.colPaid"),
-                  t("reports.colRemaining"),
-                ],
-                d.items.map((i) => [
-                  i.invoiceNo,
-                  i.customer?.name ?? "",
-                  i.customer?.mobile ?? "",
-                  new Date(i.createdAt).toLocaleString(),
-                  filsToAmount(i.totalFils),
-                  filsToAmount(i.paidFils),
-                  filsToAmount(i.balanceFils),
-                ]),
-              );
-            })}
+              })}
+              <div className="ms-auto flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!salesReportQuery.data}
+                  onClick={() => {
+                    const d = salesReportQuery.data;
+                    if (!d) return;
+                    printReport(
+                      "sales",
+                      {
+                        rows: d.rows.map((r) => ({
+                          invoiceNo: r.invoiceNo,
+                          customerName: r.customer?.name ?? null,
+                          kind: r.kind,
+                          totalFils: r.totalFils,
+                          receivedFils: r.receivedFils,
+                          balanceFils: r.balanceFils,
+                        })),
+                        totals: {
+                          receivedFils: d.summary.receivedFils,
+                          newFils: d.summary.receivedNewFils,
+                          deliveryFils: d.summary.receivedDeliveryFils,
+                          oldPaymentFils: d.summary.receivedOldPaymentFils,
+                        },
+                      },
+                      rangeToParams(salesApplied),
+                      shopSettings,
+                    );
+                  }}
+                >
+                  <Printer className="me-1 h-4 w-4" />
+                  {t("reports.printPdf")}
+                </Button>
+                {csvButton(!salesReportQuery.data, () => {
+                  const d = salesReportQuery.data;
+                  if (!d) return;
+                  exportRowsAsCsv(
+                    "sales",
+                    [
+                      t("reports.colNo"),
+                      t("reports.colCustomer"),
+                      t("reports.colKind"),
+                      t("reports.colTotal"),
+                      t("reports.colReceived"),
+                      t("reports.colRemaining"),
+                    ],
+                    d.rows.map((r) => [
+                      r.invoiceNo,
+                      r.customer?.name ?? "",
+                      salesKindLabel(r.kind),
+                      filsToAmount(r.totalFils),
+                      filsToAmount(r.receivedFils),
+                      filsToAmount(r.balanceFils),
+                    ]),
+                  );
+                })}
+              </div>
+            </div>
+            <ReportDateRangeBar
+              from={salesDraft.from}
+              to={salesDraft.to}
+              onFromChange={(v) => setSalesDraft((d) => ({ ...d, from: v }))}
+              onToChange={(v) => setSalesDraft((d) => ({ ...d, to: v }))}
+              onApply={() => setSalesApplied(normalizeReportRange(salesDraft.from, salesDraft.to))}
+              isFetching={salesReportQuery.isFetching}
+            />
           </div>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
             {salesReportQuery.data?.summary ? (
-              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 rounded-lg border-2 border-emerald-600/40 bg-emerald-50 p-3 dark:bg-emerald-950/30">
-                <p className="text-base">
-                  <span className="text-muted-foreground">{t("reports.receivedInPeriod")} </span>
-                  <span className="text-xl font-bold tabular-nums">
+              <>
+                <div className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 text-center dark:bg-emerald-950/30">
+                  <div className="text-sm font-semibold">{t("reports.receivedToday")}</div>
+                  <div className="text-3xl font-black tabular-nums" dir="ltr">
                     {formatAED(salesReportQuery.data.summary.receivedFils)}
-                  </span>
-                </p>
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{t("reports.receivedOnOlder")} </span>
-                  <span className="font-semibold tabular-nums">
-                    {formatAED(salesReportQuery.data.summary.receivedOnOlderFils)}
-                  </span>
-                </p>
-              </div>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {(
+                    [
+                      ["reports.fromNewOrders", salesReportQuery.data.summary.receivedNewFils, "border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30"],
+                      ["reports.fromDelivery", salesReportQuery.data.summary.receivedDeliveryFils, "border-orange-400 bg-orange-50 dark:bg-orange-950/30"],
+                      ["reports.fromOldPayment", salesReportQuery.data.summary.receivedOldPaymentFils, "border-amber-400 bg-amber-50 dark:bg-amber-950/30"],
+                    ] as const
+                  ).map(([label, fils, cls]) => (
+                    <div key={label} className={`rounded-lg border-2 p-3 text-center ${cls}`}>
+                      <div className="text-xs font-semibold">{t(label)}</div>
+                      <div className="text-xl font-bold tabular-nums" dir="ltr">
+                        {formatAED(fils)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : null}
-            <h3 className="text-sm font-semibold">{t("reports.paymentsReceivedTitle")}</h3>
-            {salesPaymentsTable(salesReportQuery.data?.payments, salesReportQuery.isLoading)}
-            {salesReportQuery.data?.paymentsTruncated ? (
-              <p className="text-xs text-muted-foreground">{t("reports.paymentsTruncated")}</p>
+            {salesDayTable(salesReportQuery.data?.rows, salesReportQuery.isLoading)}
+            {salesReportQuery.data?.rowsTruncated ? (
+              <p className="text-xs text-muted-foreground">{t("reports.salesRowsTruncated")}</p>
             ) : null}
-            <h3 className="pt-2 text-sm font-semibold">{t("reports.invoicesIssuedTitle")}</h3>
-            {salesReportQuery.data?.summary ? (
-              <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/15 p-3 sm:grid-cols-2 lg:grid-cols-4">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{t("reports.invoiceCount")} </span>
-                  <span className="font-semibold tabular-nums">{salesReportQuery.data.summary.invoiceCount}</span>
-                </p>
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{t("reports.totalSales")} </span>
-                  <span className="font-semibold tabular-nums">
-                    {formatAED(salesReportQuery.data.summary.totalSalesFils)}
-                  </span>
-                </p>
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{t("reports.totalPaid")} </span>
-                  <span className="font-semibold tabular-nums">
-                    {formatAED(salesReportQuery.data.summary.totalPaidFils)}
-                  </span>
-                </p>
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{t("reports.totalRemaining")} </span>
-                  <span className="font-semibold tabular-nums text-amber-900 dark:text-amber-100">
-                    {formatAED(salesReportQuery.data.summary.totalRemainingFils)}
-                  </span>
-                </p>
-              </div>
-            ) : null}
-            {invoiceTable(salesReportQuery.data?.items, salesReportQuery.isLoading)}
           </div>
         </DialogContent>
       </Dialog>
