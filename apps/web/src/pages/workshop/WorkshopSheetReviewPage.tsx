@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { ArrowRight, Check, Loader2, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Check, Loader2, Plus, RotateCcw, X } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,8 +171,8 @@ function RowCard({
         <div className="mt-2 space-y-1.5">
           {row.entries.map((e, i) => (
             <div key={e.key} className={cn("flex flex-wrap items-center gap-1.5", e.ignore && "opacity-50")}>
-              <span className="w-20 truncate text-xs text-muted-foreground" title={e.nameAsWritten}>
-                «{e.nameAsWritten}»
+              <span className="w-20 truncate text-xs text-muted-foreground" title={e.nameAsWritten || "مضاف يدويًا"}>
+                {e.nameAsWritten ? `«${e.nameAsWritten}»` : "يدوي"}
               </span>
               <select
                 className="h-8 w-32 rounded border border-input bg-background px-1.5 text-sm"
@@ -260,6 +260,35 @@ function RowCard({
 
       {!readOnly ? (
         <div className="mt-2 flex flex-wrap gap-2">
+          {!row.ignore ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7"
+              onClick={() =>
+                onChange({
+                  ...row,
+                  entries: [
+                    ...row.entries,
+                    {
+                      key: `${row.key}m${Date.now().toString(36)}`,
+                      nameAsWritten: "",
+                      workerId: null,
+                      amountAed: null,
+                      work: null,
+                      writtenUnder: null,
+                      ignore: false,
+                      doubts: [],
+                    },
+                  ],
+                })
+              }
+            >
+              <Plus className="me-1 h-3.5 w-3.5" aria-hidden />
+              أضف عامل
+            </Button>
+          ) : null}
           {hasDoubts && !row.ignore ? (
             <Button
               type="button"
